@@ -1,6 +1,7 @@
 use cocoa::base::{NO, YES, id, nil};
 use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
-
+use core_graphics::geometry::CGSize;
+use metal::Device;
 use metal::MetalLayer;
 use objc::declare::ClassDecl;
 use objc::runtime::{BOOL, Class, Object, Sel};
@@ -8,6 +9,12 @@ use objc::{class, msg_send, sel, sel_impl};
 use std::ffi::c_void;
 use std::ptr;
 use std::sync::Arc;
+
+// Helper function to create NSString
+unsafe fn ns_string(string: &str) -> id {
+    let str: id = NSString::alloc(nil).init_str(string);
+    msg_send![str, autorelease]
+}
 
 #[repr(C)]
 pub struct NSWindow {
@@ -35,7 +42,7 @@ pub struct Window {
 }
 
 impl Window {
-    pub fn new(width: f64, height: f64, title: &str) -> Arc<Self> {
+    pub fn new(width: f64, height: f64, title: &str, device: &metal::Device) -> Arc<Self> {
         // Ensure classes are initialized
         unsafe { ensure_classes_initialized() };
 
@@ -58,7 +65,7 @@ impl Window {
         };
 
         // Set title
-        let title = unsafe { NSString::alloc(nil).init_str(title) };
+        let title = unsafe { ns_string(title) };
         let _: () = unsafe { msg_send![ns_window, setTitle: title] };
 
         // Create delegate
@@ -71,9 +78,20 @@ impl Window {
 
         // Set up Metal layer
         let layer = MetalLayer::new();
+        layer.set_device(device);
         layer.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
         layer.set_contents_scale(2.0); // Retina display
+        layer.set_opaque(true);
+        layer.set_presents_with_transaction(false);
+        layer.set_framebuffer_only(true);
+        layer.set_drawable_size(CGSize::new(width * 2.0, height * 2.0)); // Account for retina
         let _: () = unsafe { msg_send![layer.as_ref(), setFrame: content_rect] };
+
+        // Configure additional layer properties for better performance
+        unsafe {
+            let _: () = msg_send![layer.as_ref(), setAllowsNextDrawableTimeout: NO];
+            let _: () = msg_send![layer.as_ref(), setNeedsDisplayOnBoundsChange: YES];
+        }
 
         // Set the layer on the view
         let layer_ref = layer.as_ref() as *const _ as *mut c_void;
@@ -107,7 +125,7 @@ impl Window {
                     app,
                     nextEventMatchingMask: !0
                     untilDate: nil
-                    inMode: NSString::alloc(nil).init_str("kCFRunLoopDefaultMode")
+                    inMode: ns_string("kCFRunLoopDefaultMode")
                     dequeue: YES
                 ]
             };

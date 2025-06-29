@@ -6,7 +6,7 @@ This document tracks the implementation of the foundational window and rendering
 
 - [x] Basic Window Creation
 - [x] Metal device and command queue setup
-- [ ] Connect Metal device to layer
+- [x] Connect Metal device to layer
 - [ ] Basic render pipeline
 - [ ] Shader compilation
 - [ ] First triangle rendering
@@ -20,6 +20,7 @@ This document tracks the implementation of the foundational window and rendering
 Created minimal macOS window with Metal layer support:
 
 - **Files created**:
+
   - `src/platform/mac/window.rs` - Window management with NSWindow/NSView
   - `src/platform/mac/mod.rs` - Platform module organization
   - `src/platform/mod.rs` - Cross-platform interface
@@ -39,13 +40,35 @@ Created minimal macOS window with Metal layer support:
 
 ## Next Tasks
 
-### 3. Connect Metal Device to Layer
+### 3. Connect Metal Device to Layer ✅
 
-- [ ] Set Metal device on the layer
-- [ ] Configure drawable properties
-- [ ] Set up proper color space
+- [x] Set Metal device on the layer
+- [x] Configure drawable properties
+- [x] Set up proper color space
 
-### 4. Metal Renderer Module
+**Completed**:
+
+- Modified `Window::new` to accept Metal device
+- Set device on layer with `layer.set_device(device)`
+- Configured drawable properties (opaque, framebuffer_only, presents_with_transaction)
+- Set drawable size accounting for Retina displays
+- Basic render loop now clears to dark blue color
+
+### 4. App Polish ✅
+
+- [x] Bring window to front on app launch
+- [x] Add macOS menu bar
+
+**Completed**:
+
+- Added `activateIgnoringOtherApps` to bring window to front
+- Created proper macOS menu structure:
+  - App menu with Quit (Cmd+Q)
+  - Edit menu with standard operations (Undo, Redo, Cut, Copy, Paste, Select All)
+  - Window menu with standard operations (Minimize, Zoom)
+- Created `src/platform/mac/menu.rs` for menu handling
+
+### 5. Metal Renderer Module
 
 - [ ] Create `src/renderer/mod.rs`
 - [ ] Create `src/renderer/metal.rs`
@@ -54,10 +77,11 @@ Created minimal macOS window with Metal layer support:
   - Drawable acquisition
   - Present logic
 
-### 5. Shader Setup
+### 6. Shader Setup
 
 - [ ] Create `shaders/` directory
 - [ ] Write minimal vertex shader:
+
   ```metal
   struct Vertex {
       float2 position [[attribute(0)]];
@@ -78,6 +102,7 @@ Created minimal macOS window with Metal layer support:
   ```
 
 - [ ] Write minimal fragment shader:
+
   ```metal
   fragment float4 fragment_main(VertexOut in [[stage_in]]) {
       return in.color;
@@ -87,9 +112,10 @@ Created minimal macOS window with Metal layer support:
 - [ ] Compile shaders (either at build time or runtime)
 - [ ] Create pipeline state object
 
-### 6. First Triangle
+### 7. First Triangle
 
 - [ ] Define vertex structure:
+
   ```rust
   #[repr(C)]
   struct Vertex {
@@ -108,7 +134,7 @@ Created minimal macOS window with Metal layer support:
   - Draw
   - Present
 
-### 7. Basic Input
+### 8. Basic Input
 
 - [ ] Convert NSEvent to our event types
 - [ ] Mouse position tracking
@@ -116,7 +142,7 @@ Created minimal macOS window with Metal layer support:
 - [ ] Key press events
 - [ ] Modifier keys (Shift, Ctrl, Cmd, Alt)
 
-### 8. Quad Rendering
+### 9. Quad Rendering
 
 - [ ] Extend vertex buffer for quads (two triangles)
 - [ ] Index buffer for efficiency
@@ -156,6 +182,7 @@ impl App {
 ### Coordinate System
 
 For Phase 0, we'll use normalized device coordinates:
+
 - X: -1.0 (left) to 1.0 (right)
 - Y: -1.0 (bottom) to 1.0 (top)
 - Z: 0.0 (near) to 1.0 (far)
@@ -165,6 +192,7 @@ Later phases will add proper projection matrices and our unit types.
 ## Success Criteria
 
 Phase 0 is complete when:
+
 1. Window opens reliably
 2. Triangle renders with vertex colors
 3. Mouse position is tracked

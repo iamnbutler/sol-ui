@@ -2,4 +2,4 @@
 pub mod mac;
 
 #[cfg(target_os = "macos")]
-pub use mac::*;
+pub use mac::{Window, create_app_menu};
