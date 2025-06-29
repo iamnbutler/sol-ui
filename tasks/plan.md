@@ -361,77 +361,26 @@ Benefits:
 
 ## Next Steps - Concrete Implementation Tasks
 
-### Phase 0: Basic Window & Rendering (What we need first!)
+### Phase 0: Basic Window & Rendering
 
-1. **Basic Window Creation**
+See [window_and_rendering.md](window_and_rendering.md) for detailed implementation tracking.
 
-   - [ ] Create `platform/mac/window.rs` with minimal NSWindow/NSView setup
-   - [ ] Use `objc` to create window with `repr(C)` structs
-   - [ ] Set up CAMetalLayer on the view
-   - [ ] Basic event loop with `NSApplication`
-   - [ ] Window should stay open and respond to close button
+**Current Status**:
 
-2. **Metal Initialization**
+- ✅ Basic window creation with Metal layer
+- ✅ Metal device and command queue setup
+- ⏳ Working on connecting Metal device to layer and first triangle
 
-   - [ ] Create `renderer/metal.rs` with device and command queue setup
-   - [ ] Create basic render pipeline state
-   - [ ] Set up vertex/fragment shader for colored triangles
-   - [ ] Create simple vertex buffer
-   - [ ] Implement basic frame rendering loop
+**Priority**: Get a window open with a colored triangle rendered via Metal. Everything else builds on this.
 
-3. **Shader Setup**
+### Later Phases:
 
-   - [ ] Write minimal vertex/fragment shaders in Metal Shading Language
-   - [ ] Compile shaders (either at runtime or build time)
-   - [ ] Create pipeline state object
+After Phase 0 is complete:
 
-4. **First Triangle**
-
-   - [ ] Define vertex structure with position and color
-   - [ ] Create vertex buffer with triangle data
-   - [ ] Render single colored triangle
-   - [ ] Verify display link / vsync is working
-
-5. **Basic Input**
-
-   - [ ] Handle mouse move events
-   - [ ] Handle mouse clicks
-   - [ ] Handle key presses
-   - [ ] Convert from NSEvent to our event types
-
-6. **Quad Rendering**
-   - [ ] Extend vertex buffer for quads
-   - [ ] Add texture coordinate support
-   - [ ] Render colored quads
-   - [ ] Basic batch rendering (multiple quads in one draw call)
-
-### Only After Above Works:
-
-7. **Coordinate System Setup**
-
-   - [ ] Implement LogicalPixel/PhysicalPixel types
-   - [ ] Handle DPI scaling from NSScreen
-   - [ ] Set up projection matrix for 2D rendering
-
-8. **Basic Immediate Mode Context**
-
-   - [ ] Simple context that tracks frame state
-   - [ ] Basic quad drawing API: `ctx.rect(pos, size, color)`
-   - [ ] Frame begin/end lifecycle
-
-9. **First Interactive Widget**
-   - [ ] Simple button with hover/click states
-   - [ ] No layout, just absolute positioning
-   - [ ] Demonstrates immediate mode pattern
-
-### Much Later:
-
+- Coordinate system implementation (LogicalPixel/PhysicalPixel types)
+- Basic immediate mode context
 - Layer system
 - Entity system
 - Taffy integration
 - Complex widgets
 - 3D features
-
-### Current Priority:
-
-**Get a window open with a colored triangle rendered via Metal. Everything else builds on this.**

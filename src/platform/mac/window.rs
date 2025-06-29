@@ -36,62 +36,62 @@ pub struct Window {
 
 impl Window {
     pub fn new(width: f64, height: f64, title: &str) -> Arc<Self> {
-        unsafe {
-            // Ensure classes are initialized
-            ensure_classes_initialized();
+        // Ensure classes are initialized
+        unsafe { ensure_classes_initialized() };
 
-            let _pool = NSAutoreleasePool::new(nil);
+        let _pool = unsafe { NSAutoreleasePool::new(nil) };
 
-            // Create window
-            let ns_window: *mut Object = msg_send![class!(NSWindow), alloc];
-            let content_rect = NSRect::new(NSPoint::new(100.0, 100.0), NSSize::new(width, height));
-            let style_mask: u64 = 15; // Titled | Closable | Miniaturizable | Resizable
-            let backing_store: u64 = 2; // Buffered
+        // Create window
+        let ns_window: *mut Object = unsafe { msg_send![class!(NSWindow), alloc] };
+        let content_rect = NSRect::new(NSPoint::new(100.0, 100.0), NSSize::new(width, height));
+        let style_mask: u64 = 15; // Titled | Closable | Miniaturizable | Resizable
+        let backing_store: u64 = 2; // Buffered
 
-            let ns_window: *mut Object = msg_send![
+        let ns_window: *mut Object = unsafe {
+            msg_send![
                 ns_window,
                 initWithContentRect:content_rect
                 styleMask:style_mask
                 backing:backing_store
                 defer:NO
-            ];
+            ]
+        };
 
-            // Set title
-            let title = NSString::alloc(nil).init_str(title);
-            let _: () = msg_send![ns_window, setTitle: title];
+        // Set title
+        let title = unsafe { NSString::alloc(nil).init_str(title) };
+        let _: () = unsafe { msg_send![ns_window, setTitle: title] };
 
-            // Create delegate
-            let delegate: *mut Object = msg_send![WINDOW_DELEGATE_CLASS, new];
-            let _: () = msg_send![ns_window, setDelegate: delegate];
+        // Create delegate
+        let delegate: *mut Object = unsafe { msg_send![WINDOW_DELEGATE_CLASS, new] };
+        let _: () = unsafe { msg_send![ns_window, setDelegate: delegate] };
 
-            // Create metal view
-            let ns_view: *mut Object = msg_send![VIEW_CLASS, alloc];
-            let ns_view: *mut Object = msg_send![ns_view, initWithFrame: content_rect];
+        // Create metal view
+        let ns_view: *mut Object = unsafe { msg_send![VIEW_CLASS, alloc] };
+        let ns_view: *mut Object = unsafe { msg_send![ns_view, initWithFrame: content_rect] };
 
-            // Set up Metal layer
-            let layer = MetalLayer::new();
-            layer.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
-            layer.set_contents_scale(2.0); // Retina display
-            let _: () = msg_send![layer.as_ref(), setFrame: content_rect];
+        // Set up Metal layer
+        let layer = MetalLayer::new();
+        layer.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+        layer.set_contents_scale(2.0); // Retina display
+        let _: () = unsafe { msg_send![layer.as_ref(), setFrame: content_rect] };
 
-            // Set the layer on the view
-            let layer_ref = layer.as_ref() as *const _ as *mut c_void;
-            let _: () = msg_send![ns_view, setLayer: layer_ref];
-            let _: () = msg_send![ns_view, setWantsLayer: YES];
+        // Set the layer on the view
+        let layer_ref = layer.as_ref() as *const _ as *mut c_void;
+        let _: () = unsafe { msg_send![ns_view, setLayer: layer_ref] };
+        let _: () = unsafe { msg_send![ns_view, setWantsLayer: YES] };
 
-            // Set view as content view
-            let _: () = msg_send![ns_window, setContentView: ns_view];
+        // Set view as content view
+        let _: () = unsafe { msg_send![ns_window, setContentView: ns_view] };
 
-            // Center and show window
-            let _: () = msg_send![ns_window, center];
-            let _: () = msg_send![ns_window, makeKeyAndOrderFront: nil];
+        // Center and show window
+        let _: () = unsafe { msg_send![ns_window, center] };
+        let _: () = unsafe { msg_send![ns_window, makeKeyAndOrderFront: nil] };
 
-            Arc::new(Window {
-                ns_window,
-                ns_view,
-                metal_layer: layer,
-            })
-        }
+        Arc::new(Window {
+            ns_window,
+            ns_view,
+            metal_layer: layer,
+        })
     }
 
     pub fn metal_layer(&self) -> &MetalLayer {
@@ -99,29 +99,29 @@ impl Window {
     }
 
     pub fn handle_events(&self) -> bool {
-        unsafe {
-            let app = NSApplication::shared(nil);
+        let app = unsafe { NSApplication::shared() };
 
-            loop {
-                let event: *mut Object = msg_send![
+        loop {
+            let event: *mut Object = unsafe {
+                msg_send![
                     app,
                     nextEventMatchingMask: !0
                     untilDate: nil
                     inMode: NSString::alloc(nil).init_str("kCFRunLoopDefaultMode")
                     dequeue: YES
-                ];
+                ]
+            };
 
-                if event == nil {
-                    break;
-                }
-
-                let _: () = msg_send![app, sendEvent: event];
+            if event == nil {
+                break;
             }
 
-            // Check if window is still valid
-            let is_visible: BOOL = msg_send![self.ns_window, isVisible];
-            is_visible == YES
+            let _: () = unsafe { msg_send![app, sendEvent: event] };
         }
+
+        // Check if window is still valid
+        let is_visible: BOOL = unsafe { msg_send![self.ns_window, isVisible] };
+        is_visible == YES
     }
 }
 
@@ -150,10 +150,8 @@ unsafe fn create_window_delegate_class() {
 
     // Add windowWillClose method
     extern "C" fn window_will_close(_: &Object, _: Sel, _: *mut Object) {
-        unsafe {
-            let app = NSApplication::shared(nil);
-            let _: () = msg_send![app, terminate: nil];
-        }
+        let app = unsafe { NSApplication::shared() };
+        let _: () = unsafe { msg_send![app, terminate: nil] };
     }
 
     decl.add_method(
@@ -192,7 +190,7 @@ unsafe fn create_view_class() {
 
 // Helper to get shared NSApplication instance
 impl NSApplication {
-    unsafe fn shared(_: id) -> *mut Object {
+    unsafe fn shared() -> *mut Object {
         msg_send![class!(NSApplication), sharedApplication]
     }
 }

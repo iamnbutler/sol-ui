@@ -12,23 +12,21 @@ pub struct App {
 
 impl App {
     pub fn new() -> Self {
-        unsafe {
-            // Initialize NSApplication
-            let ns_app: id = msg_send![class!(NSApplication), sharedApplication];
-            let _: () = msg_send![ns_app, setActivationPolicy: 0]; // NSApplicationActivationPolicyRegular
+        // Initialize NSApplication
+        let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
+        let _: () = unsafe { msg_send![ns_app, setActivationPolicy: 0] }; // NSApplicationActivationPolicyRegular
 
-            // Create window
-            let window = Window::new(800.0, 600.0, "Toy UI");
+        // Create window
+        let window = Window::new(800.0, 600.0, "Toy UI");
 
-            // Create Metal device and command queue
-            let device = Device::system_default().expect("No Metal device found");
-            let command_queue = device.new_command_queue();
+        // Create Metal device and command queue
+        let device = Device::system_default().expect("No Metal device found");
+        let command_queue = device.new_command_queue();
 
-            Self {
-                window,
-                device,
-                command_queue,
-            }
+        Self {
+            window,
+            device,
+            command_queue,
         }
     }
 
