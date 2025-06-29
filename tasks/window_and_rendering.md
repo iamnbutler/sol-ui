@@ -7,11 +7,13 @@ This document tracks the implementation of the foundational window and rendering
 - [x] Basic Window Creation
 - [x] Metal device and command queue setup
 - [x] Connect Metal device to layer
-- [ ] Basic render pipeline
-- [ ] Shader compilation
-- [ ] First triangle rendering
-- [ ] Basic input handling
-- [ ] Quad rendering
+- [x] Basic render pipeline
+- [x] Shader compilation
+- [x] First triangle rendering
+- [x] Quad rendering (deferred - moving to immediate mode)
+- [ ] Basic immediate mode context
+- [ ] Text rendering
+- [ ] UI elements (group/container)
 
 ## Completed Tasks
 
@@ -68,19 +70,36 @@ Created minimal macOS window with Metal layer support:
   - Window menu with standard operations (Minimize, Zoom)
 - Created `src/platform/mac/menu.rs` for menu handling
 
-### 5. Metal Renderer Module
+### 5. Metal Renderer Module ✅
 
-- [ ] Create `src/renderer/mod.rs`
-- [ ] Create `src/renderer/metal.rs`
-- [ ] Basic renderer struct with:
+- [x] Create `src/renderer/mod.rs`
+- [x] Create `src/renderer/metal.rs`
+- [x] Basic renderer struct with:
   - Command buffer management
   - Drawable acquisition
   - Present logic
 
-### 6. Shader Setup
+**Completed**:
 
-- [ ] Create `shaders/` directory
-- [ ] Write minimal vertex shader:
+- Created `MetalRenderer` struct to encapsulate rendering logic
+- Moved rendering code from `App` into dedicated renderer
+- Handles shader compilation, pipeline state creation, and vertex buffer management
+- Clean separation of concerns between app lifecycle and rendering
+
+### 6. Shader Setup ✅
+
+- [x] Write minimal vertex shader
+- [x] Write minimal fragment shader
+- [x] Compile shaders at runtime
+- [x] Create pipeline state object
+
+**Completed**:
+
+- Embedded shaders directly in Rust code (no separate files needed yet)
+- Runtime shader compilation using Metal Shading Language
+- Vertex shader transforms 2D positions to clip space
+- Fragment shader passes through vertex colors
+- Pipeline state configured for BGRA8Unorm render target
 
   ```metal
   struct Vertex {
@@ -109,45 +128,67 @@ Created minimal macOS window with Metal layer support:
   }
   ```
 
-- [ ] Compile shaders (either at build time or runtime)
-- [ ] Create pipeline state object
+### 7. First Triangle ✅
 
-### 7. First Triangle
+- [x] Define vertex structure
+- [x] Create vertex buffer with triangle data
+- [x] Implement basic render loop
 
-- [ ] Define vertex structure:
+**Completed**:
 
-  ```rust
-  #[repr(C)]
-  struct Vertex {
-      position: [f32; 2],
-      color: [f32; 4],
-  }
-  ```
+```rust
+#[repr(C)]
+struct Vertex {
+    position: [f32; 2],
+    color: [f32; 4],
+}
+```
 
-- [ ] Create vertex buffer with triangle data
-- [ ] Implement basic render loop:
-  - Get drawable
-  - Create command buffer
-  - Create render encoder
-  - Set pipeline state
-  - Set vertex buffer
-  - Draw
-  - Present
+- Defined `Vertex` struct with position (2D) and color (RGBA)
+- Created vertex buffer with three colored vertices (red, green, blue)
+- Implemented render loop in `MetalRenderer::render_frame()`
+- Triangle renders with interpolated colors on dark blue background
+- Proper vertex attribute configuration with stride and offsets
 
-### 8. Basic Input
+## Next: Immediate Mode UI Foundation
 
-- [ ] Convert NSEvent to our event types
-- [ ] Mouse position tracking
-- [ ] Mouse button events
-- [ ] Key press events
-- [ ] Modifier keys (Shift, Ctrl, Cmd, Alt)
+### 8. Basic Immediate Mode Context
 
-### 9. Quad Rendering
+- [ ] Create UI context struct that tracks frame state
+- [ ] Implement basic immediate mode pattern
+- [ ] ID generation for widgets
+- [ ] Basic layout stack (manual positioning for now)
 
-- [ ] Extend vertex buffer for quads (two triangles)
-- [ ] Index buffer for efficiency
-- [ ] Texture coordinate support
-- [ ] Multiple quads in single draw call
+### 9. Quad/Rectangle Rendering
+
+- [ ] Create quad rendering for UI elements
+- [ ] Support solid color fills
+- [ ] Batch multiple quads in single draw call
+- [ ] Basic clipping support
+
+### 10. Text Rendering
+
+- [ ] Integrate Core Text for font rasterization
+- [ ] Create basic glyph atlas
+- [ ] Implement `ui.text("Hello")` API
+- [ ] Support basic text styling (size, color)
+
+### 11. Group/Container Element
+
+- [ ] Implement `ui.group()` for layout containers
+- [ ] Basic styling (background color, padding)
+- [ ] Nested groups support
+- [ ] Manual positioning within groups
+
+### Later: Input Handling (Deferred)
+
+Input handling will come after we have basic UI elements working:
+
+- Convert NSEvent to our event types
+- Mouse position tracking
+- Mouse button events
+- Key press events
+- Modifier keys
 
 ## Architecture Notes
 
@@ -193,11 +234,12 @@ Later phases will add proper projection matrices and our unit types.
 
 Phase 0 is complete when:
 
-1. Window opens reliably
-2. Triangle renders with vertex colors
-3. Mouse position is tracked
-4. Basic keyboard input works
-5. Multiple colored quads can be rendered in a single frame
+1. Window opens reliably ✅
+2. Triangle renders with vertex colors ✅
+3. Basic immediate mode UI context works
+4. Can render text with `ui.text("Hello")`
+5. Can create styled containers with `ui.group()`
+6. Multiple UI elements can be rendered in a single frame
 
 ## Notes
 

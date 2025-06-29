@@ -50,7 +50,13 @@ impl Window {
 
         // Create window
         let ns_window: *mut Object = unsafe { msg_send![class!(NSWindow), alloc] };
-        let content_rect = NSRect::new(NSPoint::new(100.0, 100.0), NSSize::new(width, height));
+        let content_rect = NSRect::new(
+            NSPoint::new(100.0, 100.0),
+            NSSize {
+                width: width,
+                height: height,
+            },
+        );
         let style_mask: u64 = 15; // Titled | Closable | Miniaturizable | Resizable
         let backing_store: u64 = 2; // Buffered
 

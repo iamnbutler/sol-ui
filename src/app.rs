@@ -1,13 +1,18 @@
 use crate::platform::{Window, create_app_menu};
+use crate::renderer::MetalRenderer;
+use crate::ui::{Color, ColorExt, UiContext, colors};
 use cocoa::base::{YES, id};
 use metal::{CommandQueue, Device};
 use objc::{class, msg_send, sel, sel_impl};
+use palette::{Srgba, named};
 use std::sync::Arc;
 
 pub struct App {
     window: Arc<Window>,
     device: Device,
     command_queue: CommandQueue,
+    renderer: MetalRenderer,
+    ui_context: UiContext,
 }
 
 impl App {
@@ -26,6 +31,15 @@ impl App {
         // Create window
         let window = Window::new(800.0, 600.0, "Toy UI", &device);
 
+        // Create and initialize renderer
+        let mut renderer = MetalRenderer::new(device.clone());
+        if let Err(e) = renderer.initialize() {
+            panic!("Failed to initialize renderer: {}", e);
+        }
+
+        // Create UI context
+        let ui_context = UiContext::new(800.0, 600.0);
+
         // Activate app and bring to front
         let _: () = unsafe { msg_send![ns_app, activateIgnoringOtherApps: YES] };
 
@@ -33,46 +47,84 @@ impl App {
             window,
             device,
             command_queue,
+            renderer,
+            ui_context,
         }
     }
 
-    pub fn run(self) {
+    pub fn run(mut self) {
         while self.window.handle_events() {
             // TODO: Render frame here
             self.render_frame();
         }
     }
 
-    fn render_frame(&self) {
+    fn render_frame(&mut self) {
         // Get the next drawable
         let drawable = match self.window.metal_layer().next_drawable() {
             Some(drawable) => drawable,
             None => return, // No drawable available, skip frame
         };
 
-        // Create command buffer
-        let command_buffer = self.command_queue.new_command_buffer();
+        // Build UI for this frame
+        self.ui_context.begin_frame();
 
-        // Create render pass descriptor
-        let render_pass_descriptor = metal::RenderPassDescriptor::new();
+        // Example UI usage
+        self.ui_context.text("Hello from Toy UI!");
 
-        // Configure color attachment to clear to blue
-        let color_attachment = render_pass_descriptor
-            .color_attachments()
-            .object_at(0)
-            .unwrap();
-        color_attachment.set_texture(Some(drawable.texture()));
-        color_attachment.set_load_action(metal::MTLLoadAction::Clear);
-        color_attachment.set_clear_color(metal::MTLClearColor::new(0.0, 0.2, 0.4, 1.0)); // Dark blue
-        color_attachment.set_store_action(metal::MTLStoreAction::Store);
+        self.ui_context.space(20.0);
 
-        // Create render encoder (even though we're just clearing)
-        let render_encoder = command_buffer.new_render_command_encoder(&render_pass_descriptor);
-        render_encoder.end_encoding();
+        self.ui_context.group_styled(
+            Some(Srgba::from(named::DARKSLATEGRAY).into_format()),
+            |ui| {
+                ui.text("This is a group container");
+                ui.text("With multiple lines of text");
 
-        // Present drawable and commit
-        command_buffer.present_drawable(&drawable);
-        command_buffer.commit();
+                ui.space(10.0);
+
+                ui.horizontal(|ui| {
+                    // Use palette's named colors
+                    ui.rect(
+                        glam::vec2(50.0, 50.0),
+                        Srgba::from(named::CRIMSON).into_format(),
+                    );
+                    ui.rect(
+                        glam::vec2(50.0, 50.0),
+                        Srgba::from(named::LIMEGREEN).into_format(),
+                    );
+                    ui.rect(
+                        glam::vec2(50.0, 50.0),
+                        Srgba::from(named::DODGERBLUE).into_format(),
+                    );
+                });
+            },
+        );
+
+        self.ui_context.space(20.0);
+
+        self.ui_context.window(
+            "Example Window",
+            glam::vec2(400.0, 200.0),
+            glam::vec2(300.0, 200.0),
+            |ui| {
+                ui.text("This is a window!");
+                ui.text("It has a title bar and content area.");
+            },
+        );
+
+        // Get screen size before end_frame to avoid borrow conflict
+        let screen_size = self.ui_context.screen_size();
+        let draw_list = self.ui_context.end_frame();
+
+        // Use the renderer to draw the UI
+        let clear_color = metal::MTLClearColor::new(0.0, 0.2, 0.4, 1.0); // Dark blue
+        self.renderer.render_frame(
+            &self.command_queue,
+            &drawable,
+            clear_color,
+            draw_list,
+            (screen_size.x, screen_size.y),
+        );
     }
 
     pub fn device(&self) -> &Device {
