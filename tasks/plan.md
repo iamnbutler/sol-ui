@@ -16,21 +16,21 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 ### Core Components
 
-1. **Window Management**
+1. **Window Management** ✅
 
    - Direct Cocoa/AppKit integration
    - NSWindow and NSView creation
-   - Event handling (mouse, keyboard, touch)
-   - Display link for frame timing
+   - Event handling (mouse, keyboard, touch) - _input deferred_
+   - Basic frame loop
 
-2. **Metal Renderer**
+2. **Metal Renderer** ✅ (partial)
 
-   - Command queue and buffer management
-   - Shader pipeline (vertex + fragment shaders)
-   - Texture atlas for UI elements
-   - 3D transformation matrices
-   - Depth testing and blending
-   - Multi-pass rendering for layers
+   - Command queue and buffer management ✅
+   - Shader pipeline (vertex + fragment shaders) ✅
+   - Texture atlas for UI elements - _needed for text_
+   - 3D transformation matrices - _future_
+   - Depth testing and blending - _future_
+   - Multi-pass rendering for layers - _future_
 
 3. **Layer System**
 
@@ -47,13 +47,13 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
      - Raw layers initially won't handle input (can be added later)
      - Modal dialogs naturally work by having higher z-order
 
-4. **Immediate Mode Core**
+4. **Immediate Mode Core** ✅ (partial)
 
-   - Frame-based UI state
-   - ID system for widget continuity
-   - Input handling and focus management
-   - Taffy tree construction for UI layers
-   - Layout caching and invalidation
+   - Frame-based UI state ✅
+   - ID system for widget continuity ✅
+   - Input handling and focus management - _deferred_
+   - Taffy tree construction for UI layers - _future_
+   - Layout caching and invalidation - _future_
 
 5. **Entity System**
 
@@ -81,11 +81,11 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 ### Phase 1: Foundation
 
-- [ ] Basic Rust project setup with glam and taffy dependencies
-- [ ] macOS window creation with Metal layer
-- [ ] Basic Metal renderer initialization
-- [ ] Simple quad rendering
-- [ ] Event loop and input handling
+- [x] Basic Rust project setup with glam and taffy dependencies
+- [x] macOS window creation with Metal layer
+- [x] Basic Metal renderer initialization
+- [x] Simple quad rendering
+- [x] Event loop and input handling
 
 ### Phase 2: Layer System
 
@@ -97,23 +97,24 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 ### Phase 3: Immediate Mode Core
 
-- [ ] Widget ID system
-- [ ] Basic UI context struct
-- [ ] Frame state management
-- [ ] Hot/active/focused widget tracking
-- [ ] Taffy tree construction for UI layers
-- [ ] Layout result caching
-- [ ] Entity system for persistent state
-- [ ] Entity lifetime management
+- [x] Widget ID system
+- [x] Basic UI context struct
+- [x] Frame state management
+- [ ] Hot/active/focused widget tracking (deferred with input)
+- [ ] Taffy tree construction for UI layers (deferred)
+- [ ] Layout result caching (deferred)
+- [ ] Entity system for persistent state (deferred)
+- [ ] Entity lifetime management (deferred)
 
 ### Phase 4: Basic Widgets
 
-- [ ] Button
-- [ ] Label (text rendering)
-- [ ] Input field
-- [ ] Slider
-- [ ] Checkbox
-- [ ] Container (flexbox via taffy)
+- [x] Container (group with background)
+- [x] Layout helpers (vertical/horizontal)
+- [ ] Label (text rendering in progress)
+- [ ] Button (needs input handling)
+- [ ] Input field (needs text + input)
+- [ ] Slider (needs input)
+- [ ] Checkbox (needs input)
 
 ### Phase 5: 3D Features
 
@@ -330,14 +331,15 @@ Benefits:
 
 ## Dependencies
 
-- `glam` - Math library for 2D/3D operations
-- `taffy` - Flexbox/CSS Grid layout engine
-- `metal` - Metal API bindings
-- `objc` - Objective-C runtime access
-- `cocoa` - macOS framework bindings (minimal use)
-- `core-foundation` - CF types
-- `core-graphics` - CG types
-- `core-text` - Text rendering
+- `glam` - Math library for 2D/3D operations ✅
+- `taffy` - Flexbox/CSS Grid layout engine ✅ (not used yet)
+- `metal` - Metal API bindings ✅
+- `objc` - Objective-C runtime access ✅
+- `cocoa` - macOS framework bindings (minimal use) ✅
+- `core-foundation` - CF types ✅
+- `core-graphics` - CG types ✅
+- `core-text` - Text rendering ✅ (not used yet)
+- `palette` - Color space handling ✅
 
 ## References
 
@@ -361,26 +363,31 @@ Benefits:
 
 ## Next Steps - Concrete Implementation Tasks
 
-### Phase 0: Basic Window & Rendering
+### Phase 0: Basic Window & Rendering ✅
 
 See [window_and_rendering.md](window_and_rendering.md) for detailed implementation tracking.
 
-**Current Status**:
+**Completed**:
 
 - ✅ Basic window creation with Metal layer
 - ✅ Metal device and command queue setup
-- ⏳ Working on connecting Metal device to layer and first triangle
+- ✅ Metal rendering pipeline with shaders
+- ✅ Immediate mode UI context
+- ✅ Quad rendering for UI elements
+- ✅ Basic UI elements (group, rect, layout helpers)
+- ✅ Color system with palette crate
 
-**Priority**: Get a window open with a colored triangle rendered via Metal. Everything else builds on this.
+**Current Priority**: Text rendering with Core Text
+
+### Current Phase: Text Rendering
+
+Working on Core Text integration for text rendering.
 
 ### Later Phases:
 
-After Phase 0 is complete:
-
 - Coordinate system implementation (LogicalPixel/PhysicalPixel types)
-- Basic immediate mode context
-- Layer system
-- Entity system
-- Taffy integration
-- Complex widgets
-- 3D features
+- Input handling and interactive widgets
+- Layer system for complex compositions
+- Entity system for stateful widgets
+- Taffy integration for advanced layout
+- 3D features and world-space UI
