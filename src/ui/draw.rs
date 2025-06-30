@@ -95,7 +95,7 @@ impl Default for TextStyle {
     fn default() -> Self {
         Self {
             size: 16.0,
-            color: colors::BLACK,
+            color: colors::WHITE,
         }
     }
 }
