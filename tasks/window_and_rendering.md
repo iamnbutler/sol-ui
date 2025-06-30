@@ -14,7 +14,8 @@ This document tracks the implementation of the foundational window and rendering
 - [x] Quad rendering for UI
 - [x] UI elements (group/container)
 - [x] Color system (palette crate)
-- [ ] Text rendering
+- [x] Text rendering (basic implementation with Core Text)
+- [ ] Layer system (partially implemented, needs render pass management)
 - [ ] Input handling (deferred)
 
 ## Completed Tasks
@@ -134,23 +135,41 @@ ui.group_styled(Some(named::DARKSLATEGRAY.into()), |ui| {
 });
 ```
 
-## Next: Text Rendering
+## Completed: Basic Text Rendering ✅
 
-### Core Text Integration
+- ✅ Created font manager using font-kit
+- ✅ Implemented glyph rasterization with proper sizing
+- ✅ Created texture atlas for glyph caching
+- ✅ Added texture support to Metal renderer
+- ✅ Core Text shaping for proper text layout
+- ✅ Text measurement for UI layout
+- ✅ Full pipeline: shape → rasterize → atlas → render
 
-- [ ] Create font manager using Core Text
-- [ ] Implement glyph rasterization
-- [ ] Create texture atlas for glyphs
-- [ ] Add texture support to Metal renderer
-- [ ] Implement text measurement for layout
-- [ ] Support basic text styling (size, weight)
+## Current: Layer System Implementation (In Progress)
 
-### Text Rendering Pipeline
+The layer system foundation is implemented but needs completion:
 
-1. Rasterize glyphs to texture atlas
-2. Generate quads with texture coordinates
-3. Update shaders to support textured rendering
-4. Batch text draws with solid color draws
+### What's Done
+
+- ✅ Created `LayerManager` for managing z-ordered layers
+- ✅ Implemented `Layer` trait with render and input handling methods
+- ✅ Created `RawLayer` for direct shader access (placeholder)
+- ✅ Created `UiLayer` for immediate mode UI
+- ✅ Basic layer options (input handling, blend modes)
+- ✅ Layer insertion with z-ordering
+
+### What's Needed
+
+- [ ] Fix render pass management - current architecture assumes single pass
+- [ ] Implement `render_draw_list` to actually render commands
+- [ ] Support multiple render passes per frame
+- [ ] Implement blend modes between layers
+- [ ] Add clearing behavior for layers
+- [ ] Test multi-layer rendering scenarios
+
+### Current Status
+
+The renderer is currently bypassing the layer system due to architectural issues with render pass management. The `render_frame` method needs restructuring to support multiple layers with their own render passes.
 
 ## Later Phases
 
@@ -181,7 +200,7 @@ Phase 0 is complete when:
 2. Basic Metal rendering works ✅
 3. Immediate mode UI context works ✅
 4. Can render rectangles and containers ✅
-5. Can render text with `ui.text("Hello")` ⏳ (API done, rendering needed)
+5. Can render text with `ui.text("Hello")` ✅
 6. Multiple UI elements render in single frame ✅
 7. Proper color handling with palette crate ✅
 
@@ -190,4 +209,6 @@ Phase 0 is complete when:
 - Successfully avoided premature abstraction
 - Clean separation between platform, rendering, and UI layers
 - Immediate mode pattern working well
-- Ready for text rendering as next major milestone
+- Text rendering fully implemented with Core Text integration
+- Layer system foundation complete but blocked on render architecture
+- Next priority: Complete layer system before moving to input handling

@@ -1,5 +1,5 @@
 use glam::Vec2;
-use palette::{Srgba, named};
+use palette::Srgba;
 
 /// Re-export palette's Srgba as our Color type
 pub type Color = Srgba;

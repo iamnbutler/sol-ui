@@ -122,6 +122,11 @@ impl Window {
         &self.metal_layer
     }
 
+    pub fn size(&self) -> (f32, f32) {
+        let frame: NSRect = unsafe { msg_send![self.ns_window, contentLayoutRect] };
+        (frame.size.width as f32, frame.size.height as f32)
+    }
+
     pub fn handle_events(&self) -> bool {
         let app = unsafe { NSApplication::shared() };
 
@@ -136,7 +141,7 @@ impl Window {
                 ]
             };
 
-            if event == nil {
+            if event.is_null() {
                 break;
             }
 

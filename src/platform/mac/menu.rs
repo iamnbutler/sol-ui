@@ -1,4 +1,4 @@
-use cocoa::base::{NO, YES, id, nil};
+use cocoa::base::{id, nil};
 use cocoa::foundation::NSString;
 use objc::{class, msg_send, sel, sel_impl};
 

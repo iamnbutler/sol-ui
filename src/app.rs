@@ -1,7 +1,8 @@
+use crate::layer::{LayerManager, LayerOptions};
 use crate::platform::{Window, create_app_menu};
 use crate::renderer::MetalRenderer;
 use crate::text::TextSystem;
-use crate::ui::UiContext;
+
 use cocoa::base::{YES, id};
 use metal::{CommandQueue, Device};
 use objc::{class, msg_send, sel, sel_impl};
@@ -13,7 +14,7 @@ pub struct App {
     device: Device,
     command_queue: CommandQueue,
     renderer: MetalRenderer,
-    ui_context: UiContext,
+    layer_manager: LayerManager,
     text_system: TextSystem,
 }
 
@@ -39,8 +40,8 @@ impl App {
             panic!("Failed to initialize renderer: {}", e);
         }
 
-        // Create UI context
-        let ui_context = UiContext::new(800.0, 600.0);
+        // Create layer manager
+        let layer_manager = LayerManager::new();
 
         // Create text system
         let text_system = TextSystem::new(&device).expect("Failed to create text system");
@@ -53,86 +54,99 @@ impl App {
             device,
             command_queue,
             renderer,
-            ui_context,
+            layer_manager,
             text_system,
         }
     }
 
     pub fn run(mut self) {
         while self.window.handle_events() {
-            // TODO: Render frame here
             self.render_frame();
         }
     }
 
     fn render_frame(&mut self) {
-        // Get the next drawable
+        // Get the next drawable from the Metal layer
         let drawable = match self.window.metal_layer().next_drawable() {
             Some(drawable) => drawable,
-            None => return, // No drawable available, skip frame
+            None => {
+                return; // No drawable available, skip frame
+            }
         };
 
-        // Build UI for this frame
-        self.ui_context.begin_frame();
+        // Get window size
+        let size = self.window.size();
 
-        // Example UI usage
-        self.ui_context.text("Hello from Toy UI!");
+        // Clear layers from previous frame
+        self.layer_manager.clear();
 
-        self.ui_context.space(20.0);
-
-        self.ui_context.group_styled(
-            Some(Srgba::from(named::DARKSLATEGRAY).into_format()),
+        // Add main UI layer
+        self.layer_manager.add_ui_layer(
+            0, // z-index
+            LayerOptions::default()
+                .with_clear()
+                .with_clear_color(0.8, 0.8, 0.8, 1.0), // Light gray background
             |ui| {
-                ui.text("This is a group container");
-                ui.text("With multiple lines of text");
+                // Example UI
+                ui.text("Hello from Toy UI!");
 
-                ui.space(10.0);
+                ui.space(20.0);
 
-                ui.horizontal(|ui| {
-                    // Use palette's named colors
-                    ui.rect(
-                        glam::vec2(50.0, 50.0),
-                        Srgba::from(named::CRIMSON).into_format(),
-                    );
-                    ui.rect(
-                        glam::vec2(50.0, 50.0),
-                        Srgba::from(named::LIMEGREEN).into_format(),
-                    );
-                    ui.rect(
-                        glam::vec2(50.0, 50.0),
-                        Srgba::from(named::DODGERBLUE).into_format(),
-                    );
-                });
+                ui.group_styled(
+                    Some(Srgba::from(named::DARKSLATEGRAY).into_format()),
+                    |ui| {
+                        ui.text("This is a group container");
+                        ui.text("With multiple lines of text");
+
+                        ui.space(10.0);
+
+                        ui.horizontal(|ui| {
+                            // Use palette's named colors
+                            ui.rect(
+                                glam::vec2(50.0, 50.0),
+                                Srgba::from(named::CRIMSON).into_format(),
+                            );
+                            ui.rect(
+                                glam::vec2(50.0, 50.0),
+                                Srgba::from(named::LIMEGREEN).into_format(),
+                            );
+                            ui.rect(
+                                glam::vec2(50.0, 50.0),
+                                Srgba::from(named::DODGERBLUE).into_format(),
+                            );
+                        });
+                    },
+                );
+
+                ui.space(20.0);
+
+                ui.window(
+                    "Example Window",
+                    glam::vec2(400.0, 200.0),
+                    glam::vec2(300.0, 200.0),
+                    |ui| {
+                        ui.text("This is a window!");
+                        ui.text("It has a title bar and content area.");
+                    },
+                );
             },
         );
 
-        self.ui_context.space(20.0);
+        // Create command buffer
+        let command_buffer = self.command_queue.new_command_buffer();
 
-        self.ui_context.window(
-            "Example Window",
-            glam::vec2(400.0, 200.0),
-            glam::vec2(300.0, 200.0),
-            |ui| {
-                ui.text("This is a window!");
-                ui.text("It has a title bar and content area.");
-            },
-        );
-
-        // Get screen size before end_frame to avoid borrow conflict
-        let screen_size = self.ui_context.screen_size();
-        let draw_list = self.ui_context.end_frame();
-
-        // Use the renderer to draw the UI
-        let clear_color = metal::MTLClearColor::new(0.8, 0.8, 0.8, 1.0); // Light gray
-
-        self.renderer.render_frame(
-            &self.command_queue,
+        // Render all layers
+        self.layer_manager.render(
+            &mut self.renderer,
+            &command_buffer,
             &drawable,
-            clear_color,
-            draw_list,
-            (screen_size.x, screen_size.y),
+            glam::vec2(size.0, size.1),
             &mut self.text_system,
         );
+
+        // Present drawable and commit
+        command_buffer.present_drawable(&drawable);
+        command_buffer.commit();
     }
 
     pub fn device(&self) -> &Device {

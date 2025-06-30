@@ -1,6 +1,4 @@
-use super::{
-    Color, ColorExt, DrawCommand, DrawList, DrawListPos, IdStack, Rect, TextStyle, WidgetId, colors,
-};
+use super::{Color, ColorExt, DrawList, IdStack, Rect, TextStyle, WidgetId, colors};
 use glam::Vec2;
 
 /// The main context for immediate mode UI
@@ -45,18 +43,18 @@ enum LayoutDirection {
 
 impl UiContext {
     /// Create a new UI context with the given screen dimensions
-    pub fn new(screen_width: f32, screen_height: f32) -> Self {
+    pub fn new(screen_size: Vec2) -> Self {
         Self {
             draw_list: DrawList::new(),
             id_stack: IdStack::new(),
-            cursor: Vec2::new(0.0, 0.0),
+            cursor: Vec2::ZERO,
             layout: LayoutState {
                 start_pos: Vec2::ZERO,
                 max_cross_axis: 0.0,
                 direction: LayoutDirection::Vertical,
-                spacing: 4.0,
+                spacing: 5.0,
             },
-            screen_size: Vec2::new(screen_width, screen_height),
+            screen_size,
         }
     }
 
@@ -71,6 +69,11 @@ impl UiContext {
 
     /// End the current frame and return the draw list
     pub fn end_frame(&mut self) -> &DrawList {
+        &self.draw_list
+    }
+
+    /// Get the draw list without ending the frame (for layer system)
+    pub fn draw_list(&self) -> &DrawList {
         &self.draw_list
     }
 

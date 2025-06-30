@@ -1,11 +1,10 @@
 //! Text shaping and layout using Core Text
 
-use core_foundation::attributed_string::{CFAttributedString, CFMutableAttributedString};
+use core_foundation::attributed_string::CFMutableAttributedString;
 use core_foundation::base::{CFRange, TCFType};
 use core_foundation::string::CFString;
-use core_graphics::geometry::{CGPoint, CGSize};
+use core_graphics::geometry::CGPoint;
 use core_text::font::CTFont;
-use core_text::framesetter::CTFramesetter;
 use core_text::line::CTLine;
 use glam::Vec2;
 
@@ -137,7 +136,7 @@ impl TextShaper {
 
         for run in runs.iter() {
             // Get run attributes
-            let run_font = if let Some(attributes) = run.attributes() {
+            let _run_font = if let Some(attributes) = run.attributes() {
                 unsafe {
                     attributes
                         .get(core_text::string_attributes::kCTFontAttributeName)

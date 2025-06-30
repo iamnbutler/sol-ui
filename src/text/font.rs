@@ -4,7 +4,7 @@ use font_kit::canvas::{Canvas, Format, RasterizationOptions};
 use font_kit::font::Font as FontKitFont;
 use font_kit::hinting::HintingOptions;
 use font_kit::source::SystemSource;
-use pathfinder_geometry::rect::RectI;
+
 use pathfinder_geometry::transform2d::Transform2F;
 use pathfinder_geometry::vector::{Vector2F, Vector2I};
 use std::collections::HashMap;
@@ -195,7 +195,7 @@ impl FontManager {
         let font = &font_data.font;
 
         // Get glyph raster bounds
-        let device_size = size as f32;
+        let _device_size = size as f32;
         let raster_bounds = font
             .raster_bounds(
                 glyph_id,

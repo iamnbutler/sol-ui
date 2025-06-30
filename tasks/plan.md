@@ -79,20 +79,20 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 ## Implementation Phases
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✅
 
 - [x] Basic Rust project setup with glam and taffy dependencies
 - [x] macOS window creation with Metal layer
 - [x] Basic Metal renderer initialization
 - [x] Simple quad rendering
-- [x] Event loop and input handling
+- [x] Event loop (input handling deferred)
 
-### Phase 2: Layer System
+### Phase 2: Layer System (In Progress)
 
-- [ ] Layer management and ordering
-- [ ] Render pass per layer
-- [ ] Raw layer implementation (direct shader access)
-- [ ] UI layer scaffolding
+- [x] Layer management and ordering
+- [ ] Render pass per layer (blocked - needs architecture change)
+- [x] Raw layer implementation (direct shader access)
+- [x] UI layer scaffolding
 - [ ] Z-buffer handling between layers
 
 ### Phase 3: Immediate Mode Core
@@ -110,11 +110,11 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 - [x] Container (group with background)
 - [x] Layout helpers (vertical/horizontal)
-- [ ] Label (text rendering in progress)
+- [x] Label (text rendering implemented)
 - [ ] Button (needs input handling)
-- [ ] Input field (needs text + input)
-- [ ] Slider (needs input)
-- [ ] Checkbox (needs input)
+- [ ] Input field (needs input handling)
+- [ ] Slider (needs input handling)
+- [ ] Checkbox (needs input handling)
 
 ### Phase 5: 3D Features
 
@@ -126,8 +126,8 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 
 ### Phase 6: Advanced Features
 
-- [ ] Texture atlas management
-- [ ] Font atlas and text shaping
+- [x] Texture atlas management (for glyphs)
+- [x] Font atlas and text shaping (Core Text integration)
 - [ ] Animations and transitions
 - [ ] Scrollable areas
 - [ ] Nested UI layers
@@ -338,8 +338,9 @@ Benefits:
 - `cocoa` - macOS framework bindings (minimal use) ✅
 - `core-foundation` - CF types ✅
 - `core-graphics` - CG types ✅
-- `core-text` - Text rendering ✅ (not used yet)
+- `core-text` - Text rendering ✅
 - `palette` - Color space handling ✅
+- `font-kit` - Font loading and rasterization ✅
 
 ## References
 
@@ -377,11 +378,11 @@ See [window_and_rendering.md](window_and_rendering.md) for detailed implementati
 - ✅ Basic UI elements (group, rect, layout helpers)
 - ✅ Color system with palette crate
 
-**Current Priority**: Text rendering with Core Text
+**Current Priority**: Fix layer system render pass management
 
-### Current Phase: Text Rendering
+### Current Phase: Layer System Completion
 
-Working on Core Text integration for text rendering.
+Working on fixing render pass management to properly support multiple layers. The foundation is implemented but the rendering architecture needs changes to support multiple render passes per frame.
 
 ### Later Phases:
 
