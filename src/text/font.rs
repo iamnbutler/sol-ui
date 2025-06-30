@@ -34,7 +34,7 @@ impl FontSpec {
 
     pub fn system_ui() -> Self {
         Self {
-            family: "Helvetica".to_string(),
+            family: "Helvetica Neue".to_string(),
             style: FontStyle::Normal,
         }
     }
