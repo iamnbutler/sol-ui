@@ -120,13 +120,6 @@ impl FontManager {
         let font_id = self.next_font_id;
         self.next_font_id += 1;
 
-        // Debug: Print what font was actually loaded by font-kit
-        println!(
-            "Font-kit loaded: family='{}', postscript='{:?}'",
-            font.family_name(),
-            font.postscript_name()
-        );
-
         #[cfg(target_os = "macos")]
         let native_font = {
             // Create a CTFont from the font specification for text shaping
@@ -142,19 +135,6 @@ impl FontManager {
                 // Fallback to Helvetica if font not found
                 ct_font::new_from_name("Helvetica", size as f64).unwrap()
             });
-
-            println!(
-                "CTFont created with postscript name: {:?}",
-                ct_font.postscript_name()
-            );
-
-            if font.postscript_name() != Some(ct_font.postscript_name()) {
-                println!(
-                    "WARNING: Font mismatch! font-kit: {:?}, CTFont: {}",
-                    font.postscript_name(),
-                    ct_font.postscript_name()
-                );
-            }
 
             ct_font
         };
@@ -215,6 +195,7 @@ impl FontManager {
         let font = &font_data.font;
 
         // Get glyph raster bounds
+        let device_size = size as f32;
         let raster_bounds = font
             .raster_bounds(
                 glyph_id,
@@ -254,17 +235,11 @@ impl FontManager {
         // Get the pixel data
         let data = canvas.pixels;
 
-        // Debug: Check if we have any non-zero pixels
-        let non_zero = data.iter().filter(|&&p| p > 0).count();
-        if non_zero == 0 {
-            println!("WARNING: Glyph {} has no visible pixels!", glyph_id);
-        }
-
         Ok(RasterizedGlyph {
             width,
             height,
             bearing_x: raster_bounds.origin().x() as f32,
-            bearing_y: raster_bounds.origin().y() as f32,
+            bearing_y: -raster_bounds.origin().y() as f32,
             advance,
             data,
         })

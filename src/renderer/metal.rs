@@ -219,7 +219,9 @@ impl MetalRenderer {
         for glyph in &shaped_text.glyphs {
             if let Some(info) = text_system.glyph_info(glyph.font_id, glyph.glyph_id, glyph.size) {
                 // Calculate glyph position in screen space
-                let glyph_x = position.x + glyph.position.x;
+                // glyph.position is the baseline position from the shaper
+                // info.bearing_y is the distance from baseline to top of glyph
+                let glyph_x = position.x + glyph.position.x + info.bearing_x;
                 let glyph_y = position.y + glyph.position.y - info.bearing_y;
 
                 // Convert to NDC

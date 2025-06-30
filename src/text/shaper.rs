@@ -166,11 +166,7 @@ impl TextShaper {
                     font_id,
                     glyph_id: *glyph_id as u32,
                     size: size as u32,
-                    position: Vec2::new(
-                        position.x as f32,
-                        // Flip Y coordinate to match our coordinate system
-                        ascent as f32 - position.y as f32,
-                    ),
+                    position: Vec2::new(position.x as f32, position.y as f32),
                 });
             }
         }
