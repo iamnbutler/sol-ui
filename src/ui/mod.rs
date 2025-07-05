@@ -3,7 +3,10 @@ mod draw;
 mod id;
 
 pub use context::UiContext;
-pub use draw::{Color, ColorExt, DrawCommand, DrawList, DrawListPos, Rect, TextStyle, colors};
+pub use draw::{
+    Color, ColorExt, CornerRadii, DrawCommand, DrawList, DrawListPos, FrameStyle, Rect, TextStyle,
+    colors,
+};
 pub use id::{IdStack, WidgetId};
 
 // Re-export commonly used types

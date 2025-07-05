@@ -1,5 +1,5 @@
 use crate::text::{ShapedText, TextSystem};
-use crate::ui::{Color as UiColor, DrawCommand, DrawList, Rect};
+use crate::ui::{Color as UiColor, DrawCommand, DrawList, FrameStyle, Rect};
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
@@ -16,10 +16,23 @@ pub struct Vertex {
     pub tex_coord: [f32; 2],
 }
 
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+struct FrameUniforms {
+    center: [f32; 2],
+    half_size: [f32; 2],
+    radii: [f32; 4], // top_left, top_right, bottom_right, bottom_left
+    border_width: f32,
+    _padding: [f32; 3], // Padding to align to 16 bytes
+    background_color: [f32; 4],
+    border_color: [f32; 4],
+}
+
 pub struct MetalRenderer {
     device: Device,
     pipeline_state: Option<RenderPipelineState>,
     text_pipeline_state: Option<RenderPipelineState>,
+    frame_pipeline_state: Option<RenderPipelineState>,
 }
 
 impl MetalRenderer {
@@ -28,6 +41,7 @@ impl MetalRenderer {
             device,
             pipeline_state: None,
             text_pipeline_state: None,
+            frame_pipeline_state: None,
         }
     }
 
@@ -38,6 +52,7 @@ impl MetalRenderer {
         // Create pipeline states
         self.pipeline_state = Some(self.create_pipeline_state(&library)?);
         self.text_pipeline_state = Some(self.create_text_pipeline_state(&library)?);
+        self.frame_pipeline_state = Some(self.create_frame_pipeline_state(&library)?);
 
         Ok(())
     }
@@ -85,6 +100,58 @@ impl MetalRenderer {
                                                sampler glyph_sampler [[sampler(0)]]) {
                 float alpha = glyph_texture.sample(glyph_sampler, in.tex_coord).r;
                 return float4(in.color.rgb, in.color.a * alpha);
+            }
+
+            // SDF Frame rendering shaders
+            struct FrameUniforms {
+                float2 center;
+                float2 half_size;
+                float4 radii; // top_left, top_right, bottom_right, bottom_left
+                float border_width;
+                float4 background_color;
+                float4 border_color;
+            };
+
+            float sdRoundedRect(float2 p, float2 half_size, float4 radii) {
+                // Select the appropriate radius based on quadrant
+                float radius = p.x > 0.0 ?
+                    (p.y > 0.0 ? radii.z : radii.y) :
+                    (p.y > 0.0 ? radii.w : radii.x);
+
+                float2 q = abs(p) - half_size + radius;
+                return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - radius;
+            }
+
+            vertex VertexOut frame_vertex_main(Vertex in [[stage_in]]) {
+                VertexOut out;
+                out.position = float4(in.position, 0.0, 1.0);
+                out.color = in.color;
+                out.tex_coord = in.tex_coord;
+                return out;
+            }
+
+            fragment float4 frame_fragment_main(VertexOut in [[stage_in]],
+                                              constant FrameUniforms& uniforms [[buffer(0)]]) {
+                // Convert from NDC to pixel coordinates relative to frame center
+                float2 p = in.tex_coord * uniforms.half_size * 2.0 - uniforms.half_size;
+
+                float d = sdRoundedRect(p, uniforms.half_size, uniforms.radii);
+
+                // Anti-aliasing
+                float aa = fwidth(d) * 0.5;
+
+                // Fill mask
+                float fill_mask = 1.0 - smoothstep(-aa, aa, d);
+
+                // Border mask (only if border width > 0)
+                float4 color = uniforms.background_color;
+                if (uniforms.border_width > 0.0) {
+                    float border_inner = d + uniforms.border_width;
+                    float border_mask = smoothstep(-aa, aa, border_inner) * fill_mask;
+                    color = mix(uniforms.background_color, uniforms.border_color, border_mask);
+                }
+
+                return float4(color.rgb, color.a * fill_mask);
             }
         "#;
 
@@ -201,6 +268,61 @@ impl MetalRenderer {
             .map_err(|e| format!("Failed to create text pipeline state: {}", e))
     }
 
+    fn create_frame_pipeline_state(
+        &self,
+        library: &Library,
+    ) -> Result<RenderPipelineState, String> {
+        let vertex_function = library
+            .get_function("frame_vertex_main", None)
+            .map_err(|e| format!("Failed to find frame_vertex_main function: {}", e))?;
+
+        let fragment_function = library
+            .get_function("frame_fragment_main", None)
+            .map_err(|e| format!("Failed to find frame_fragment_main function: {}", e))?;
+
+        let vertex_descriptor = VertexDescriptor::new();
+
+        // Same vertex descriptor as other pipelines
+        let position_attr = vertex_descriptor.attributes().object_at(0).unwrap();
+        position_attr.set_format(metal::MTLVertexFormat::Float2);
+        position_attr.set_offset(0);
+        position_attr.set_buffer_index(0);
+
+        let color_attr = vertex_descriptor.attributes().object_at(1).unwrap();
+        color_attr.set_format(metal::MTLVertexFormat::Float4);
+        color_attr.set_offset(8);
+        color_attr.set_buffer_index(0);
+
+        let tex_coord_attr = vertex_descriptor.attributes().object_at(2).unwrap();
+        tex_coord_attr.set_format(metal::MTLVertexFormat::Float2);
+        tex_coord_attr.set_offset(24);
+        tex_coord_attr.set_buffer_index(0);
+
+        let layout = vertex_descriptor.layouts().object_at(0).unwrap();
+        layout.set_stride(32);
+        layout.set_step_function(metal::MTLVertexStepFunction::PerVertex);
+
+        let pipeline_descriptor = RenderPipelineDescriptor::new();
+        pipeline_descriptor.set_vertex_function(Some(&vertex_function));
+        pipeline_descriptor.set_fragment_function(Some(&fragment_function));
+        pipeline_descriptor.set_vertex_descriptor(Some(vertex_descriptor));
+
+        let attachment = pipeline_descriptor
+            .color_attachments()
+            .object_at(0)
+            .unwrap();
+        attachment.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+        attachment.set_blending_enabled(true);
+        attachment.set_source_rgb_blend_factor(metal::MTLBlendFactor::SourceAlpha);
+        attachment.set_destination_rgb_blend_factor(metal::MTLBlendFactor::OneMinusSourceAlpha);
+        attachment.set_source_alpha_blend_factor(metal::MTLBlendFactor::SourceAlpha);
+        attachment.set_destination_alpha_blend_factor(metal::MTLBlendFactor::OneMinusSourceAlpha);
+
+        self.device
+            .new_render_pipeline_state(&pipeline_descriptor)
+            .map_err(|e| format!("Failed to create frame pipeline state: {}", e))
+    }
+
     /// Convert text to vertices using shaped glyphs
     fn text_to_vertices(
         &self,
@@ -267,14 +389,16 @@ impl MetalRenderer {
     }
 
     /// Build vertices from UI draw commands
+    /// Convert draw list commands to vertex data
     fn draw_list_to_vertices(
         &self,
         draw_list: &DrawList,
         screen_size: (f32, f32),
         text_system: &mut TextSystem,
-    ) -> (Vec<Vertex>, Vec<Vertex>) {
+    ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, FrameStyle)>) {
         let mut solid_vertices = Vec::new();
         let mut text_vertices = Vec::new();
+        let mut frames = Vec::new();
 
         for command in draw_list.commands() {
             match command {
@@ -282,6 +406,10 @@ impl MetalRenderer {
                     // Convert rect to vertices (two triangles)
                     let vertices = self.rect_to_vertices(rect, color, screen_size);
                     solid_vertices.extend_from_slice(&vertices);
+                }
+                DrawCommand::Frame { rect, style } => {
+                    // Collect frames for separate rendering pass
+                    frames.push((*rect, style.clone()));
                 }
                 DrawCommand::Text {
                     position,
@@ -312,7 +440,7 @@ impl MetalRenderer {
             }
         }
 
-        (solid_vertices, text_vertices)
+        (solid_vertices, text_vertices, frames)
     }
 
     /// Convert a rect to 6 vertices (two triangles)
@@ -331,6 +459,52 @@ impl MetalRenderer {
         let color_array = [color.red, color.green, color.blue, color.alpha];
 
         // Two triangles to make a rectangle
+        [
+            Vertex {
+                position: [x1, y1],
+                color: color_array,
+                tex_coord: [0.0, 0.0],
+            },
+            Vertex {
+                position: [x2, y1],
+                color: color_array,
+                tex_coord: [1.0, 0.0],
+            },
+            Vertex {
+                position: [x1, y2],
+                color: color_array,
+                tex_coord: [0.0, 1.0],
+            },
+            Vertex {
+                position: [x2, y1],
+                color: color_array,
+                tex_coord: [1.0, 0.0],
+            },
+            Vertex {
+                position: [x2, y2],
+                color: color_array,
+                tex_coord: [1.0, 1.0],
+            },
+            Vertex {
+                position: [x1, y2],
+                color: color_array,
+                tex_coord: [0.0, 1.0],
+            },
+        ]
+    }
+
+    /// Convert a frame rect to vertices with texture coordinates for SDF rendering
+    fn frame_to_vertices(&self, rect: &Rect, screen_size: (f32, f32)) -> [Vertex; 6] {
+        // Convert to clip space (-1 to 1)
+        let x1 = (rect.pos.x / screen_size.0) * 2.0 - 1.0;
+        let y1 = 1.0 - (rect.pos.y / screen_size.1) * 2.0;
+        let x2 = ((rect.pos.x + rect.size.x) / screen_size.0) * 2.0 - 1.0;
+        let y2 = 1.0 - ((rect.pos.y + rect.size.y) / screen_size.1) * 2.0;
+
+        // For frames, we use a dummy color since actual colors come from uniforms
+        let color_array = [1.0, 1.0, 1.0, 1.0];
+
+        // Texture coordinates map from 0 to 1 across the rect for SDF calculation
         [
             Vertex {
                 position: [x1, y1],
@@ -395,7 +569,7 @@ impl MetalRenderer {
         };
 
         // Convert draw commands to vertices
-        let (solid_vertices, text_vertices) =
+        let (solid_vertices, text_vertices, frames) =
             self.draw_list_to_vertices(draw_list, screen_size, text_system);
 
         // Draw solid geometry first
@@ -422,6 +596,57 @@ impl MetalRenderer {
             encoder.set_fragment_sampler_state(0, Some(&sampler_state));
 
             encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, text_vertices.len() as u64);
+        }
+
+        // Draw frames with SDF rendering
+        if !frames.is_empty() {
+            encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
+
+            for (rect, style) in frames {
+                // Create frame vertices with proper texture coordinates for SDF
+                let vertices = self.frame_to_vertices(&rect, screen_size);
+                let buffer = self.create_vertex_buffer(&vertices);
+
+                // Create uniforms
+                let uniforms = FrameUniforms {
+                    center: [
+                        rect.pos.x + rect.size.x * 0.5,
+                        rect.pos.y + rect.size.y * 0.5,
+                    ],
+                    half_size: [rect.size.x * 0.5, rect.size.y * 0.5],
+                    radii: [
+                        style.corner_radii.top_left,
+                        style.corner_radii.top_right,
+                        style.corner_radii.bottom_right,
+                        style.corner_radii.bottom_left,
+                    ],
+                    border_width: style.border_width,
+                    _padding: [0.0; 3],
+                    background_color: [
+                        style.background.red,
+                        style.background.green,
+                        style.background.blue,
+                        style.background.alpha,
+                    ],
+                    border_color: [
+                        style.border_color.red,
+                        style.border_color.green,
+                        style.border_color.blue,
+                        style.border_color.alpha,
+                    ],
+                };
+
+                // Create uniforms buffer
+                let uniforms_buffer = self.device.new_buffer_with_data(
+                    &uniforms as *const _ as *const _,
+                    std::mem::size_of::<FrameUniforms>() as u64,
+                    metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                );
+
+                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
+                encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+            }
         }
     }
 

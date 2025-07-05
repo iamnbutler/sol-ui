@@ -100,6 +100,93 @@ impl Default for TextStyle {
     }
 }
 
+/// Corner radii for a frame (top-left, top-right, bottom-right, bottom-left)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CornerRadii {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_right: f32,
+    pub bottom_left: f32,
+}
+
+impl CornerRadii {
+    /// Create uniform corner radii
+    pub fn uniform(radius: f32) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_right: radius,
+            bottom_left: radius,
+        }
+    }
+
+    /// Create corner radii with different values for each corner
+    pub fn new(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+}
+
+/// Frame styling information for SDF-based rendering
+#[derive(Debug, Clone, PartialEq)]
+pub struct FrameStyle {
+    /// Background color of the frame
+    pub background: Color,
+    /// Border width in pixels (0 for no border)
+    pub border_width: f32,
+    /// Border color
+    pub border_color: Color,
+    /// Corner radii
+    pub corner_radii: CornerRadii,
+}
+
+impl Default for FrameStyle {
+    fn default() -> Self {
+        Self {
+            background: colors::WHITE,
+            border_width: 0.0,
+            border_color: colors::BLACK,
+            corner_radii: CornerRadii::uniform(0.0),
+        }
+    }
+}
+
+impl FrameStyle {
+    /// Create a new frame style with default values
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the background color
+    pub fn with_background(mut self, color: Color) -> Self {
+        self.background = color;
+        self
+    }
+
+    /// Set the border width and color
+    pub fn with_border(mut self, width: f32, color: Color) -> Self {
+        self.border_width = width;
+        self.border_color = color;
+        self
+    }
+
+    /// Set uniform corner radius
+    pub fn with_corner_radius(mut self, radius: f32) -> Self {
+        self.corner_radii = CornerRadii::uniform(radius);
+        self
+    }
+
+    /// Set individual corner radii
+    pub fn with_corner_radii(mut self, radii: CornerRadii) -> Self {
+        self.corner_radii = radii;
+        self
+    }
+}
+
 /// A draw command represents a single drawing operation
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
@@ -111,6 +198,8 @@ pub enum DrawCommand {
         text: String,
         style: TextStyle,
     },
+    /// Draw an SDF frame with rounded corners and optional border
+    Frame { rect: Rect, style: FrameStyle },
     /// Push a clipping rectangle
     PushClip { rect: Rect },
     /// Pop the current clipping rectangle
@@ -222,6 +311,18 @@ impl DrawList {
 
         self.commands
             .insert(pos.0, DrawCommand::Rect { rect, color });
+    }
+
+    /// Add an SDF frame to the draw list
+    pub fn add_frame(&mut self, rect: Rect, style: FrameStyle) {
+        // Skip if completely transparent
+        if style.background.alpha <= 0.0
+            && (style.border_width <= 0.0 || style.border_color.alpha <= 0.0)
+        {
+            return;
+        }
+
+        self.commands.push(DrawCommand::Frame { rect, style });
     }
 }
 

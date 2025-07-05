@@ -1,4 +1,4 @@
-use super::{Color, ColorExt, DrawList, IdStack, Rect, TextStyle, WidgetId, colors};
+use super::{Color, ColorExt, DrawList, FrameStyle, IdStack, Rect, TextStyle, WidgetId, colors};
 use glam::Vec2;
 
 /// The main context for immediate mode UI
@@ -206,6 +206,13 @@ impl UiContext {
     pub fn rect(&mut self, size: Vec2, color: Color) {
         let rect = Rect::from_pos_size(self.cursor, size);
         self.draw_list.add_rect(rect, color);
+        self.advance_cursor(size);
+    }
+
+    /// Draw a frame with rounded corners and optional border
+    pub fn frame(&mut self, size: Vec2, style: FrameStyle) {
+        let rect = Rect::from_pos_size(self.cursor, size);
+        self.draw_list.add_frame(rect, style);
         self.advance_cursor(size);
     }
 
