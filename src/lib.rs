@@ -6,5 +6,5 @@ pub mod renderer;
 pub mod text;
 pub mod ui;
 
-pub use app::App;
+pub use app::{AppBuilder, app};
 pub use platform::Window;

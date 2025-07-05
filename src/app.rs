@@ -2,11 +2,12 @@ use crate::layer::{LayerManager, LayerOptions};
 use crate::platform::{Window, create_app_menu};
 use crate::renderer::MetalRenderer;
 use crate::text::TextSystem;
+use crate::ui::UiContext;
 
 use cocoa::base::{YES, id};
 use metal::{CommandQueue, Device};
 use objc::{class, msg_send, sel, sel_impl};
-use palette::{Srgba, named};
+
 use std::sync::Arc;
 
 pub struct App {
@@ -18,8 +19,53 @@ pub struct App {
     text_system: TextSystem,
 }
 
-impl App {
+pub struct AppBuilder {
+    width: f64,
+    height: f64,
+    title: String,
+    layers: Vec<Box<dyn FnMut(&mut UiContext)>>,
+}
+
+pub fn app() -> AppBuilder {
+    AppBuilder::new()
+}
+
+impl AppBuilder {
     pub fn new() -> Self {
+        Self {
+            width: 800.0,
+            height: 600.0,
+            title: "Toy UI".to_string(),
+            layers: Vec::new(),
+        }
+    }
+
+    pub fn size(mut self, width: f64, height: f64) -> Self {
+        self.width = width;
+        self.height = height;
+        self
+    }
+
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = title.into();
+        self
+    }
+
+    pub fn layer<F>(mut self, render_fn: F) -> Self
+    where
+        F: FnMut(&mut UiContext) + 'static,
+    {
+        self.layers.push(Box::new(render_fn));
+        self
+    }
+
+    pub fn run(mut self) {
+        let layers = std::mem::take(&mut self.layers);
+        let app = self.build();
+        app.run(layers);
+    }
+
+    fn build(self) -> App {
         // Initialize NSApplication
         let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
         let _: () = unsafe { msg_send![ns_app, setActivationPolicy: 0] }; // NSApplicationActivationPolicyRegular
@@ -32,7 +78,7 @@ impl App {
         let command_queue = device.new_command_queue();
 
         // Create window
-        let window = Window::new(800.0, 600.0, "Toy UI", &device);
+        let window = Window::new(self.width, self.height, &self.title, &device);
 
         // Create and initialize renderer
         let mut renderer = MetalRenderer::new(device.clone());
@@ -49,7 +95,7 @@ impl App {
         // Activate app and bring to front
         let _: () = unsafe { msg_send![ns_app, activateIgnoringOtherApps: YES] };
 
-        Self {
+        App {
             window,
             device,
             command_queue,
@@ -58,14 +104,16 @@ impl App {
             text_system,
         }
     }
+}
 
-    pub fn run(mut self) {
+impl App {
+    fn run(mut self, mut layers: Vec<Box<dyn FnMut(&mut UiContext)>>) {
         while self.window.handle_events() {
-            self.render_frame();
+            self.render_frame(&mut layers);
         }
     }
 
-    fn render_frame(&mut self) {
+    fn render_frame(&mut self, layers: &mut Vec<Box<dyn FnMut(&mut UiContext)>>) {
         // Get the next drawable from the Metal layer
         let drawable = match self.window.metal_layer().next_drawable() {
             Some(drawable) => drawable,
@@ -80,68 +128,31 @@ impl App {
         // Clear layers from previous frame
         self.layer_manager.clear();
 
-        // Add main UI layer
-        self.layer_manager.add_ui_layer(
-            0, // z-index
-            LayerOptions::default()
-                .with_clear()
-                .with_clear_color(0.8, 0.8, 0.8, 1.0), // Light gray background
-            |ui| {
-                // Example UI
-                ui.text("Hello from Toy UI!");
+        // For now, we'll combine all layers into one UI context
+        // TODO: In the future, each layer should have its own context and render pass
+        let mut ui_context = crate::ui::UiContext::new(glam::vec2(size.0, size.1));
 
-                ui.space(20.0);
-
-                ui.group_styled(
-                    Some(Srgba::from(named::DARKSLATEGRAY).into_format()),
-                    |ui| {
-                        ui.text("This is a group container");
-                        ui.text("With multiple lines of text");
-
-                        ui.space(10.0);
-
-                        ui.horizontal(|ui| {
-                            // Use palette's named colors
-                            ui.rect(
-                                glam::vec2(50.0, 50.0),
-                                Srgba::from(named::CRIMSON).into_format(),
-                            );
-                            ui.rect(
-                                glam::vec2(50.0, 50.0),
-                                Srgba::from(named::LIMEGREEN).into_format(),
-                            );
-                            ui.rect(
-                                glam::vec2(50.0, 50.0),
-                                Srgba::from(named::DODGERBLUE).into_format(),
-                            );
-                        });
-                    },
-                );
-
-                ui.space(20.0);
-
-                ui.window(
-                    "Example Window",
-                    glam::vec2(400.0, 200.0),
-                    glam::vec2(300.0, 200.0),
-                    |ui| {
-                        ui.text("This is a window!");
-                        ui.text("It has a title bar and content area.");
-                    },
-                );
-            },
-        );
+        // Execute all layer render functions
+        for layer in layers.iter_mut() {
+            layer(&mut ui_context);
+        }
 
         // Create command buffer
         let command_buffer = self.command_queue.new_command_buffer();
 
-        // Render all layers
-        self.layer_manager.render(
-            &mut self.renderer,
+        // For now, render directly without the layer system
+        // TODO: Fix layer system to support borrowed closures or redesign
+        let draw_list = ui_context.draw_list();
+
+        // Render with clear
+        self.renderer.render_draw_list(
+            draw_list,
             &command_buffer,
             &drawable,
-            glam::vec2(size.0, size.1),
+            size,
             &mut self.text_system,
+            metal::MTLLoadAction::Clear,
+            metal::MTLClearColor::new(0.8, 0.8, 0.8, 1.0),
         );
 
         // Present drawable and commit
