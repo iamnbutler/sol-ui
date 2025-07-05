@@ -4,8 +4,8 @@ use objc::{class, msg_send, sel, sel_impl};
 
 // Helper function to create NSString
 unsafe fn ns_string(string: &str) -> id {
-    let str: id = NSString::alloc(nil).init_str(string);
-    msg_send![str, autorelease]
+    let str: id = unsafe { NSString::alloc(nil).init_str(string) };
+    unsafe { msg_send![str, autorelease] }
 }
 
 pub fn create_app_menu() {

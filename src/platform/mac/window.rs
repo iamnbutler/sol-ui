@@ -1,7 +1,7 @@
 use cocoa::base::{NO, YES, id, nil};
 use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
 use core_graphics::geometry::CGSize;
-use metal::Device;
+
 use metal::MetalLayer;
 use objc::declare::ClassDecl;
 use objc::runtime::{BOOL, Class, Object, Sel};
@@ -12,8 +12,8 @@ use std::sync::Arc;
 
 // Helper function to create NSString
 unsafe fn ns_string(string: &str) -> id {
-    let str: id = NSString::alloc(nil).init_str(string);
-    msg_send![str, autorelease]
+    let str: id = unsafe { NSString::alloc(nil).init_str(string) };
+    unsafe { msg_send![str, autorelease] }
 }
 
 #[repr(C)]
@@ -155,11 +155,11 @@ impl Window {
 }
 
 unsafe fn ensure_classes_initialized() {
-    if WINDOW_DELEGATE_CLASS.is_null() {
-        create_window_delegate_class();
+    if unsafe { WINDOW_DELEGATE_CLASS.is_null() } {
+        unsafe { create_window_delegate_class() };
     }
-    if VIEW_CLASS.is_null() {
-        create_view_class();
+    if unsafe { VIEW_CLASS.is_null() } {
+        unsafe { create_view_class() };
     }
 }
 
@@ -172,10 +172,12 @@ unsafe fn create_window_delegate_class() {
         YES
     }
 
-    decl.add_method(
-        sel!(windowShouldClose:),
-        window_should_close as extern "C" fn(&Object, Sel, *mut Object) -> BOOL,
-    );
+    unsafe {
+        decl.add_method(
+            sel!(windowShouldClose:),
+            window_should_close as extern "C" fn(&Object, Sel, *mut Object) -> BOOL,
+        );
+    }
 
     // Add windowWillClose method
     extern "C" fn window_will_close(_: &Object, _: Sel, _: *mut Object) {
@@ -183,12 +185,16 @@ unsafe fn create_window_delegate_class() {
         let _: () = unsafe { msg_send![app, terminate: nil] };
     }
 
-    decl.add_method(
-        sel!(windowWillClose:),
-        window_will_close as extern "C" fn(&Object, Sel, *mut Object),
-    );
+    unsafe {
+        decl.add_method(
+            sel!(windowWillClose:),
+            window_will_close as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
 
-    WINDOW_DELEGATE_CLASS = decl.register();
+    unsafe {
+        WINDOW_DELEGATE_CLASS = decl.register();
+    }
 }
 
 unsafe fn create_view_class() {
@@ -204,17 +210,23 @@ unsafe fn create_view_class() {
         class!(CAMetalLayer)
     }
 
-    decl.add_method(
-        sel!(wantsLayer),
-        wants_layer as extern "C" fn(&Object, Sel) -> BOOL,
-    );
+    unsafe {
+        decl.add_method(
+            sel!(wantsLayer),
+            wants_layer as extern "C" fn(&Object, Sel) -> BOOL,
+        );
+    }
 
-    decl.add_class_method(
-        sel!(layerClass),
-        layer_class as extern "C" fn(&Class, Sel) -> *const Class,
-    );
+    unsafe {
+        decl.add_class_method(
+            sel!(layerClass),
+            layer_class as extern "C" fn(&Class, Sel) -> *const Class,
+        );
+    }
 
-    VIEW_CLASS = decl.register();
+    unsafe {
+        VIEW_CLASS = decl.register();
+    }
 }
 
 // Helper to get shared NSApplication instance

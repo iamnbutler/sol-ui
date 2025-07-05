@@ -15,7 +15,7 @@ pub struct App {
     device: Device,
     command_queue: CommandQueue,
     renderer: MetalRenderer,
-    layer_manager: LayerManager,
+    _layer_manager: LayerManager,
     text_system: TextSystem,
 }
 
@@ -87,7 +87,7 @@ impl AppBuilder {
         }
 
         // Create layer manager
-        let layer_manager = LayerManager::new();
+        let _layer_manager = LayerManager::new();
 
         // Create text system
         let text_system = TextSystem::new(&device).expect("Failed to create text system");
@@ -100,7 +100,7 @@ impl AppBuilder {
             device,
             command_queue,
             renderer,
-            layer_manager,
+            _layer_manager,
             text_system,
         }
     }
