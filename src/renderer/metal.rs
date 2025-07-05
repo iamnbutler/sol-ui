@@ -1,5 +1,5 @@
 use crate::text::{ShapedText, TextSystem};
-use crate::ui::{Color as UiColor, DrawCommand, DrawList, FrameStyle, Rect};
+use crate::ui::{Color as UiColor, DrawCommand, DrawList, Fill, FrameStyle, Rect};
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
@@ -23,9 +23,16 @@ struct FrameUniforms {
     half_size: [f32; 2],
     radii: [f32; 4], // top_left, top_right, bottom_right, bottom_left
     border_width: f32,
-    _padding: [f32; 3], // Padding to align to 16 bytes
-    background_color: [f32; 4],
+    fill_type: u32,      // 0 = solid, 1 = linear gradient, 2 = radial gradient
+    gradient_angle: f32, // For linear gradient
+    _padding: f32,       // Padding to align to 16 bytes
+    color1: [f32; 4],    // Solid color or gradient start/center
+    color2: [f32; 4],    // Gradient end/edge (unused for solid)
     border_color: [f32; 4],
+    shadow_offset: [f32; 2],
+    shadow_blur: f32,
+    _padding2: f32,
+    shadow_color: [f32; 4],
 }
 
 pub struct MetalRenderer {
@@ -108,8 +115,16 @@ impl MetalRenderer {
                 float2 half_size;
                 float4 radii; // top_left, top_right, bottom_right, bottom_left
                 float border_width;
-                float4 background_color;
+                uint fill_type; // 0 = solid, 1 = linear gradient, 2 = radial gradient
+                float gradient_angle;
+                float _padding;
+                float4 color1; // Solid color or gradient start/center
+                float4 color2; // Gradient end/edge
                 float4 border_color;
+                float2 shadow_offset;
+                float shadow_blur;
+                float _padding2;
+                float4 shadow_color;
             };
 
             float sdRoundedRect(float2 p, float2 half_size, float4 radii) {
@@ -132,8 +147,27 @@ impl MetalRenderer {
 
             fragment float4 frame_fragment_main(VertexOut in [[stage_in]],
                                               constant FrameUniforms& uniforms [[buffer(0)]]) {
-                // Convert from NDC to pixel coordinates relative to frame center
-                float2 p = in.tex_coord * uniforms.half_size * 2.0 - uniforms.half_size;
+                // Convert from texture coordinates to local space coordinates
+                // tex_coord can be outside 0-1 range due to shadow expansion
+                // Map (0,0)-(1,1) to (-half_size, +half_size) in frame space
+                float2 normalized = in.tex_coord;
+                float2 p = (normalized - float2(0.5, 0.5)) * uniforms.half_size * 2.0;
+
+                // Shadow calculation (behind the main shape)
+                float shadow_alpha = 0.0;
+                if (uniforms.shadow_color.a > 0.0) {
+                    float2 shadow_p = p - uniforms.shadow_offset;
+                    float shadow_d = sdRoundedRect(shadow_p, uniforms.half_size, uniforms.radii);
+
+                    // Handle both hard and soft shadows
+                    if (uniforms.shadow_blur > 0.0) {
+                        // Soft shadow using blur
+                        shadow_alpha = uniforms.shadow_color.a * (1.0 - smoothstep(-uniforms.shadow_blur, uniforms.shadow_blur, shadow_d));
+                    } else {
+                        // Hard shadow (0 blur)
+                        shadow_alpha = (shadow_d <= 0.0) ? uniforms.shadow_color.a : 0.0;
+                    }
+                }
 
                 float d = sdRoundedRect(p, uniforms.half_size, uniforms.radii);
 
@@ -143,15 +177,36 @@ impl MetalRenderer {
                 // Fill mask
                 float fill_mask = 1.0 - smoothstep(-aa, aa, d);
 
+                // Calculate fill color based on fill type
+                float4 fill_color = uniforms.color1;
+                if (uniforms.fill_type == 1) { // Linear gradient
+                    // Calculate gradient coordinate
+                    float2 gradient_dir = float2(cos(uniforms.gradient_angle), sin(uniforms.gradient_angle));
+                    float t = dot(p, gradient_dir) / dot(uniforms.half_size * 2.0, abs(gradient_dir));
+                    t = (t + 1.0) * 0.5; // Normalize to 0-1
+                    fill_color = mix(uniforms.color1, uniforms.color2, t);
+                } else if (uniforms.fill_type == 2) { // Radial gradient
+                    float t = length(p) / length(uniforms.half_size);
+                    fill_color = mix(uniforms.color1, uniforms.color2, smoothstep(0.0, 1.0, t));
+                }
+
                 // Border mask (only if border width > 0)
-                float4 color = uniforms.background_color;
+                float4 color = fill_color;
                 if (uniforms.border_width > 0.0) {
                     float border_inner = d + uniforms.border_width;
                     float border_mask = smoothstep(-aa, aa, border_inner) * fill_mask;
-                    color = mix(uniforms.background_color, uniforms.border_color, border_mask);
+                    color = mix(fill_color, uniforms.border_color, border_mask);
                 }
 
-                return float4(color.rgb, color.a * fill_mask);
+                // Apply fill mask to color
+                color.a *= fill_mask;
+
+                // Composite frame over shadow using proper alpha blending
+                // out_color = shadow_color * (1 - frame_alpha) + frame_color
+                float3 final_rgb = uniforms.shadow_color.rgb * shadow_alpha * (1.0 - color.a) + color.rgb * color.a;
+                float final_alpha = shadow_alpha * (1.0 - color.a) + color.a;
+
+                return float4(final_rgb, final_alpha);
             }
         "#;
 
@@ -494,47 +549,74 @@ impl MetalRenderer {
     }
 
     /// Convert a frame rect to vertices with texture coordinates for SDF rendering
-    fn frame_to_vertices(&self, rect: &Rect, screen_size: (f32, f32)) -> [Vertex; 6] {
-        // Convert to clip space (-1 to 1)
-        let x1 = (rect.pos.x / screen_size.0) * 2.0 - 1.0;
-        let y1 = 1.0 - (rect.pos.y / screen_size.1) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x) / screen_size.0) * 2.0 - 1.0;
-        let y2 = 1.0 - ((rect.pos.y + rect.size.y) / screen_size.1) * 2.0;
+    fn frame_to_vertices(
+        &self,
+        rect: &Rect,
+        style: &FrameStyle,
+        screen_size: (f32, f32),
+    ) -> [Vertex; 6] {
+        // Expand bounds for shadow if present
+        let (shadow_expand_left, shadow_expand_right, shadow_expand_top, shadow_expand_bottom) =
+            if let Some(shadow) = &style.shadow {
+                // Expand by blur radius plus offset to ensure shadow is fully visible
+                let blur = shadow.blur;
+                (
+                    blur - shadow.offset.x.min(0.0), // left expansion
+                    blur + shadow.offset.x.max(0.0), // right expansion
+                    blur - shadow.offset.y.min(0.0), // top expansion
+                    blur + shadow.offset.y.max(0.0), // bottom expansion
+                )
+            } else {
+                (0.0, 0.0, 0.0, 0.0)
+            };
+
+        // Convert to clip space (-1 to 1) with shadow expansion
+        let x1 = ((rect.pos.x - shadow_expand_left) / screen_size.0) * 2.0 - 1.0;
+        let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) / screen_size.1) * 2.0;
+        let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) / screen_size.0) * 2.0 - 1.0;
+        let y2 = 1.0 - ((rect.pos.y + rect.size.y + shadow_expand_bottom) / screen_size.1) * 2.0;
 
         // For frames, we use a dummy color since actual colors come from uniforms
         let color_array = [1.0, 1.0, 1.0, 1.0];
 
-        // Texture coordinates map from 0 to 1 across the rect for SDF calculation
+        // Calculate texture coordinates that map the expanded bounds correctly
+        // We need to map so that the original rect bounds are at the correct position
+        let u0 = -shadow_expand_left / rect.size.x;
+        let v0 = -shadow_expand_top / rect.size.y;
+        let u1 = 1.0 + shadow_expand_right / rect.size.x;
+        let v1 = 1.0 + shadow_expand_bottom / rect.size.y;
+
+        // Texture coordinates that account for shadow expansion
         [
             Vertex {
                 position: [x1, y1],
                 color: color_array,
-                tex_coord: [0.0, 0.0],
+                tex_coord: [u0, v0],
             },
             Vertex {
                 position: [x2, y1],
                 color: color_array,
-                tex_coord: [1.0, 0.0],
+                tex_coord: [u1, v0],
             },
             Vertex {
                 position: [x1, y2],
                 color: color_array,
-                tex_coord: [0.0, 1.0],
+                tex_coord: [u0, v1],
             },
             Vertex {
                 position: [x2, y1],
                 color: color_array,
-                tex_coord: [1.0, 0.0],
+                tex_coord: [u1, v0],
             },
             Vertex {
                 position: [x2, y2],
                 color: color_array,
-                tex_coord: [1.0, 1.0],
+                tex_coord: [u1, v1],
             },
             Vertex {
                 position: [x1, y2],
                 color: color_array,
-                tex_coord: [0.0, 1.0],
+                tex_coord: [u0, v1],
             },
         ]
     }
@@ -604,10 +686,47 @@ impl MetalRenderer {
 
             for (rect, style) in frames {
                 // Create frame vertices with proper texture coordinates for SDF
-                let vertices = self.frame_to_vertices(&rect, screen_size);
+                let vertices = self.frame_to_vertices(&rect, &style, screen_size);
                 let buffer = self.create_vertex_buffer(&vertices);
 
                 // Create uniforms
+                let (fill_type, color1, color2, gradient_angle) = match &style.fill {
+                    Fill::Solid(color) => (
+                        0,
+                        [color.red, color.green, color.blue, color.alpha],
+                        [0.0; 4],
+                        0.0,
+                    ),
+                    Fill::LinearGradient { start, end, angle } => (
+                        1,
+                        [start.red, start.green, start.blue, start.alpha],
+                        [end.red, end.green, end.blue, end.alpha],
+                        *angle,
+                    ),
+                    Fill::RadialGradient { center, edge } => (
+                        2,
+                        [center.red, center.green, center.blue, center.alpha],
+                        [edge.red, edge.green, edge.blue, edge.alpha],
+                        0.0,
+                    ),
+                };
+
+                let (shadow_offset, shadow_blur, shadow_color) = if let Some(shadow) = &style.shadow
+                {
+                    (
+                        [shadow.offset.x, shadow.offset.y],
+                        shadow.blur,
+                        [
+                            shadow.color.red,
+                            shadow.color.green,
+                            shadow.color.blue,
+                            shadow.color.alpha,
+                        ],
+                    )
+                } else {
+                    ([0.0; 2], 0.0, [0.0; 4])
+                };
+
                 let uniforms = FrameUniforms {
                     center: [
                         rect.pos.x + rect.size.x * 0.5,
@@ -621,19 +740,21 @@ impl MetalRenderer {
                         style.corner_radii.bottom_left,
                     ],
                     border_width: style.border_width,
-                    _padding: [0.0; 3],
-                    background_color: [
-                        style.background.red,
-                        style.background.green,
-                        style.background.blue,
-                        style.background.alpha,
-                    ],
+                    fill_type,
+                    gradient_angle,
+                    _padding: 0.0,
+                    color1,
+                    color2,
                     border_color: [
                         style.border_color.red,
                         style.border_color.green,
                         style.border_color.blue,
                         style.border_color.alpha,
                     ],
+                    shadow_offset,
+                    shadow_blur,
+                    _padding2: 0.0,
+                    shadow_color,
                 };
 
                 // Create uniforms buffer

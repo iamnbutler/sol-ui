@@ -131,26 +131,63 @@ impl CornerRadii {
     }
 }
 
+/// Shadow properties for frames
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shadow {
+    /// Offset in pixels (x, y)
+    pub offset: Vec2,
+    /// Blur radius in pixels
+    pub blur: f32,
+    /// Shadow color
+    pub color: Color,
+}
+
+/// Background fill type for frames
+#[derive(Debug, Clone, PartialEq)]
+pub enum Fill {
+    /// Solid color fill
+    Solid(Color),
+    /// Linear gradient fill
+    LinearGradient {
+        /// Start color
+        start: Color,
+        /// End color
+        end: Color,
+        /// Angle in radians (0 = left to right, PI/2 = bottom to top)
+        angle: f32,
+    },
+    /// Radial gradient fill
+    RadialGradient {
+        /// Center color
+        center: Color,
+        /// Edge color
+        edge: Color,
+    },
+}
+
 /// Frame styling information for SDF-based rendering
 #[derive(Debug, Clone, PartialEq)]
 pub struct FrameStyle {
-    /// Background color of the frame
-    pub background: Color,
+    /// Background fill of the frame
+    pub fill: Fill,
     /// Border width in pixels (0 for no border)
     pub border_width: f32,
     /// Border color
     pub border_color: Color,
     /// Corner radii
     pub corner_radii: CornerRadii,
+    /// Optional shadow
+    pub shadow: Option<Shadow>,
 }
 
 impl Default for FrameStyle {
     fn default() -> Self {
         Self {
-            background: colors::WHITE,
+            fill: Fill::Solid(colors::WHITE),
             border_width: 0.0,
             border_color: colors::BLACK,
             corner_radii: CornerRadii::uniform(0.0),
+            shadow: None,
         }
     }
 }
@@ -161,9 +198,21 @@ impl FrameStyle {
         Self::default()
     }
 
-    /// Set the background color
+    /// Set a solid background color
     pub fn with_background(mut self, color: Color) -> Self {
-        self.background = color;
+        self.fill = Fill::Solid(color);
+        self
+    }
+
+    /// Set a linear gradient background
+    pub fn with_linear_gradient(mut self, start: Color, end: Color, angle: f32) -> Self {
+        self.fill = Fill::LinearGradient { start, end, angle };
+        self
+    }
+
+    /// Set a radial gradient background
+    pub fn with_radial_gradient(mut self, center: Color, edge: Color) -> Self {
+        self.fill = Fill::RadialGradient { center, edge };
         self
     }
 
@@ -183,6 +232,16 @@ impl FrameStyle {
     /// Set individual corner radii
     pub fn with_corner_radii(mut self, radii: CornerRadii) -> Self {
         self.corner_radii = radii;
+        self
+    }
+
+    /// Add a shadow to the frame
+    pub fn with_shadow(mut self, offset: Vec2, blur: f32, color: Color) -> Self {
+        self.shadow = Some(Shadow {
+            offset,
+            blur,
+            color,
+        });
         self
     }
 }
@@ -316,9 +375,15 @@ impl DrawList {
     /// Add an SDF frame to the draw list
     pub fn add_frame(&mut self, rect: Rect, style: FrameStyle) {
         // Skip if completely transparent
-        if style.background.alpha <= 0.0
-            && (style.border_width <= 0.0 || style.border_color.alpha <= 0.0)
-        {
+        let has_visible_fill = match &style.fill {
+            Fill::Solid(color) => color.alpha > 0.0,
+            Fill::LinearGradient { start, end, .. } => start.alpha > 0.0 || end.alpha > 0.0,
+            Fill::RadialGradient { center, edge } => center.alpha > 0.0 || edge.alpha > 0.0,
+        };
+        let has_visible_border = style.border_width > 0.0 && style.border_color.alpha > 0.0;
+        let has_visible_shadow = style.shadow.as_ref().map_or(false, |s| s.color.alpha > 0.0);
+
+        if !has_visible_fill && !has_visible_border && !has_visible_shadow {
             return;
         }
 

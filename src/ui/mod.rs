@@ -4,8 +4,8 @@ mod id;
 
 pub use context::UiContext;
 pub use draw::{
-    Color, ColorExt, CornerRadii, DrawCommand, DrawList, DrawListPos, FrameStyle, Rect, TextStyle,
-    colors,
+    Color, ColorExt, CornerRadii, DrawCommand, DrawList, DrawListPos, Fill, FrameStyle, Rect,
+    Shadow, TextStyle, colors,
 };
 pub use id::{IdStack, WidgetId};
 
