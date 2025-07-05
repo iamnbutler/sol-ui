@@ -28,7 +28,7 @@ palette = "0.7.6"    # For colors
 
 ```rust
 use toy_ui::{app, ui::UiContext};
-use palette::{Srgba, named};
+use palette::Srgba;
 
 fn main() {
     app()
@@ -44,11 +44,11 @@ fn main() {
             ui.horizontal(|ui| {
                 ui.rect(
                     glam::vec2(50.0, 50.0),
-                    Srgba::from(named::RED).into_format(),
+                    Srgba::new(1.0, 0.0, 0.0, 1.0), // Red
                 );
                 ui.rect(
                     glam::vec2(50.0, 50.0),
-                    Srgba::from(named::GREEN).into_format(),
+                    Srgba::new(0.0, 1.0, 0.0, 1.0), // Green
                 );
             });
         })

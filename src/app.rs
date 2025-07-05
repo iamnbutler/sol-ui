@@ -1,4 +1,4 @@
-use crate::layer::{LayerManager, LayerOptions};
+use crate::layer::LayerManager;
 use crate::platform::{Window, create_app_menu};
 use crate::renderer::MetalRenderer;
 use crate::text::TextSystem;
@@ -125,35 +125,45 @@ impl App {
         // Get window size
         let size = self.window.size();
 
-        // Clear layers from previous frame
-        self.layer_manager.clear();
-
-        // For now, we'll combine all layers into one UI context
-        // TODO: In the future, each layer should have its own context and render pass
-        let mut ui_context = crate::ui::UiContext::new(glam::vec2(size.0, size.1));
-
-        // Execute all layer render functions
-        for layer in layers.iter_mut() {
-            layer(&mut ui_context);
-        }
-
         // Create command buffer
         let command_buffer = self.command_queue.new_command_buffer();
 
-        // For now, render directly without the layer system
-        // TODO: Fix layer system to support borrowed closures or redesign
-        let draw_list = ui_context.draw_list();
+        // Render each layer directly
+        for (index, layer_fn) in layers.iter_mut().enumerate() {
+            // Create a new UI context for this layer
+            let mut ui_context = crate::ui::UiContext::new(glam::vec2(size.0, size.1));
 
-        // Render with clear
-        self.renderer.render_draw_list(
-            draw_list,
-            &command_buffer,
-            &drawable,
-            size,
-            &mut self.text_system,
-            metal::MTLLoadAction::Clear,
-            metal::MTLClearColor::new(0.8, 0.8, 0.8, 1.0),
-        );
+            // Execute the layer's render function
+            layer_fn(&mut ui_context);
+
+            // Get the draw list
+            let draw_list = ui_context.draw_list();
+
+            // Determine load action and clear color
+            // First layer clears, others load existing content
+            let (load_action, clear_color) = if index == 0 {
+                (
+                    metal::MTLLoadAction::Clear,
+                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 1.0),
+                )
+            } else {
+                (
+                    metal::MTLLoadAction::Load,
+                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
+                )
+            };
+
+            // Render this layer's draw list
+            self.renderer.render_draw_list(
+                draw_list,
+                &command_buffer,
+                &drawable,
+                size,
+                &mut self.text_system,
+                load_action,
+                clear_color,
+            );
+        }
 
         // Present drawable and commit
         command_buffer.present_drawable(&drawable);
