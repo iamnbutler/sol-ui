@@ -88,6 +88,7 @@ pub trait Layer: Any {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
+        scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     );
@@ -166,6 +167,7 @@ where
         command_buffer: &CommandBufferRef,
         _drawable: &metal::MetalDrawableRef,
         size: Vec2,
+        _scale_factor: f32,
         _text_system: &mut crate::text_system::TextSystem,
         _is_first_layer: bool,
     ) {
@@ -220,6 +222,7 @@ where
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
+        scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
@@ -246,6 +249,7 @@ where
             command_buffer,
             drawable,
             (size.x, size.y),
+            scale_factor,
             text_system,
             load_action,
             clear_color,
@@ -305,15 +309,16 @@ impl LayerManager {
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
         text_system: &mut crate::text_system::TextSystem,
+        scale_factor: f32,
     ) {
         for (index, layer) in self.layers.iter_mut().enumerate() {
             let is_first_layer = index == 0;
-            // TODO: Set up blend mode based on layer options
             layer.render(
                 renderer,
                 command_buffer,
                 drawable,
                 size,
+                scale_factor,
                 text_system,
                 is_first_layer,
             );

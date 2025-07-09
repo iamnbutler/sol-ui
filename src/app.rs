@@ -122,8 +122,9 @@ impl App {
             }
         };
 
-        // Get window size
+        // Get window size and scale factor
         let size = self.window.size();
+        let scale_factor = self.window.scale_factor();
 
         // Create command buffer
         let command_buffer = self.command_queue.new_command_buffer();
@@ -159,6 +160,7 @@ impl App {
                 &command_buffer,
                 &drawable,
                 size,
+                scale_factor,
                 &mut self.text_system,
                 load_action,
                 clear_color,

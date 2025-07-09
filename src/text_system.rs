@@ -312,6 +312,7 @@ impl TextSystem {
         text: &str,
         config: &TextConfig,
         max_width: Option<f32>,
+        scale_factor: f32,
     ) -> Vec2 {
         if text.is_empty() {
             return Vec2::ZERO;
@@ -321,7 +322,7 @@ impl TextSystem {
         let mut builder = self.layout_context.ranged_builder(
             &mut self.font_context,
             text,
-            1.0,   // scale
+            scale_factor,
             false, // no pixel snapping for measurement
         );
 
@@ -347,6 +348,7 @@ impl TextSystem {
         text: &str,
         config: &TextConfig,
         max_width: Option<f32>,
+        scale_factor: f32,
     ) -> Result<ShapedText, String> {
         if text.is_empty() {
             return Ok(ShapedText {
@@ -359,7 +361,7 @@ impl TextSystem {
         let mut builder = self.layout_context.ranged_builder(
             &mut self.font_context,
             text,
-            1.0,  // scale
+            scale_factor,
             true, // pixel snapping
         );
 

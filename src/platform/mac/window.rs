@@ -86,11 +86,15 @@ impl Window {
         let layer = MetalLayer::new();
         layer.set_device(device);
         layer.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
-        layer.set_contents_scale(2.0); // Retina display
+
+        // Get the actual backing scale factor from the window
+        let scale_factor: f64 = unsafe { msg_send![ns_window, backingScaleFactor] };
+        layer.set_contents_scale(scale_factor);
+
         layer.set_opaque(true);
         layer.set_presents_with_transaction(false);
         layer.set_framebuffer_only(true);
-        layer.set_drawable_size(CGSize::new(width * 2.0, height * 2.0)); // Account for retina
+        layer.set_drawable_size(CGSize::new(width * scale_factor, height * scale_factor));
         let _: () = unsafe { msg_send![layer.as_ref(), setFrame: content_rect] };
 
         // Configure additional layer properties for better performance
@@ -151,6 +155,11 @@ impl Window {
         // Check if window is still valid
         let is_visible: BOOL = unsafe { msg_send![self.ns_window, isVisible] };
         is_visible == YES
+    }
+
+    pub fn scale_factor(&self) -> f32 {
+        let scale: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
+        scale as f32
     }
 }
 
