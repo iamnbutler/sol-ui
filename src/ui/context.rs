@@ -1,4 +1,6 @@
-use super::{Color, ColorExt, DrawList, FrameStyle, IdStack, Rect, TextStyle, WidgetId, colors};
+use crate::color::{Color, ColorExt, colors::WHITE};
+
+use super::{DrawList, FrameStyle, IdStack, Rect, TextStyle, WidgetId};
 use glam::Vec2;
 
 /// The main context for immediate mode UI
@@ -360,7 +362,7 @@ impl UiContext {
             title,
             TextStyle {
                 size: 16.0,
-                color: colors::WHITE,
+                color: WHITE,
             },
         );
 

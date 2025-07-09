@@ -1,5 +1,6 @@
+use crate::color::Color as UiColor;
 use crate::text::{ShapedText, TextSystem};
-use crate::ui::{Color as UiColor, DrawCommand, DrawList, Fill, FrameStyle, Rect};
+use crate::ui::{DrawCommand, DrawList, Fill, FrameStyle, Rect};
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,

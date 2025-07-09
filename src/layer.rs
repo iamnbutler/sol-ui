@@ -1,4 +1,4 @@
-use crate::renderer::MetalRenderer;
+use crate::metal_renderer::MetalRenderer;
 use crate::ui::UiContext;
 use glam::Vec2;
 use metal::CommandBufferRef;

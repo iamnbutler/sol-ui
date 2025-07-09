@@ -1,6 +1,6 @@
 use crate::layer::LayerManager;
+use crate::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
-use crate::renderer::MetalRenderer;
 use crate::text::TextSystem;
 use crate::ui::UiContext;
 

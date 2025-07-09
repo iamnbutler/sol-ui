@@ -6,7 +6,7 @@ pub use atlas::{GlyphAtlas, GlyphInfo};
 pub use font::{FontManager, FontSpec, FontStyle};
 pub use shaper::{ShapedText, TextShaper};
 
-use crate::ui::Color;
+use crate::color::Color;
 use glam::Vec2;
 
 /// Text rendering configuration

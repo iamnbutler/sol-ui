@@ -2,9 +2,10 @@
 // todo: remove these
 #![allow(deprecated)]
 pub mod app;
+pub mod color;
 pub mod layer;
+pub mod metal_renderer;
 pub mod platform;
-pub mod renderer;
 pub mod text;
 pub mod ui;
 
