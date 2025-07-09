@@ -153,3 +153,80 @@ mod tests {
         assert_eq!(contracted.size, Vec2::new(80.0, 80.0));
     }
 }
+
+/// Corner radii for rounded rectangles
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub struct Corners {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_right: f32,
+    pub bottom_left: f32,
+}
+
+impl Corners {
+    /// Create corners with all the same radius
+    pub fn all(radius: f32) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_right: radius,
+            bottom_left: radius,
+        }
+    }
+
+    /// Create corners with no radius (square corners)
+    pub fn zero() -> Self {
+        Self::default()
+    }
+}
+
+/// Edge values (for borders, padding, margins, etc.)
+#[derive(Clone, Copy, Default, Debug, PartialEq)]
+pub struct Edges {
+    pub top: f32,
+    pub right: f32,
+    pub bottom: f32,
+    pub left: f32,
+}
+
+impl Edges {
+    /// Create edges with all the same value
+    pub fn all(value: f32) -> Self {
+        Self {
+            top: value,
+            right: value,
+            bottom: value,
+            left: value,
+        }
+    }
+
+    /// Create edges with no value
+    pub fn zero() -> Self {
+        Self::default()
+    }
+
+    /// Create edges with horizontal and vertical values
+    pub fn xy(horizontal: f32, vertical: f32) -> Self {
+        Self {
+            top: vertical,
+            right: horizontal,
+            bottom: vertical,
+            left: horizontal,
+        }
+    }
+
+    /// Get the total horizontal size (left + right)
+    pub fn horizontal(&self) -> f32 {
+        self.left + self.right
+    }
+
+    /// Get the total vertical size (top + bottom)
+    pub fn vertical(&self) -> f32 {
+        self.top + self.bottom
+    }
+
+    /// Get the total size as a Vec2
+    pub fn size(&self) -> Vec2 {
+        Vec2::new(self.horizontal(), self.vertical())
+    }
+}

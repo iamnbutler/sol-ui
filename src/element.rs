@@ -1,162 +1,190 @@
-//! Element identification and hierarchy management
+//! Two-phase element rendering system
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use crate::color::Color;
+use crate::draw::{DrawList, TextStyle};
+use crate::geometry::Edges;
+use crate::geometry::Rect;
+use crate::layout_engine::{ElementData, TaffyLayoutEngine};
+use crate::paint::{PaintQuad, PaintShadow, PaintText};
+use crate::text_system::TextSystem;
+use glam::Vec2;
+use taffy::prelude::*;
 
-/// A unique identifier for an element in the UI system.
-///
-/// IDs are generated based on the element's location in the code and optional user data.
-/// This allows elements to maintain state across frames while being created dynamically.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct ElementId(u64);
+/// Elements participate in a two-phase rendering process
+pub trait Element {
+    /// Phase 1: Declare layout requirements and return a layout id
+    fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId;
 
-impl ElementId {
-    /// Create a new element ID from a source location.
-    /// This is typically used with the `element_id!()` macro.
-    pub fn from_source_location(file: &str, line: u32, column: u32) -> Self {
-        let mut hasher = DefaultHasher::new();
-        file.hash(&mut hasher);
-        line.hash(&mut hasher);
-        column.hash(&mut hasher);
-        Self(hasher.finish())
+    /// Phase 2: Paint using the computed bounds
+    fn paint(&mut self, bounds: Rect, ctx: &mut PaintContext);
+}
+
+/// Context for the layout phase
+pub struct LayoutContext<'a> {
+    pub(crate) engine: &'a mut TaffyLayoutEngine,
+    pub(crate) text_system: &'a mut TextSystem,
+    pub(crate) scale_factor: f32,
+}
+
+impl<'a> LayoutContext<'a> {
+    /// Request layout for a leaf node (no children)
+    pub fn request_layout(&mut self, style: Style) -> NodeId {
+        self.engine.request_layout(style, &[])
     }
 
-    /// Create an element ID with additional user data.
-    /// Useful for elements in loops or dynamic lists.
-    pub fn with_data<T: Hash>(self, data: T) -> Self {
-        let mut hasher = DefaultHasher::new();
-        self.0.hash(&mut hasher);
-        data.hash(&mut hasher);
-        Self(hasher.finish())
+    /// Request layout with children
+    pub fn request_layout_with_children(&mut self, style: Style, children: &[NodeId]) -> NodeId {
+        self.engine.request_layout(style, children)
     }
 
-    /// Combine this ID with a child index.
-    /// Used internally for nested elements.
-    pub fn with_index(self, index: usize) -> Self {
-        self.with_data(index)
+    /// Request layout for a text element that needs measuring
+    pub fn request_text_layout(
+        &mut self,
+        style: Style,
+        text: &str,
+        text_style: &TextStyle,
+    ) -> NodeId {
+        // Store text data for measurement
+        let data = ElementData {
+            text: Some((text.to_string(), text_style.clone())),
+            background: None,
+        };
+        self.engine.request_layout_with_data(style, data, &[])
     }
 
-    /// Get the raw hash value.
-    pub fn as_u64(&self) -> u64 {
-        self.0
+    /// Request layout with custom data
+    pub fn request_layout_with_data(
+        &mut self,
+        style: Style,
+        data: ElementData,
+        children: &[NodeId],
+    ) -> NodeId {
+        self.engine.request_layout_with_data(style, data, children)
+    }
+
+    /// Measure text (for use during layout)
+    pub fn measure_text(&mut self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Vec2 {
+        let text_config = crate::text_system::TextConfig {
+            font_stack: parley::FontStack::from("system-ui"),
+            size: style.size,
+            weight: parley::FontWeight::NORMAL,
+            color: style.color.clone(),
+            line_height: 1.2,
+        };
+
+        self.text_system
+            .measure_text(text, &text_config, max_width, self.scale_factor)
     }
 }
 
-/// Stack-based ID generation for hierarchical elements.
-pub struct IdStack {
-    stack: Vec<ElementId>,
-    current_child_index: Vec<usize>,
+/// Context for the paint phase
+pub struct PaintContext<'a> {
+    pub(crate) draw_list: &'a mut DrawList,
+    pub(crate) text_system: &'a mut TextSystem,
+    pub(crate) layout_engine: &'a TaffyLayoutEngine,
+    pub(crate) scale_factor: f32,
+    pub(crate) parent_offset: Vec2,
 }
 
-impl IdStack {
-    pub fn new() -> Self {
-        Self {
-            stack: vec![ElementId(0)], // Root ID
-            current_child_index: vec![0],
+impl<'a> PaintContext<'a> {
+    /// Paint a quad with all its properties
+    pub fn paint_quad(&mut self, quad: PaintQuad) {
+        // For now, just handle the fill
+        // TODO: Handle borders, corner radii, etc.
+        self.draw_list.add_rect(quad.bounds, quad.fill);
+
+        // Paint borders if present
+        if quad.border_widths != Edges::zero()
+            && quad.border_color != crate::color::colors::TRANSPARENT
+        {
+            // Top edge
+            if quad.border_widths.top > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos,
+                        Vec2::new(quad.bounds.size.x, quad.border_widths.top),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Bottom edge
+            if quad.border_widths.bottom > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos
+                            + Vec2::new(0.0, quad.bounds.size.y - quad.border_widths.bottom),
+                        Vec2::new(quad.bounds.size.x, quad.border_widths.bottom),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Left edge
+            if quad.border_widths.left > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos,
+                        Vec2::new(quad.border_widths.left, quad.bounds.size.y),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Right edge
+            if quad.border_widths.right > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos
+                            + Vec2::new(quad.bounds.size.x - quad.border_widths.right, 0.0),
+                        Vec2::new(quad.border_widths.right, quad.bounds.size.y),
+                    ),
+                    quad.border_color,
+                );
+            }
         }
     }
 
-    /// Push a new ID onto the stack.
-    pub fn push(&mut self, base_id: ElementId) {
-        let parent = self.stack.last().unwrap();
-        let child_index = self.current_child_index.last_mut().unwrap();
-
-        // Combine parent ID with child index and base ID
-        let combined_id = parent.with_index(*child_index).with_data(base_id.0);
-
-        *child_index += 1;
-
-        self.stack.push(combined_id);
-        self.current_child_index.push(0);
+    /// Paint text
+    pub fn paint_text(&mut self, text: PaintText) {
+        self.draw_list
+            .add_text(text.position, &text.text, text.style);
     }
 
-    /// Pop the current ID from the stack.
-    pub fn pop(&mut self) {
-        if self.stack.len() > 1 {
-            self.stack.pop();
-            self.current_child_index.pop();
+    /// Paint a shadow
+    pub fn paint_shadow(&mut self, _shadow: PaintShadow) {
+        // TODO: Add shadow support to draw list
+        // For now this is a no-op
+    }
+
+    /// Helper to create a simple filled quad
+    pub fn paint_solid_quad(&mut self, bounds: Rect, color: Color) {
+        self.paint_quad(PaintQuad::filled(bounds, color));
+    }
+
+    /// Check if a rect is visible (for culling)
+    pub fn is_visible(&self, rect: &Rect) -> bool {
+        if let Some(viewport) = self.draw_list.viewport() {
+            viewport.intersect(rect).is_some()
+        } else {
+            true
         }
     }
 
-    /// Get the current ID.
-    pub fn current(&self) -> ElementId {
-        *self.stack.last().unwrap()
+    /// Get the computed bounds for a node
+    pub fn get_bounds(&self, node_id: NodeId) -> Rect {
+        let local_bounds = self.layout_engine.layout_bounds(node_id);
+        Rect::from_pos_size(self.parent_offset + local_bounds.pos, local_bounds.size)
     }
 
-    /// Reset child counter for the current level.
-    /// Called at the start of each frame for each level.
-    pub fn reset_child_counter(&mut self) {
-        if let Some(counter) = self.current_child_index.last_mut() {
-            *counter = 0;
+    /// Create a child paint context with updated offset
+    pub fn child_context(&mut self, offset: Vec2) -> PaintContext {
+        PaintContext {
+            draw_list: self.draw_list,
+            text_system: self.text_system,
+            layout_engine: self.layout_engine,
+            scale_factor: self.scale_factor,
+            parent_offset: self.parent_offset + offset,
         }
-    }
-}
-
-/// Macro to generate an element ID from the current source location.
-#[macro_export]
-macro_rules! element_id {
-    () => {
-        $crate::element::ElementId::from_source_location(file!(), line!(), column!())
-    };
-    ($data:expr) => {
-        $crate::element::ElementId::from_source_location(file!(), line!(), column!())
-            .with_data($data)
-    };
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_element_id_equality() {
-        let id1 = ElementId::from_source_location("test.rs", 10, 5);
-        let id2 = ElementId::from_source_location("test.rs", 10, 5);
-        let id3 = ElementId::from_source_location("test.rs", 11, 5);
-
-        assert_eq!(id1, id2);
-        assert_ne!(id1, id3);
-    }
-
-    #[test]
-    fn test_element_id_with_data() {
-        let base = ElementId::from_source_location("test.rs", 10, 5);
-        let id1 = base.with_data(1);
-        let id2 = base.with_data(2);
-
-        assert_ne!(id1, id2);
-        assert_ne!(id1, base);
-    }
-
-    #[test]
-    fn test_id_stack() {
-        let mut stack = IdStack::new();
-        let id1 = ElementId::from_source_location("test.rs", 10, 5);
-
-        stack.push(id1);
-        let stacked_id1 = stack.current();
-
-        stack.push(id1); // Same base ID but different position in hierarchy
-        let stacked_id2 = stack.current();
-
-        assert_ne!(stacked_id1, stacked_id2);
-    }
-
-    #[test]
-    fn test_id_stack_hierarchy() {
-        let mut stack = IdStack::new();
-
-        // First child
-        let id1 = ElementId::from_source_location("test.rs", 10, 5);
-        stack.push(id1);
-        let first_child = stack.current();
-
-        // Second child at same level
-        stack.pop();
-        stack.push(id1);
-        let second_child = stack.current();
-
-        // These should be different because they have different child indices
-        assert_ne!(first_child, second_child);
     }
 }

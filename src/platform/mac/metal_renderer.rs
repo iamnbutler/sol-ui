@@ -1,7 +1,8 @@
-use crate::color::Color as UiColor;
+use crate::color::Color;
 use crate::draw::{DrawCommand, DrawList, Fill, FrameStyle};
 use crate::geometry::Rect;
 use crate::text_system::{ShapedText, TextSystem};
+use glam::Vec2;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
@@ -68,17 +69,9 @@ impl MetalRenderer {
         // Create pipeline states
         let start = Instant::now();
         self.pipeline_state = Some(self.create_pipeline_state(&library)?);
-        info!("Pipeline state created in {:?}", start.elapsed());
-
-        let start = Instant::now();
         self.text_pipeline_state = Some(self.create_text_pipeline_state(&library)?);
-        info!("Text pipeline state created in {:?}", start.elapsed());
-
-        let start = Instant::now();
         self.frame_pipeline_state = Some(self.create_frame_pipeline_state(&library)?);
-        info!("Frame pipeline state created in {:?}", start.elapsed());
 
-        info!("Total renderer initialization: {:?}", total_start.elapsed());
         Ok(())
     }
 
@@ -401,9 +394,10 @@ impl MetalRenderer {
         &self,
         position: glam::Vec2,
         shaped_text: &ShapedText,
-        color: &UiColor,
+        color: &Color,
         text_system: &TextSystem,
         screen_size: (f32, f32),
+        scale_factor: f32,
     ) -> Vec<Vertex> {
         let mut vertices = Vec::new();
         let color_array = [color.red, color.green, color.blue, color.alpha];
@@ -417,10 +411,15 @@ impl MetalRenderer {
                 let glyph_y = position.y + glyph.position.y - info.top as f32;
 
                 // Convert to NDC
-                let x1 = (glyph_x / screen_size.0) * 2.0 - 1.0;
-                let y1 = 1.0 - (glyph_y / screen_size.1) * 2.0;
-                let x2 = ((glyph_x + info.width as f32) / screen_size.0) * 2.0 - 1.0;
-                let y2 = 1.0 - ((glyph_y + info.height as f32) / screen_size.1) * 2.0;
+                // Note: glyph positions are in logical pixels, screen_size is in logical pixels
+                let physical_width = screen_size.0 * scale_factor;
+                let physical_height = screen_size.1 * scale_factor;
+                let x1 = (glyph_x * scale_factor / physical_width) * 2.0 - 1.0;
+                let y1 = 1.0 - (glyph_y * scale_factor / physical_height) * 2.0;
+                let x2 =
+                    ((glyph_x + info.width as f32) * scale_factor / physical_width) * 2.0 - 1.0;
+                let y2 =
+                    1.0 - ((glyph_y + info.height as f32) * scale_factor / physical_height) * 2.0;
 
                 // Create two triangles for the glyph quad
                 vertices.extend_from_slice(&[
@@ -483,7 +482,7 @@ impl MetalRenderer {
             match command {
                 DrawCommand::Rect { rect, color } => {
                     // Convert rect to vertices (two triangles)
-                    let vertices = self.rect_to_vertices(rect, color, screen_size);
+                    let vertices = self.rect_to_vertices(rect, *color, screen_size, scale_factor);
                     solid_vertices.extend_from_slice(&vertices);
                 }
                 DrawCommand::Frame { rect, style } => {
@@ -515,6 +514,7 @@ impl MetalRenderer {
                             color,
                             text_system,
                             screen_size,
+                            scale_factor,
                         );
                         text_vertices.extend_from_slice(&vertices);
                     }
@@ -532,14 +532,19 @@ impl MetalRenderer {
     fn rect_to_vertices(
         &self,
         rect: &Rect,
-        color: &UiColor,
+        color: Color,
         screen_size: (f32, f32),
+        scale_factor: f32,
     ) -> [Vertex; 6] {
         // Convert from screen coordinates to normalized device coordinates
-        let x1 = (rect.pos.x / screen_size.0) * 2.0 - 1.0;
-        let y1 = 1.0 - (rect.pos.y / screen_size.1) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x) / screen_size.0) * 2.0 - 1.0;
-        let y2 = 1.0 - ((rect.pos.y + rect.size.y) / screen_size.1) * 2.0;
+        // Note: positions are in logical pixels, screen_size is in logical pixels
+        // We need to convert to physical pixels for proper NDC calculation
+        let physical_width = screen_size.0 * scale_factor;
+        let physical_height = screen_size.1 * scale_factor;
+        let x1 = (rect.pos.x * scale_factor / physical_width) * 2.0 - 1.0;
+        let y1 = 1.0 - (rect.pos.y * scale_factor / physical_height) * 2.0;
+        let x2 = ((rect.pos.x + rect.size.x) * scale_factor / physical_width) * 2.0 - 1.0;
+        let y2 = 1.0 - ((rect.pos.y + rect.size.y) * scale_factor / physical_height) * 2.0;
 
         let color_array = [color.red, color.green, color.blue, color.alpha];
 
@@ -584,7 +589,8 @@ impl MetalRenderer {
         rect: &Rect,
         style: &FrameStyle,
         screen_size: (f32, f32),
-    ) -> [Vertex; 6] {
+        scale_factor: f32,
+    ) -> ([Vertex; 6], FrameUniforms) {
         // Expand bounds for shadow if present
         let (shadow_expand_left, shadow_expand_right, shadow_expand_top, shadow_expand_bottom) =
             if let Some(shadow) = &style.shadow {
@@ -601,10 +607,17 @@ impl MetalRenderer {
             };
 
         // Convert to clip space (-1 to 1) with shadow expansion
-        let x1 = ((rect.pos.x - shadow_expand_left) / screen_size.0) * 2.0 - 1.0;
-        let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) / screen_size.1) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) / screen_size.0) * 2.0 - 1.0;
-        let y2 = 1.0 - ((rect.pos.y + rect.size.y + shadow_expand_bottom) / screen_size.1) * 2.0;
+        // Note: positions are in logical pixels, screen_size is in logical pixels
+        let physical_width = screen_size.0 * scale_factor;
+        let physical_height = screen_size.1 * scale_factor;
+        let x1 = ((rect.pos.x - shadow_expand_left) * scale_factor / physical_width) * 2.0 - 1.0;
+        let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) * scale_factor / physical_height) * 2.0;
+        let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) * scale_factor / physical_width)
+            * 2.0
+            - 1.0;
+        let y2 = 1.0
+            - ((rect.pos.y + rect.size.y + shadow_expand_bottom) * scale_factor / physical_height)
+                * 2.0;
 
         // For frames, we use a dummy color since actual colors come from uniforms
         let color_array = [1.0, 1.0, 1.0, 1.0];
@@ -616,8 +629,8 @@ impl MetalRenderer {
         let u1 = 1.0 + shadow_expand_right / rect.size.x;
         let v1 = 1.0 + shadow_expand_bottom / rect.size.y;
 
-        // Texture coordinates that account for shadow expansion
-        [
+        // Create vertices
+        let vertices = [
             Vertex {
                 position: [x1, y1],
                 color: color_array,
@@ -648,7 +661,77 @@ impl MetalRenderer {
                 color: color_array,
                 tex_coord: [u0, v1],
             },
-        ]
+        ];
+
+        // Create uniforms
+        let uniforms = FrameUniforms {
+            center: [
+                rect.pos.x + rect.size.x / 2.0,
+                rect.pos.y + rect.size.y / 2.0,
+            ],
+            half_size: [rect.size.x / 2.0, rect.size.y / 2.0],
+            radii: [
+                style.corner_radii.top_left,
+                style.corner_radii.top_right,
+                style.corner_radii.bottom_right,
+                style.corner_radii.bottom_left,
+            ],
+            border_width: style.border_width,
+            fill_type: match &style.fill {
+                Fill::Solid(_) => 0,
+                Fill::LinearGradient { .. } => 1,
+                Fill::RadialGradient { .. } => 2,
+            },
+            gradient_angle: if let Fill::LinearGradient { angle, .. } = &style.fill {
+                *angle
+            } else {
+                0.0
+            },
+            _padding: 0.0,
+            color1: match &style.fill {
+                Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
+                Fill::LinearGradient { start, .. } => {
+                    [start.red, start.green, start.blue, start.alpha]
+                }
+                Fill::RadialGradient { center, .. } => {
+                    [center.red, center.green, center.blue, center.alpha]
+                }
+            },
+            color2: match &style.fill {
+                Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
+                Fill::LinearGradient { end, .. } => [end.red, end.green, end.blue, end.alpha],
+                Fill::RadialGradient { edge, .. } => [edge.red, edge.green, edge.blue, edge.alpha],
+            },
+            border_color: [
+                style.border_color.red,
+                style.border_color.green,
+                style.border_color.blue,
+                style.border_color.alpha,
+            ],
+            shadow_offset: if let Some(shadow) = &style.shadow {
+                [shadow.offset.x, shadow.offset.y]
+            } else {
+                [0.0, 0.0]
+            },
+            shadow_blur: if let Some(shadow) = &style.shadow {
+                shadow.blur
+            } else {
+                0.0
+            },
+            _padding2: 0.0,
+            shadow_color: if let Some(shadow) = &style.shadow {
+                [
+                    shadow.color.red,
+                    shadow.color.green,
+                    shadow.color.blue,
+                    shadow.color.alpha,
+                ]
+            } else {
+                [0.0, 0.0, 0.0, 0.0]
+            },
+        };
+
+        (vertices, uniforms)
     }
 
     /// Create a vertex buffer from vertices
@@ -732,76 +815,9 @@ impl MetalRenderer {
 
             for (rect, style) in frames {
                 // Create frame vertices with proper texture coordinates for SDF
-                let vertices = self.frame_to_vertices(&rect, &style, screen_size);
-                let buffer = self.create_vertex_buffer(&vertices);
-
-                // Create uniforms
-                let (fill_type, color1, color2, gradient_angle) = match &style.fill {
-                    Fill::Solid(color) => (
-                        0,
-                        [color.red, color.green, color.blue, color.alpha],
-                        [0.0; 4],
-                        0.0,
-                    ),
-                    Fill::LinearGradient { start, end, angle } => (
-                        1,
-                        [start.red, start.green, start.blue, start.alpha],
-                        [end.red, end.green, end.blue, end.alpha],
-                        *angle,
-                    ),
-                    Fill::RadialGradient { center, edge } => (
-                        2,
-                        [center.red, center.green, center.blue, center.alpha],
-                        [edge.red, edge.green, edge.blue, edge.alpha],
-                        0.0,
-                    ),
-                };
-
-                let (shadow_offset, shadow_blur, shadow_color) = if let Some(shadow) = &style.shadow
-                {
-                    (
-                        [shadow.offset.x, shadow.offset.y],
-                        shadow.blur,
-                        [
-                            shadow.color.red,
-                            shadow.color.green,
-                            shadow.color.blue,
-                            shadow.color.alpha,
-                        ],
-                    )
-                } else {
-                    ([0.0; 2], 0.0, [0.0; 4])
-                };
-
-                let uniforms = FrameUniforms {
-                    center: [
-                        rect.pos.x + rect.size.x * 0.5,
-                        rect.pos.y + rect.size.y * 0.5,
-                    ],
-                    half_size: [rect.size.x * 0.5, rect.size.y * 0.5],
-                    radii: [
-                        style.corner_radii.top_left,
-                        style.corner_radii.top_right,
-                        style.corner_radii.bottom_right,
-                        style.corner_radii.bottom_left,
-                    ],
-                    border_width: style.border_width,
-                    fill_type,
-                    gradient_angle,
-                    _padding: 0.0,
-                    color1,
-                    color2,
-                    border_color: [
-                        style.border_color.red,
-                        style.border_color.green,
-                        style.border_color.blue,
-                        style.border_color.alpha,
-                    ],
-                    shadow_offset,
-                    shadow_blur,
-                    _padding2: 0.0,
-                    shadow_color,
-                };
+                let (vertices, uniforms) =
+                    self.frame_to_vertices(&rect, &style, screen_size, scale_factor);
+                let vertex_buffer = self.create_vertex_buffer(&vertices);
 
                 // Create uniforms buffer
                 let uniforms_buffer = self.device.new_buffer_with_data(
@@ -810,7 +826,7 @@ impl MetalRenderer {
                     metal::MTLResourceOptions::CPUCacheModeDefaultCache,
                 );
 
-                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
                 encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
                 encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
             }
@@ -873,7 +889,7 @@ impl MetalRenderer {
         screen_size: (f32, f32),
         scale_factor: f32,
         text_system: &mut TextSystem,
-        load_action: MTLLoadAction,
+        load_action: metal::MTLLoadAction,
         clear_color: metal::MTLClearColor,
     ) {
         let _render_span = info_span!(
@@ -906,5 +922,169 @@ impl MetalRenderer {
 
         // End encoding
         encoder.end_encoding();
+    }
+
+    /// Draw a fullscreen quad with a custom fragment shader
+    pub fn draw_fullscreen_quad(
+        &mut self,
+        command_buffer: &CommandBufferRef,
+        drawable: &metal::MetalDrawableRef,
+        shader_source: &str,
+        size: Vec2,
+        time: f32,
+    ) {
+        info!(
+            "draw_fullscreen_quad called with size: {:?}, time: {}",
+            size, time
+        );
+        // Create fullscreen vertex shader
+        let vertex_shader = r#"
+            #include <metal_stdlib>
+            using namespace metal;
+
+            struct VertexOut {
+                float4 position [[position]];
+                float2 uv;
+            };
+
+            vertex VertexOut fullscreen_vertex(uint vid [[vertex_id]]) {
+                VertexOut out;
+
+                // Generate fullscreen triangle
+                float2 positions[3] = {
+                    float2(-1.0, -1.0),
+                    float2( 3.0, -1.0),
+                    float2(-1.0,  3.0)
+                };
+
+                out.position = float4(positions[vid], 0.0, 1.0);
+                out.uv = (positions[vid] + 1.0) * 0.5;
+                out.uv.y = 1.0 - out.uv.y; // Flip Y
+
+                return out;
+            }
+        "#;
+
+        // Combine vertex and fragment shaders
+        let full_shader = format!(
+            r#"
+            #include <metal_stdlib>
+            using namespace metal;
+
+            struct VertexOut {{
+                float4 position [[position]];
+                float2 uv;
+            }};
+
+            struct Uniforms {{
+                float2 resolution;
+                float time;
+                float _padding;
+            }};
+
+            vertex VertexOut fullscreen_vertex(uint vid [[vertex_id]]) {{
+                VertexOut out;
+
+                // Generate fullscreen triangle
+                float2 positions[3] = {{
+                    float2(-1.0, -1.0),
+                    float2( 3.0, -1.0),
+                    float2(-1.0,  3.0)
+                }};
+
+                out.position = float4(positions[vid], 0.0, 1.0);
+                out.uv = (positions[vid] + 1.0) * 0.5;
+                out.uv.y = 1.0 - out.uv.y; // Flip Y
+
+                return out;
+            }}
+
+            {}
+
+            fragment float4 custom_fragment(VertexOut in [[stage_in]],
+                                          constant Uniforms &uniforms [[buffer(0)]]) {{
+                return shader_main(in.uv, uniforms.resolution, uniforms.time);
+            }}
+            "#,
+            shader_source
+        );
+
+        // Compile shader
+        let options = metal::CompileOptions::new();
+        info!("Compiling shader...");
+        let library = match self.device.new_library_with_source(&full_shader, &options) {
+            Ok(lib) => {
+                info!("Shader compiled successfully!");
+                lib
+            }
+            Err(e) => {
+                eprintln!("Failed to compile custom shader: {}", e);
+                eprintln!("Full shader source:\n{}", full_shader);
+                return;
+            }
+        };
+
+        // Create pipeline state
+        let vert_func = library.get_function("fullscreen_vertex", None).unwrap();
+        let frag_func = library.get_function("custom_fragment", None).unwrap();
+
+        let pipeline_descriptor = RenderPipelineDescriptor::new();
+        pipeline_descriptor.set_vertex_function(Some(&vert_func));
+        pipeline_descriptor.set_fragment_function(Some(&frag_func));
+
+        let attachment = pipeline_descriptor
+            .color_attachments()
+            .object_at(0)
+            .unwrap();
+        attachment.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+
+        let pipeline_state = match self.device.new_render_pipeline_state(&pipeline_descriptor) {
+            Ok(state) => state,
+            Err(e) => {
+                eprintln!("Failed to create pipeline state: {}", e);
+                return;
+            }
+        };
+
+        // Create uniforms
+        #[repr(C)]
+        struct Uniforms {
+            resolution: [f32; 2],
+            time: f32,
+            _padding: f32,
+        }
+
+        let uniforms = Uniforms {
+            resolution: [size.x, size.y],
+            time,
+            _padding: 0.0,
+        };
+
+        let uniforms_buffer = self.device.new_buffer_with_data(
+            &uniforms as *const _ as *const _,
+            std::mem::size_of::<Uniforms>() as u64,
+            metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+        );
+
+        // Create render pass descriptor
+        let render_pass_descriptor = RenderPassDescriptor::new();
+        let color_attachment = render_pass_descriptor
+            .color_attachments()
+            .object_at(0)
+            .unwrap();
+        color_attachment.set_texture(Some(drawable.texture()));
+        color_attachment.set_load_action(MTLLoadAction::Load);
+        color_attachment.set_store_action(MTLStoreAction::Store);
+
+        // Create render encoder
+        let encoder = command_buffer.new_render_command_encoder(&render_pass_descriptor);
+        encoder.set_render_pipeline_state(&pipeline_state);
+        encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
+
+        // Draw fullscreen triangle
+        info!("Drawing fullscreen triangle...");
+        encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, 3);
+        encoder.end_encoding();
+        info!("Fullscreen quad rendered");
     }
 }
