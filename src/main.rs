@@ -5,14 +5,32 @@ use toy_ui::{
     layer::{LayerManager, LayerOptions},
     layout::{col, group, row, text},
 };
+use tracing::{info, info_span};
+use tracing_subscriber::{EnvFilter, fmt};
 
 fn main() {
+    // Initialize tracing
+    let subscriber = fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("toy_ui=trace,info")),
+        )
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_timer(fmt::time::uptime())
+        .init();
+
+    info!("Starting Toy UI application");
+    let _main_span = info_span!("main").entered();
+
     app()
         .title("Toy UI - Taffy Layout Demo")
         .size(800.0, 600.0)
         .with_layers(|layer_manager: &mut LayerManager| {
+            let _layers_span = info_span!("layer_setup").entered();
 
             // Layer 1: Basic text layout
+            info!("Setting up Layer 1: Basic text layout");
             layer_manager.add_taffy_ui_layer(0, LayerOptions::default(), || {
                 Box::new(
                     col()
@@ -61,6 +79,7 @@ fn main() {
             });
 
             // Layer 2: Centered content with background
+            info!("Setting up Layer 2: Centered content with background");
             layer_manager.add_taffy_ui_layer(1, LayerOptions::default(), || {
                 Box::new(
                     group()
@@ -108,6 +127,7 @@ fn main() {
             });
 
             // Layer 3: Complex layout example
+            info!("Setting up Layer 3: Complex layout example");
             layer_manager.add_taffy_ui_layer(2, LayerOptions::default(), || {
                 Box::new(
                     group()
@@ -182,6 +202,7 @@ fn main() {
             });
 
             // Layer 4: Performance test with many elements
+            info!("Setting up Layer 4: Performance test with many elements");
             layer_manager.add_taffy_ui_layer(3, LayerOptions::default(), || {
                 let mut container = group()
                     .flex_col()
@@ -225,6 +246,7 @@ fn main() {
 
                 Box::new(container)
             });
+            info!("All layers setup complete");
         })
         .run();
 }

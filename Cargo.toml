@@ -15,6 +15,8 @@ parley = "0.5.0"
 pathfinder_geometry = "0.5.1"
 swash = "0.2.5"
 taffy = "0.8.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [[example]]
 name = "culling"

@@ -3,6 +3,7 @@ use crate::platform::mac::metal_renderer::MetalRenderer;
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
+use tracing::{debug, info_span};
 
 /// Options for configuring a layer
 #[derive(Debug, Clone)]
@@ -176,17 +177,20 @@ where
         &mut self,
         renderer: &mut MetalRenderer,
         command_buffer: &CommandBufferRef,
-        _drawable: &metal::MetalDrawableRef,
+        drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        _scale_factor: f32,
-        _text_system: &mut crate::text_system::TextSystem,
-        _is_first_layer: bool,
+        scale_factor: f32,
+        text_system: &mut crate::text_system::TextSystem,
+        is_first_layer: bool,
     ) {
+        let _raw_render_span = info_span!("raw_layer_render").entered();
+
         let mut ctx = RawLayerContext {
             renderer,
             command_buffer,
             size,
         };
+
         (self.render_fn)(&mut ctx);
     }
 
@@ -337,18 +341,35 @@ where
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
+        let _taffy_render_span = info_span!("taffy_ui_layer_render").entered();
+
         // Build the UI tree by calling the render function
-        let root_element = (self.render_fn)();
+        let root_element = {
+            let _build_span = info_span!("build_ui_tree").entered();
+            (self.render_fn)()
+        };
 
         // Create a UI context and build the tree
-        let ui_context = UiContext::new(size, scale_factor).build(root_element);
+        let ui_context = {
+            let _context_span = info_span!("create_ui_context_and_build").entered();
+            UiContext::new(size, scale_factor).build(root_element)
+        };
 
         // Render the UI tree and get draw commands
-        let draw_list = match ui_context.render(text_system) {
-            Ok(list) => list,
-            Err(e) => {
-                eprintln!("Failed to render UI: {:?}", e);
-                return;
+        let draw_list = {
+            let _render_tree_span = info_span!("render_ui_tree").entered();
+            match ui_context.render(text_system) {
+                Ok(list) => {
+                    debug!(
+                        "UI tree rendered successfully with {} commands",
+                        list.commands().len()
+                    );
+                    list
+                }
+                Err(e) => {
+                    eprintln!("Failed to render UI: {:?}", e);
+                    return;
+                }
             }
         };
 
@@ -366,6 +387,11 @@ where
         };
 
         // Render the draw list
+        let _metal_render_span = info_span!(
+            "metal_render_draw_list",
+            command_count = draw_list.commands().len()
+        )
+        .entered();
         renderer.render_draw_list(
             &draw_list,
             command_buffer,
@@ -443,7 +469,13 @@ impl LayerManager {
         text_system: &mut crate::text_system::TextSystem,
         scale_factor: f32,
     ) {
+        let _render_all_span =
+            info_span!("layer_manager_render_all", layer_count = self.layers.len()).entered();
+        debug!("Rendering {} layers", self.layers.len());
+
         for (i, (_, layer)) in self.layers.iter_mut().enumerate() {
+            let _layer_span =
+                info_span!("render_layer", layer_index = i, z_index = layer.z_index()).entered();
             let is_first_layer = i == 0;
             layer.render(
                 renderer,

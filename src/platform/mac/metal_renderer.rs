@@ -9,6 +9,8 @@ use metal::{
 };
 use std::ffi::c_void;
 use std::mem;
+use std::time::Instant;
+use tracing::{debug, info, info_span};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -55,14 +57,28 @@ impl MetalRenderer {
     }
 
     pub fn initialize(&mut self) -> Result<(), String> {
+        let _init_span = info_span!("metal_renderer_initialize").entered();
+        let total_start = Instant::now();
+
         // Create shader library
+        let start = Instant::now();
         let library = self.compile_shaders()?;
+        info!("Shaders compiled in {:?}", start.elapsed());
 
         // Create pipeline states
+        let start = Instant::now();
         self.pipeline_state = Some(self.create_pipeline_state(&library)?);
-        self.text_pipeline_state = Some(self.create_text_pipeline_state(&library)?);
-        self.frame_pipeline_state = Some(self.create_frame_pipeline_state(&library)?);
+        info!("Pipeline state created in {:?}", start.elapsed());
 
+        let start = Instant::now();
+        self.text_pipeline_state = Some(self.create_text_pipeline_state(&library)?);
+        info!("Text pipeline state created in {:?}", start.elapsed());
+
+        let start = Instant::now();
+        self.frame_pipeline_state = Some(self.create_frame_pipeline_state(&library)?);
+        info!("Frame pipeline state created in {:?}", start.elapsed());
+
+        info!("Total renderer initialization: {:?}", total_start.elapsed());
         Ok(())
     }
 
@@ -454,6 +470,11 @@ impl MetalRenderer {
         scale_factor: f32,
         text_system: &mut TextSystem,
     ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, FrameStyle)>) {
+        let _vertices_span = info_span!(
+            "draw_list_to_vertices",
+            command_count = draw_list.commands().len()
+        )
+        .entered();
         let mut solid_vertices = Vec::new();
         let mut text_vertices = Vec::new();
         let mut frames = Vec::new();
@@ -482,9 +503,11 @@ impl MetalRenderer {
                         weight: parley::FontWeight::NORMAL,
                         line_height: 1.2,
                     };
-                    if let Ok(shaped) =
+                    let shaped = {
+                        let _shape_span = info_span!("shape_text", text_len = text.len()).entered();
                         text_system.shape_text(text, &text_config, None, scale_factor)
-                    {
+                    };
+                    if let Ok(shaped) = shaped {
                         let color = &style.color;
                         let vertices = self.text_to_vertices(
                             *position,
@@ -648,6 +671,7 @@ impl MetalRenderer {
         scale_factor: f32,
         text_system: &mut TextSystem,
     ) {
+        let _encoder_span = info_span!("render_with_encoder").entered();
         // Get pipeline states
         let Some(pipeline_state) = &self.pipeline_state else {
             eprintln!("Pipeline state not initialized");
@@ -659,11 +683,22 @@ impl MetalRenderer {
         };
 
         // Convert draw commands to vertices
-        let (solid_vertices, text_vertices, frames) =
-            self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system);
+        let (solid_vertices, text_vertices, frames) = {
+            let _convert_span = info_span!("convert_draw_commands_to_vertices").entered();
+            self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system)
+        };
+
+        debug!(
+            "Converted to {} solid vertices, {} text vertices, {} frames",
+            solid_vertices.len(),
+            text_vertices.len(),
+            frames.len()
+        );
 
         // Draw solid geometry first
         if !solid_vertices.is_empty() {
+            let _solid_span =
+                info_span!("draw_solid_geometry", vertex_count = solid_vertices.len()).entered();
             let buffer = self.create_vertex_buffer(&solid_vertices);
             encoder.set_render_pipeline_state(&pipeline_state);
             encoder.set_vertex_buffer(0, Some(&buffer), 0);
@@ -672,6 +707,8 @@ impl MetalRenderer {
 
         // Draw text geometry with texture
         if !text_vertices.is_empty() {
+            let _text_span =
+                info_span!("draw_text_geometry", vertex_count = text_vertices.len()).entered();
             let buffer = self.create_vertex_buffer(&text_vertices);
             let texture = text_system.atlas_texture();
             encoder.set_render_pipeline_state(&text_pipeline_state);
@@ -690,6 +727,7 @@ impl MetalRenderer {
 
         // Draw frames with SDF rendering
         if !frames.is_empty() {
+            let _frames_span = info_span!("draw_frames", frame_count = frames.len()).entered();
             encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
 
             for (rect, style) in frames {
@@ -838,6 +876,11 @@ impl MetalRenderer {
         load_action: MTLLoadAction,
         clear_color: metal::MTLClearColor,
     ) {
+        let _render_span = info_span!(
+            "metal_render_draw_list",
+            commands = draw_list.commands().len()
+        )
+        .entered();
         // Create render pass descriptor
         let render_pass_descriptor = RenderPassDescriptor::new();
         let color_attachment = render_pass_descriptor

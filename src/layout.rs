@@ -7,6 +7,7 @@ use crate::text_system::{TextConfig, TextSystem};
 use glam::Vec2;
 use parley::FontStack;
 use taffy::prelude::*;
+use tracing::{debug, info_span};
 
 /// The main UI context for building element trees
 pub struct UiContext {
@@ -31,17 +32,31 @@ impl UiContext {
 
     /// Build the UI tree with the given root element
     pub fn build(mut self, root: Box<dyn Element>) -> Self {
+        let _build_span = info_span!("ui_context_build").entered();
         let root_id = root.build(&mut self.taffy);
         self.root = Some(root_id);
+        debug!("UI tree built with root node");
         self
     }
 
     /// Compute layout and generate draw commands
     pub fn render(mut self, text_system: &mut TextSystem) -> Result<DrawList, taffy::TaffyError> {
+        let _render_span = info_span!("ui_context_render").entered();
+
         // Compute layout if we have a root
         if let Some(root) = self.root {
-            self.compute_layout(root, text_system)?;
-            self.build_draw_commands(root, Vec2::ZERO, text_system)?;
+            {
+                let _layout_span = info_span!("compute_layout_phase").entered();
+                self.compute_layout(root, text_system)?;
+            }
+            {
+                let _draw_span = info_span!("build_draw_commands_phase").entered();
+                self.build_draw_commands(root, Vec2::ZERO, text_system)?;
+            }
+            debug!(
+                "Generated {} draw commands",
+                self.draw_list.commands().len()
+            );
         }
 
         Ok(self.draw_list)
@@ -52,16 +67,20 @@ impl UiContext {
         root: NodeId,
         text_system: &mut TextSystem,
     ) -> Result<(), taffy::TaffyError> {
+        let _compute_span = info_span!("taffy_compute_layout").entered();
         let screen_size = self.screen_size;
         let scale_factor = self.scale_factor;
 
-        self.taffy.compute_layout_with_measure(
+        debug!("Computing layout for screen size: {:?}", screen_size);
+
+        let result = self.taffy.compute_layout_with_measure(
             root,
             Size {
                 width: AvailableSpace::Definite(screen_size.x),
                 height: AvailableSpace::Definite(screen_size.y),
             },
             |known_dimensions, available_space, _node_id, node_context, _style| {
+                let _measure_span = info_span!("measure_element_callback").entered();
                 measure_element(
                     known_dimensions,
                     available_space,
@@ -70,7 +89,10 @@ impl UiContext {
                     scale_factor,
                 )
             },
-        )
+        );
+
+        debug!("Layout computation complete");
+        result
     }
 
     fn build_draw_commands(
@@ -88,6 +110,7 @@ impl UiContext {
         let element_rect = Rect::from_pos_size(position, size);
         let viewport = Rect::from_pos_size(Vec2::ZERO, self.screen_size);
         if viewport.intersect(&element_rect).is_none() {
+            debug!("Element outside viewport, skipping");
             return Ok(());
         }
 
@@ -272,17 +295,21 @@ impl Group {
 
 impl Element for Group {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let children_count = self.children.len();
+        let _build_span = info_span!("build_group", children_count = children_count).entered();
         let node = tree
             .new_leaf_with_context(self.style, self.data)
             .expect("Failed to create group node");
 
         // Build and add children
-        for child in self.children {
+        for (i, child) in self.children.into_iter().enumerate() {
+            let _child_span = info_span!("build_child", index = i).entered();
             let child_node = child.build(tree);
             tree.add_child(node, child_node)
                 .expect("Failed to add child");
         }
 
+        debug!("Built group with {} children", children_count);
         node
     }
 }
@@ -303,10 +330,20 @@ pub fn text(content: impl Into<String>, style: TextStyle) -> Text {
 
 impl Element for Text {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let _build_span = info_span!("build_text", content_len = self.content.len()).entered();
         let data = ElementData {
-            text: Some((self.content, self.style)),
+            text: Some((self.content.clone(), self.style)),
             background: None,
         };
+
+        debug!(
+            "Building text node: '{}'",
+            if self.content.len() > 20 {
+                format!("{}...", &self.content[..20])
+            } else {
+                self.content.clone()
+            }
+        );
 
         tree.new_leaf_with_context(Style::default(), data)
             .expect("Failed to create text node")
@@ -321,8 +358,11 @@ fn measure_element(
     text_system: &mut TextSystem,
     scale_factor: f32,
 ) -> Size<f32> {
+    let _measure_span = info_span!("measure_element").entered();
     if let Some(data) = node_data {
         if let Some((content, style)) = &data.text {
+            let _text_measure_span =
+                info_span!("measure_text_element", content_len = content.len()).entered();
             let max_width = match available_space.width {
                 AvailableSpace::Definite(w) => Some(w),
                 _ => None,
@@ -338,6 +378,17 @@ fn measure_element(
 
             let measured_size =
                 text_system.measure_text(content, &text_config, max_width, scale_factor);
+
+            debug!(
+                "Measured text '{}' -> {}x{}",
+                if content.len() > 20 {
+                    format!("{}...", &content[..20])
+                } else {
+                    content.clone()
+                },
+                measured_size.x,
+                measured_size.y
+            );
 
             Size {
                 width: measured_size.x,
@@ -385,6 +436,7 @@ impl Column {
 
 impl Element for Column {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let _build_span = info_span!("build_column").entered();
         Box::new(self.group).build(tree)
     }
 }
@@ -423,6 +475,7 @@ impl Row {
 
 impl Element for Row {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let _build_span = info_span!("build_row").entered();
         Box::new(self.group).build(tree)
     }
 }
