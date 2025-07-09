@@ -1,5 +1,5 @@
 use crate::color::Color as UiColor;
-use crate::text::{ShapedText, TextSystem};
+use crate::text_system::{ShapedText, TextSystem};
 use crate::ui::{DrawCommand, DrawList, Fill, FrameStyle, Rect};
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
@@ -396,8 +396,8 @@ impl MetalRenderer {
                 // Calculate glyph position in screen space
                 // glyph.position is the baseline position from the shaper
                 // info.bearing_y is the distance from baseline to top of glyph
-                let glyph_x = position.x + glyph.position.x + info.bearing_x;
-                let glyph_y = position.y + glyph.position.y - info.bearing_y;
+                let glyph_x = position.x + glyph.position.x + info.left as f32;
+                let glyph_y = position.y + glyph.position.y - info.top as f32;
 
                 // Convert to NDC
                 let x1 = (glyph_x / screen_size.0) * 2.0 - 1.0;
@@ -450,6 +450,7 @@ impl MetalRenderer {
         &self,
         draw_list: &DrawList,
         screen_size: (f32, f32),
+        scale_factor: f32,
         text_system: &mut TextSystem,
     ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, FrameStyle)>) {
         let mut solid_vertices = Vec::new();
@@ -473,12 +474,16 @@ impl MetalRenderer {
                     style,
                 } => {
                     // Shape and render text
-                    let text_config = crate::text::TextConfig {
-                        font: crate::text::FontSpec::default(),
+                    let text_config = crate::text_system::TextConfig {
+                        font_stack: parley::FontStack::from("system-ui"),
                         size: style.size,
                         color: style.color.clone(),
+                        weight: parley::FontWeight::NORMAL,
+                        line_height: 1.2,
                     };
-                    if let Ok(shaped) = text_system.shape_text(text, &text_config) {
+                    if let Ok(shaped) =
+                        text_system.shape_text(text, &text_config, None, scale_factor)
+                    {
                         let color = &style.color;
                         let vertices = self.text_to_vertices(
                             *position,
@@ -639,6 +644,7 @@ impl MetalRenderer {
         draw_list: &DrawList,
         encoder: &metal::RenderCommandEncoderRef,
         screen_size: (f32, f32),
+        scale_factor: f32,
         text_system: &mut TextSystem,
     ) {
         // Get pipeline states
@@ -653,7 +659,7 @@ impl MetalRenderer {
 
         // Convert draw commands to vertices
         let (solid_vertices, text_vertices, frames) =
-            self.draw_list_to_vertices(draw_list, screen_size, text_system);
+            self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system);
 
         // Draw solid geometry first
         if !solid_vertices.is_empty() {
@@ -780,6 +786,7 @@ impl MetalRenderer {
         clear_color: metal::MTLClearColor,
         draw_list: &DrawList,
         screen_size: (f32, f32),
+        scale_factor: f32,
         text_system: &mut TextSystem,
     ) {
         // Create command buffer
@@ -802,7 +809,13 @@ impl MetalRenderer {
         let encoder = command_buffer.new_render_command_encoder(&render_pass_descriptor);
 
         // Use the shared rendering logic
-        self.render_draw_list_with_encoder(draw_list, encoder, screen_size, text_system);
+        self.render_draw_list_with_encoder(
+            draw_list,
+            encoder,
+            screen_size,
+            scale_factor,
+            text_system,
+        );
 
         // End encoding
         encoder.end_encoding();
@@ -819,6 +832,7 @@ impl MetalRenderer {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         screen_size: (f32, f32),
+        scale_factor: f32,
         text_system: &mut TextSystem,
         load_action: MTLLoadAction,
         clear_color: metal::MTLClearColor,
@@ -838,7 +852,13 @@ impl MetalRenderer {
         let encoder = command_buffer.new_render_command_encoder(&render_pass_descriptor);
 
         // Render the draw list
-        self.render_draw_list_with_encoder(draw_list, encoder, screen_size, text_system);
+        self.render_draw_list_with_encoder(
+            draw_list,
+            encoder,
+            screen_size,
+            scale_factor,
+            text_system,
+        );
 
         // End encoding
         encoder.end_encoding();

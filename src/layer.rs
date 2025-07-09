@@ -1,5 +1,6 @@
 use crate::metal_renderer::MetalRenderer;
-use crate::ui::UiContext;
+use crate::taffy::UiContext;
+use crate::ui::ImmediateUiContext;
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
@@ -7,24 +8,35 @@ use std::any::Any;
 /// Options for configuring a layer
 #[derive(Debug, Clone)]
 pub struct LayerOptions {
+    /// Z-index for layer ordering
+    pub z_index: i32,
     /// Whether this layer receives input events
     pub receives_input: bool,
     /// Blend mode for compositing
     pub blend_mode: BlendMode,
     /// Whether to clear before rendering
     pub clear: bool,
-    /// Clear color if clearing is enabled
+    /// Clear color (if clearing is enabled
     pub clear_color: metal::MTLClearColor,
 }
 
 impl Default for LayerOptions {
     fn default() -> Self {
         Self {
+            z_index: 0,
             receives_input: false,
-            blend_mode: BlendMode::default(),
+            blend_mode: BlendMode::Alpha,
             clear: false,
-            clear_color: metal::MTLClearColor::new(0.0, 0.0, 0.0, 1.0), // Default to black
+            clear_color: metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
         }
+    }
+}
+
+impl LayerOptions {
+    /// Create a new LayerOptions with the specified z_index
+    pub fn with_z_index(mut self, z_index: i32) -> Self {
+        self.z_index = z_index;
+        self
     }
 }
 
@@ -88,7 +100,8 @@ pub trait Layer: Any {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        scale_factor: f32,
+        text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     );
 
@@ -110,7 +123,7 @@ pub struct RawLayer<F> {
 
 impl<F> RawLayer<F>
 where
-    F: FnMut(&mut RawLayerContext),
+    F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any,
 {
     pub fn new(z_index: i32, options: LayerOptions, render_fn: F) -> Self {
         Self {
@@ -150,7 +163,7 @@ impl<'a> RawLayerContext<'a> {
 
 impl<F> Layer for RawLayer<F>
 where
-    F: FnMut(&mut RawLayerContext) + Any,
+    F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any,
 {
     fn z_index(&self) -> i32 {
         self.z_index
@@ -166,7 +179,8 @@ where
         command_buffer: &CommandBufferRef,
         _drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        _text_system: &mut crate::text::TextSystem,
+        _scale_factor: f32,
+        _text_system: &mut crate::text_system::TextSystem,
         _is_first_layer: bool,
     ) {
         let mut ctx = RawLayerContext {
@@ -182,7 +196,28 @@ where
     }
 }
 
-/// A UI layer using the immediate mode API
+/// Context passed to UI layer render functions
+pub struct UiLayerContext {
+    /// The immediate mode UI context
+    pub ui: ImmediateUiContext,
+    /// The screen size
+    pub size: Vec2,
+    /// The display scale factor
+    pub scale_factor: f32,
+}
+
+impl UiLayerContext {
+    /// Create a new UI layer context
+    pub fn new(size: Vec2, scale_factor: f32) -> Self {
+        Self {
+            ui: ImmediateUiContext::new(size),
+            size,
+            scale_factor,
+        }
+    }
+}
+
+/// A UI layer that provides immediate mode GUI context
 pub struct UiLayer<F> {
     z_index: i32,
     options: LayerOptions,
@@ -191,7 +226,7 @@ pub struct UiLayer<F> {
 
 impl<F> UiLayer<F>
 where
-    F: FnMut(&mut UiContext),
+    F: FnMut(&mut UiLayerContext) + 'static,
 {
     pub fn new(z_index: i32, options: LayerOptions, render_fn: F) -> Self {
         Self {
@@ -204,7 +239,7 @@ where
 
 impl<F> Layer for UiLayer<F>
 where
-    F: FnMut(&mut UiContext) + Any,
+    F: FnMut(&mut UiLayerContext) + 'static,
 {
     fn z_index(&self) -> i32 {
         self.z_index
@@ -220,20 +255,26 @@ where
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        scale_factor: f32,
+        text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
-        // Create a new UI context for this layer
-        let mut ui_context = UiContext::new(size);
+        // Create UI layer context
+        let mut context = UiLayerContext::new(size, scale_factor);
+        context.ui.begin_frame();
 
-        // Run the UI function
-        (self.render_fn)(&mut ui_context);
+        // Execute the render function
+        (self.render_fn)(&mut context);
 
-        // Render the UI draw list
-        let draw_list = ui_context.draw_list();
-        // Determine load action and clear color based on layer options
-        let (load_action, clear_color) = if self.options.clear || is_first_layer {
-            (metal::MTLLoadAction::Clear, self.options.clear_color)
+        // Get the draw list
+        let draw_list = context.ui.end_frame();
+
+        // Determine load action and clear color
+        let (load_action, clear_color) = if is_first_layer {
+            (
+                metal::MTLLoadAction::Clear,
+                metal::MTLClearColor::new(0.1, 0.1, 0.1, 1.0),
+            )
         } else {
             (
                 metal::MTLLoadAction::Load,
@@ -241,11 +282,97 @@ where
             )
         };
 
+        // Render the draw list
         renderer.render_draw_list(
             draw_list,
             command_buffer,
             drawable,
             (size.x, size.y),
+            scale_factor,
+            text_system,
+            load_action,
+            clear_color,
+        );
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+/// A UI layer that uses Taffy for layout
+pub struct TaffyUiLayer<F> {
+    options: LayerOptions,
+    render_fn: F,
+}
+
+impl<F> TaffyUiLayer<F>
+where
+    F: Fn() -> Box<dyn crate::taffy::Element> + 'static,
+{
+    /// Create a new Taffy UI layer
+    pub fn new(options: LayerOptions, render_fn: F) -> Self {
+        Self { options, render_fn }
+    }
+}
+
+impl<F> Layer for TaffyUiLayer<F>
+where
+    F: Fn() -> Box<dyn crate::taffy::Element> + 'static,
+{
+    fn z_index(&self) -> i32 {
+        self.options.z_index
+    }
+
+    fn options(&self) -> &LayerOptions {
+        &self.options
+    }
+
+    fn render(
+        &mut self,
+        renderer: &mut MetalRenderer,
+        command_buffer: &CommandBufferRef,
+        drawable: &metal::MetalDrawableRef,
+        size: Vec2,
+        scale_factor: f32,
+        text_system: &mut crate::text_system::TextSystem,
+        is_first_layer: bool,
+    ) {
+        // Build the UI tree by calling the render function
+        let root_element = (self.render_fn)();
+
+        // Create a UI context and build the tree
+        let ui_context = UiContext::new(size, scale_factor).build(root_element);
+
+        // Render the UI tree and get draw commands
+        let draw_list = match ui_context.render(text_system) {
+            Ok(list) => list,
+            Err(e) => {
+                eprintln!("Failed to render UI: {:?}", e);
+                return;
+            }
+        };
+
+        // Determine load action and clear color
+        let (load_action, clear_color) = if is_first_layer {
+            (
+                metal::MTLLoadAction::Clear,
+                metal::MTLClearColor::new(0.95, 0.95, 0.95, 1.0), // Light gray background
+            )
+        } else {
+            (
+                metal::MTLLoadAction::Load,
+                metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
+            )
+        };
+
+        // Render the draw list
+        renderer.render_draw_list(
+            &draw_list,
+            command_buffer,
+            drawable,
+            (size.x, size.y),
+            scale_factor,
             text_system,
             load_action,
             clear_color,
@@ -259,7 +386,7 @@ where
 
 /// Manages all layers and handles rendering order
 pub struct LayerManager {
-    layers: Vec<Box<dyn Layer>>,
+    pub layers: Vec<(i32, Box<dyn Layer>)>,
 }
 
 impl LayerManager {
@@ -270,7 +397,7 @@ impl LayerManager {
     /// Add a raw layer
     pub fn add_raw_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: FnMut(&mut RawLayerContext) + Any + 'static,
+        F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any + 'static,
     {
         let layer = RawLayer::new(z_index, options, render_fn);
         self.add_layer(Box::new(layer));
@@ -279,17 +406,27 @@ impl LayerManager {
     /// Add a UI layer
     pub fn add_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: FnMut(&mut UiContext) + Any + 'static,
+        F: FnMut(&mut UiLayerContext) + Any + 'static,
     {
         let layer = UiLayer::new(z_index, options, render_fn);
         self.add_layer(Box::new(layer));
     }
 
+    /// Add a Taffy UI layer
+    pub fn add_taffy_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
+    where
+        F: Fn() -> Box<dyn crate::taffy::Element> + Any + 'static,
+    {
+        let layer = TaffyUiLayer::new(options.with_z_index(z_index), render_fn);
+        self.add_layer(Box::new(layer));
+    }
+
     /// Add a layer and maintain z-order
     fn add_layer(&mut self, layer: Box<dyn Layer>) {
-        self.layers.push(layer);
+        let z_index = layer.z_index();
+        self.layers.push((z_index, layer));
         // Sort by z-index (ascending, so higher values render on top)
-        self.layers.sort_by_key(|l| l.z_index());
+        self.layers.sort_by_key(|(z, _)| *z);
     }
 
     /// Clear all layers
@@ -304,16 +441,17 @@ impl LayerManager {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        text_system: &mut crate::text_system::TextSystem,
+        scale_factor: f32,
     ) {
-        for (index, layer) in self.layers.iter_mut().enumerate() {
-            let is_first_layer = index == 0;
-            // TODO: Set up blend mode based on layer options
+        for (i, (_, layer)) in self.layers.iter_mut().enumerate() {
+            let is_first_layer = i == 0;
             layer.render(
                 renderer,
                 command_buffer,
                 drawable,
                 size,
+                scale_factor,
                 text_system,
                 is_first_layer,
             );
@@ -323,7 +461,7 @@ impl LayerManager {
     /// Handle input, starting from the topmost layer that accepts input
     pub fn handle_input(&mut self, event: &InputEvent) -> bool {
         // Iterate in reverse order (topmost layers first)
-        for layer in self.layers.iter_mut().rev() {
+        for (_, layer) in self.layers.iter_mut().rev() {
             if layer.options().receives_input && layer.handle_input(event) {
                 return true; // Event was consumed
             }

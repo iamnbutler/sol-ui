@@ -1,8 +1,7 @@
 use crate::layer::LayerManager;
 use crate::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
-use crate::text::TextSystem;
-use crate::ui::UiContext;
+use crate::text_system::TextSystem;
 
 use cocoa::base::{YES, id};
 use metal::{CommandQueue, Device};
@@ -23,7 +22,7 @@ pub struct AppBuilder {
     width: f64,
     height: f64,
     title: String,
-    layers: Vec<Box<dyn FnMut(&mut UiContext)>>,
+    layer_setup: Box<dyn FnOnce(&mut LayerManager)>,
 }
 
 pub fn app() -> AppBuilder {
@@ -35,8 +34,8 @@ impl AppBuilder {
         Self {
             width: 800.0,
             height: 600.0,
-            title: "Toy UI".to_string(),
-            layers: Vec::new(),
+            title: "Toy UI App".to_string(),
+            layer_setup: Box::new(|_| {}),
         }
     }
 
@@ -51,18 +50,18 @@ impl AppBuilder {
         self
     }
 
-    pub fn layer<F>(mut self, render_fn: F) -> Self
+    pub fn with_layers<F>(mut self, setup: F) -> Self
     where
-        F: FnMut(&mut UiContext) + 'static,
+        F: FnOnce(&mut LayerManager) + 'static,
     {
-        self.layers.push(Box::new(render_fn));
+        self.layer_setup = Box::new(setup);
         self
     }
 
     pub fn run(mut self) {
-        let layers = std::mem::take(&mut self.layers);
+        let layer_setup = std::mem::replace(&mut self.layer_setup, Box::new(|_| {}));
         let app = self.build();
-        app.run(layers);
+        app.run(layer_setup);
     }
 
     fn build(self) -> App {
@@ -107,63 +106,42 @@ impl AppBuilder {
 }
 
 impl App {
-    fn run(mut self, mut layers: Vec<Box<dyn FnMut(&mut UiContext)>>) {
+    fn run(mut self, layer_setup: Box<dyn FnOnce(&mut LayerManager)>) {
+        // Set up layers
+        layer_setup(&mut self._layer_manager);
+
+        // Main render loop
         while self.window.handle_events() {
-            self.render_frame(&mut layers);
+            self.render_frame();
         }
     }
 
-    fn render_frame(&mut self, layers: &mut Vec<Box<dyn FnMut(&mut UiContext)>>) {
+    fn render_frame(&mut self) {
         // Get the next drawable from the Metal layer
         let drawable = match self.window.metal_layer().next_drawable() {
             Some(drawable) => drawable,
             None => {
-                return; // No drawable available, skip frame
+                eprintln!("Failed to get next drawable");
+                return;
             }
         };
 
-        // Get window size
+        // Get window size and scale factor
         let size = self.window.size();
+        let scale_factor = self.window.scale_factor();
 
         // Create command buffer
         let command_buffer = self.command_queue.new_command_buffer();
 
-        // Render each layer directly
-        for (index, layer_fn) in layers.iter_mut().enumerate() {
-            // Create a new UI context for this layer
-            let mut ui_context = crate::ui::UiContext::new(glam::vec2(size.0, size.1));
-
-            // Execute the layer's render function
-            layer_fn(&mut ui_context);
-
-            // Get the draw list
-            let draw_list = ui_context.draw_list();
-
-            // Determine load action and clear color
-            // First layer clears, others load existing content
-            let (load_action, clear_color) = if index == 0 {
-                (
-                    metal::MTLLoadAction::Clear,
-                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 1.0),
-                )
-            } else {
-                (
-                    metal::MTLLoadAction::Load,
-                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
-                )
-            };
-
-            // Render this layer's draw list
-            self.renderer.render_draw_list(
-                draw_list,
-                &command_buffer,
-                &drawable,
-                size,
-                &mut self.text_system,
-                load_action,
-                clear_color,
-            );
-        }
+        // Render all layers using the layer manager
+        self._layer_manager.render(
+            &mut self.renderer,
+            &command_buffer,
+            &drawable,
+            glam::vec2(size.0, size.1),
+            &mut self.text_system,
+            scale_factor,
+        );
 
         // Present drawable and commit
         command_buffer.present_drawable(&drawable);
