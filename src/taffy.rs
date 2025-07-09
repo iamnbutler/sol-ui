@@ -119,23 +119,23 @@ pub trait Element {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId;
 }
 
-/// A div container element
-pub struct Div {
+/// A group container element
+pub struct Group {
     style: Style,
     data: ElementData,
     children: Vec<Box<dyn Element>>,
 }
 
-/// Create a new div element
-pub fn div() -> Div {
-    Div {
+/// Create a new group element
+pub fn group() -> Group {
+    Group {
         style: Style::default(),
         data: ElementData::default(),
         children: Vec::new(),
     }
 }
 
-impl Div {
+impl Group {
     /// Set the background color
     pub fn bg(mut self, color: impl Into<Color>) -> Self {
         self.data.background = Some(color.into());
@@ -262,11 +262,11 @@ impl Div {
     }
 }
 
-impl Element for Div {
+impl Element for Group {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
         let node = tree
             .new_leaf_with_context(self.style, self.data)
-            .expect("Failed to create div node");
+            .expect("Failed to create group node");
 
         // Build and add children
         for child in self.children {
@@ -345,77 +345,77 @@ fn measure_element(
 
 /// Builder for complex layouts
 pub struct Column {
-    div: Div,
+    group: Group,
 }
 
 /// Create a column layout
 pub fn col() -> Column {
     Column {
-        div: div().flex_col(),
+        group: group().flex_col(),
     }
 }
 
 impl Column {
     /// Add gap between items
     pub fn gap(mut self, gap: f32) -> Self {
-        self.div = self.div.gap(gap);
+        self.group = self.group.gap(gap);
         self
     }
 
     /// Add padding
     pub fn p(mut self, padding: f32) -> Self {
-        self.div = self.div.p(padding);
+        self.group = self.group.p(padding);
         self
     }
 
     /// Add a child
     pub fn child(mut self, child: impl Element + 'static) -> Self {
-        self.div = self.div.child(child);
+        self.group = self.group.child(child);
         self
     }
 }
 
 impl Element for Column {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
-        Box::new(self.div).build(tree)
+        Box::new(self.group).build(tree)
     }
 }
 
 /// Builder for row layouts
 pub struct Row {
-    div: Div,
+    group: Group,
 }
 
 /// Create a row layout
 pub fn row() -> Row {
     Row {
-        div: div().flex_row(),
+        group: group().flex_row(),
     }
 }
 
 impl Row {
     /// Add gap between items
     pub fn gap(mut self, gap: f32) -> Self {
-        self.div = self.div.gap(gap);
+        self.group = self.group.gap(gap);
         self
     }
 
     /// Add padding
     pub fn p(mut self, padding: f32) -> Self {
-        self.div = self.div.p(padding);
+        self.group = self.group.p(padding);
         self
     }
 
     /// Add a child
     pub fn child(mut self, child: impl Element + 'static) -> Self {
-        self.div = self.div.child(child);
+        self.group = self.group.child(child);
         self
     }
 }
 
 impl Element for Row {
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
-        Box::new(self.div).build(tree)
+        Box::new(self.group).build(tree)
     }
 }
 
@@ -426,7 +426,7 @@ mod tests {
 
     #[test]
     fn test_builder_api() {
-        let ui = div()
+        let ui = group()
             .flex_col()
             .p(20.0)
             .gap(10.0)

@@ -2,7 +2,7 @@ use palette::Srgba;
 use toy_ui::{
     app,
     layer::{LayerManager, LayerOptions},
-    taffy::{col, div, row, text},
+    taffy::{col, group, row, text},
     ui::TextStyle,
 };
 
@@ -63,12 +63,12 @@ fn main() {
             // Layer 2: Centered content with background
             layer_manager.add_taffy_ui_layer(1, LayerOptions::default(), || {
                 Box::new(
-                    div()
+                    group()
                         .size_full()
                         .justify_center()
                         .items_center()
                         .child(
-                            div()
+                            group()
                                 .bg(Srgba::new(0.9, 0.9, 0.9, 0.95))
                                 .p(30.0)
                                 .child(
@@ -89,7 +89,7 @@ fn main() {
                                             },
                                         ))
                                         .child(
-                                            div()
+                                            group()
                                                 .bg(Srgba::new(0.2, 0.3, 0.8, 1.0))
                                                 .size(200.0, 50.0)
                                                 .justify_center()
@@ -110,12 +110,12 @@ fn main() {
             // Layer 3: Complex layout example
             layer_manager.add_taffy_ui_layer(2, LayerOptions::default(), || {
                 Box::new(
-                    div()
+                    group()
                         .flex_col()
                         .p(20.0)
                         .gap(20.0)
                         .child(
-                            div()
+                            group()
                                 .bg(Srgba::new(0.95, 0.95, 0.95, 0.9))
                                 .p(20.0)
                                 .w(600.0)
@@ -140,7 +140,7 @@ fn main() {
                                             row()
                                                 .gap(10.0)
                                                 .child(
-                                                    div()
+                                                    group()
                                                         .bg(Srgba::new(1.0, 0.8, 0.8, 1.0))
                                                         .p(10.0)
                                                         .child(text(
@@ -152,7 +152,7 @@ fn main() {
                                                         )),
                                                 )
                                                 .child(
-                                                    div()
+                                                    group()
                                                         .bg(Srgba::new(0.8, 1.0, 0.8, 1.0))
                                                         .p(10.0)
                                                         .child(text(
@@ -164,7 +164,7 @@ fn main() {
                                                         )),
                                                 )
                                                 .child(
-                                                    div()
+                                                    group()
                                                         .bg(Srgba::new(0.8, 0.8, 1.0, 1.0))
                                                         .p(10.0)
                                                         .child(text(
@@ -183,7 +183,7 @@ fn main() {
 
             // Layer 4: Performance test with many elements
             layer_manager.add_taffy_ui_layer(3, LayerOptions::default(), || {
-                let mut container = div()
+                let mut container = group()
                     .flex_col()
                     .p(20.0)
                     .gap(5.0)
@@ -209,7 +209,7 @@ fn main() {
                         row()
                             .gap(10.0)
                             .child(
-                                div()
+                                group()
                                     .bg(color)
                                     .size(30.0, 20.0),
                             )
