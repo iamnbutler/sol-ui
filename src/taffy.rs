@@ -24,7 +24,7 @@ impl UiContext {
             screen_size,
             scale_factor,
             root: None,
-            draw_list: DrawList::new(),
+            draw_list: DrawList::with_viewport(Rect::from_pos_size(Vec2::ZERO, screen_size)),
         }
     }
 
@@ -82,6 +82,13 @@ impl UiContext {
         let bounds = Vec2::new(layout.location.x, layout.location.y);
         let position = parent_offset + bounds;
         let size = Vec2::new(layout.size.width, layout.size.height);
+
+        // Early exit if element is outside viewport
+        let element_rect = Rect::from_pos_size(position, size);
+        let viewport = Rect::from_pos_size(Vec2::ZERO, self.screen_size);
+        if viewport.intersect(&element_rect).is_none() {
+            return Ok(());
+        }
 
         // Get element data
         if let Some(data) = self.taffy.get_node_context(node) {

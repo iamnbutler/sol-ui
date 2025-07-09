@@ -47,7 +47,7 @@ impl ImmediateUiContext {
     /// Create a new UI context with the given screen dimensions
     pub fn new(screen_size: Vec2) -> Self {
         Self {
-            draw_list: DrawList::new(),
+            draw_list: DrawList::with_viewport(Rect::from_pos_size(Vec2::ZERO, screen_size)),
             id_stack: IdStack::new(),
             cursor: Vec2::ZERO,
             layout: LayoutState {
@@ -63,6 +63,9 @@ impl ImmediateUiContext {
     /// Begin a new frame. Call this before any UI elements.
     pub fn begin_frame(&mut self) {
         self.draw_list.clear();
+        // Re-apply viewport after clearing
+        self.draw_list
+            .set_viewport(Some(Rect::from_pos_size(Vec2::ZERO, self.screen_size)));
         self.cursor = Vec2::new(10.0, 10.0); // Default margin
         self.layout.start_pos = self.cursor;
         self.layout.max_cross_axis = 0.0;
@@ -98,6 +101,9 @@ impl ImmediateUiContext {
     /// Update screen dimensions (e.g., on window resize)
     pub fn set_screen_size(&mut self, width: f32, height: f32) {
         self.screen_size = Vec2::new(width, height);
+        // Update viewport for culling
+        self.draw_list
+            .set_viewport(Some(Rect::from_pos_size(Vec2::ZERO, self.screen_size)));
     }
 
     /// Draw text at the current cursor position

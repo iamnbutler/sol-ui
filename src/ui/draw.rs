@@ -1,7 +1,7 @@
 use glam::Vec2;
 
 use crate::color::{
-    Color,
+    Color, ColorExt,
     colors::{BLACK, WHITE},
 };
 
@@ -48,6 +48,58 @@ impl Rect {
         } else {
             None
         }
+    }
+
+    /// Check if this rectangle is fully contained within another rectangle
+    pub fn is_contained_in(&self, other: &Rect) -> bool {
+        self.pos.x >= other.pos.x
+            && self.pos.y >= other.pos.y
+            && self.pos.x + self.size.x <= other.pos.x + other.size.x
+            && self.pos.y + self.size.y <= other.pos.y + other.size.y
+    }
+
+    /// Check if this rectangle is partially visible within another rectangle
+    pub fn is_partially_visible_in(&self, other: &Rect) -> bool {
+        self.intersect(other).is_some()
+    }
+
+    /// Get the area of this rectangle
+    pub fn area(&self) -> f32 {
+        self.size.x * self.size.y
+    }
+
+    /// Get the visibility ratio when clipped by another rectangle (0.0 to 1.0)
+    pub fn visibility_ratio_in(&self, other: &Rect) -> f32 {
+        if let Some(intersection) = self.intersect(other) {
+            let intersection_area = intersection.area();
+            let total_area = self.area();
+            if total_area > 0.0 {
+                intersection_area / total_area
+            } else {
+                0.0
+            }
+        } else {
+            0.0
+        }
+    }
+
+    /// Expand the rectangle by the given amount in all directions
+    pub fn expand(&self, amount: f32) -> Rect {
+        Rect::from_pos_size(
+            self.pos - Vec2::splat(amount),
+            self.size + Vec2::splat(amount * 2.0),
+        )
+    }
+
+    /// Expand the rectangle by the given vector amount
+    pub fn expand_by(&self, expansion: Vec2) -> Rect {
+        Rect::from_pos_size(self.pos - expansion, self.size + expansion * 2.0)
+    }
+
+    /// Contract the rectangle by the given amount in all directions
+    pub fn contract(&self, amount: f32) -> Rect {
+        let new_size = (self.size - Vec2::splat(amount * 2.0)).max(Vec2::ZERO);
+        Rect::from_pos_size(self.pos + Vec2::splat(amount), new_size)
     }
 }
 
@@ -237,6 +289,44 @@ pub enum DrawCommand {
 pub struct DrawList {
     commands: Vec<DrawCommand>,
     clip_stack: Vec<Rect>,
+    /// The viewport bounds for culling (None means no culling)
+    viewport: Option<Rect>,
+    /// Statistics for culling
+    culling_stats: CullingStats,
+    /// Debug mode for visualizing culled elements
+    debug_culling: bool,
+}
+
+/// Statistics about viewport culling
+#[derive(Debug, Clone, Default)]
+pub struct CullingStats {
+    /// Number of draw calls that were culled (not rendered)
+    pub culled_count: usize,
+    /// Number of draw calls that were rendered
+    pub rendered_count: usize,
+}
+
+impl CullingStats {
+    /// Get the total number of draw calls attempted
+    pub fn total_count(&self) -> usize {
+        self.culled_count + self.rendered_count
+    }
+
+    /// Get the culling percentage (0.0 to 100.0)
+    pub fn culling_percentage(&self) -> f32 {
+        let total = self.total_count();
+        if total == 0 {
+            0.0
+        } else {
+            (self.culled_count as f32 / total as f32) * 100.0
+        }
+    }
+
+    /// Reset the statistics
+    pub fn reset(&mut self) {
+        self.culled_count = 0;
+        self.rendered_count = 0;
+    }
 }
 
 /// A marker for a position in the draw list
@@ -255,7 +345,73 @@ impl DrawList {
         Self {
             commands: Vec::new(),
             clip_stack: Vec::new(),
+            viewport: None,
+            culling_stats: CullingStats::default(),
+            debug_culling: false,
         }
+    }
+
+    /// Create a new DrawList with viewport culling enabled
+    pub fn with_viewport(viewport: Rect) -> Self {
+        Self {
+            commands: Vec::new(),
+            clip_stack: Vec::new(),
+            viewport: Some(viewport),
+            culling_stats: CullingStats::default(),
+            debug_culling: false,
+        }
+    }
+
+    /// Set the viewport for culling
+    pub fn set_viewport(&mut self, viewport: Option<Rect>) {
+        self.viewport = viewport;
+    }
+
+    /// Enable or disable debug visualization of culled elements
+    pub fn set_debug_culling(&mut self, enabled: bool) {
+        self.debug_culling = enabled;
+    }
+
+    /// Check if debug culling visualization is enabled
+    pub fn is_debug_culling(&self) -> bool {
+        self.debug_culling
+    }
+
+    /// Check if a rectangle is visible within the current viewport and clip bounds
+    fn is_visible(&self, rect: &Rect) -> bool {
+        // First check against viewport if set
+        if let Some(viewport) = &self.viewport {
+            if viewport.intersect(rect).is_none() {
+                return false;
+            }
+        }
+
+        // Then check against current clip rect if any
+        if let Some(clip) = self.clip_stack.last() {
+            clip.intersect(rect).is_some()
+        } else {
+            true
+        }
+    }
+
+    /// Get the visibility ratio of a rectangle (0.0 = fully culled, 1.0 = fully visible)
+    fn get_visibility_ratio(&self, rect: &Rect) -> f32 {
+        let mut visibility = 1.0;
+
+        // Check against viewport
+        if let Some(viewport) = &self.viewport {
+            visibility *= rect.visibility_ratio_in(viewport);
+            if visibility == 0.0 {
+                return 0.0;
+            }
+        }
+
+        // Check against clip stack
+        if let Some(clip) = self.clip_stack.last() {
+            visibility *= rect.visibility_ratio_in(clip);
+        }
+
+        visibility
     }
 
     /// Add a filled rectangle to the draw list
@@ -265,7 +421,22 @@ impl DrawList {
             return;
         }
 
-        // TODO: Clip against current clip rect
+        // Skip if not visible (viewport culling)
+        if !self.is_visible(&rect) {
+            self.culling_stats.culled_count += 1;
+
+            // In debug mode, render culled elements with a special style
+            if self.debug_culling {
+                let debug_color = Color::rgba(1.0, 0.0, 0.0, 0.2); // Semi-transparent red
+                self.commands.push(DrawCommand::Rect {
+                    rect,
+                    color: debug_color,
+                });
+            }
+            return;
+        }
+
+        self.culling_stats.rendered_count += 1;
         self.commands.push(DrawCommand::Rect { rect, color });
     }
 
@@ -276,6 +447,32 @@ impl DrawList {
             return;
         }
 
+        // Approximate text bounds for culling (this is a rough estimate)
+        // In a real implementation, you'd want to measure the text properly
+        let approx_width = text.len() as f32 * style.size * 0.6;
+        let approx_height = style.size * 1.2;
+        let text_rect = Rect::from_pos_size(position, Vec2::new(approx_width, approx_height));
+
+        // Skip if not visible (viewport culling)
+        if !self.is_visible(&text_rect) {
+            self.culling_stats.culled_count += 1;
+
+            // In debug mode, render culled text with a special style
+            if self.debug_culling {
+                let debug_style = TextStyle {
+                    color: Color::rgba(1.0, 0.0, 0.0, 0.3), // Semi-transparent red
+                    ..style
+                };
+                self.commands.push(DrawCommand::Text {
+                    position,
+                    text,
+                    style: debug_style,
+                });
+            }
+            return;
+        }
+
+        self.culling_stats.rendered_count += 1;
         self.commands.push(DrawCommand::Text {
             position,
             text,
@@ -319,6 +516,7 @@ impl DrawList {
     pub fn clear(&mut self) {
         self.commands.clear();
         self.clip_stack.clear();
+        self.culling_stats.reset();
     }
 
     /// Get all commands
@@ -339,6 +537,11 @@ impl DrawList {
     /// Record the current position in the draw list
     pub fn current_pos(&self) -> DrawListPos {
         DrawListPos(self.commands.len())
+    }
+
+    /// Get the culling statistics
+    pub fn culling_stats(&self) -> &CullingStats {
+        &self.culling_stats
     }
 
     /// Insert a rectangle at a specific position in the draw list
@@ -367,6 +570,35 @@ impl DrawList {
             return;
         }
 
+        // Expand rect to account for shadow if present
+        let expanded_rect = if let Some(shadow) = &style.shadow {
+            let offset = shadow.offset.abs();
+            let expansion = offset + Vec2::splat(shadow.blur);
+            Rect::from_pos_size(rect.pos - expansion, rect.size + expansion * 2.0)
+        } else {
+            rect
+        };
+
+        // Skip if not visible (viewport culling)
+        if !self.is_visible(&expanded_rect) {
+            self.culling_stats.culled_count += 1;
+
+            // In debug mode, render culled frames with a special style
+            if self.debug_culling {
+                let mut debug_style = style.clone();
+                // Make the frame semi-transparent red
+                debug_style.fill = Fill::Solid(Color::rgba(1.0, 0.0, 0.0, 0.2));
+                debug_style.border_color = Color::rgba(1.0, 0.0, 0.0, 0.5);
+                debug_style.border_width = debug_style.border_width.max(1.0);
+                self.commands.push(DrawCommand::Frame {
+                    rect,
+                    style: debug_style,
+                });
+            }
+            return;
+        }
+
+        self.culling_stats.rendered_count += 1;
         self.commands.push(DrawCommand::Frame { rect, style });
     }
 }
