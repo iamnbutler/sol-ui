@@ -31,7 +31,7 @@ fn main() {
 
             // Layer 1: Basic text layout
             info!("Setting up Layer 1: Basic text layout");
-            layer_manager.add_taffy_ui_layer(0, LayerOptions::default(), || {
+            layer_manager.add_ui_layer(0, LayerOptions::default(), || {
                 Box::new(
                     col()
                         .p(20.0)
@@ -80,7 +80,7 @@ fn main() {
 
             // Layer 2: Centered content with background
             info!("Setting up Layer 2: Centered content with background");
-            layer_manager.add_taffy_ui_layer(1, LayerOptions::default(), || {
+            layer_manager.add_ui_layer(1, LayerOptions::default(), || {
                 Box::new(
                     group()
                         .size_full()
@@ -128,7 +128,7 @@ fn main() {
 
             // Layer 3: Complex layout example
             info!("Setting up Layer 3: Complex layout example");
-            layer_manager.add_taffy_ui_layer(2, LayerOptions::default(), || {
+            layer_manager.add_ui_layer(2, LayerOptions::default(), || {
                 Box::new(
                     group()
                         .flex_col()
@@ -203,7 +203,7 @@ fn main() {
 
             // Layer 4: Performance test with many elements
             info!("Setting up Layer 4: Performance test with many elements");
-            layer_manager.add_taffy_ui_layer(3, LayerOptions::default(), || {
+            layer_manager.add_ui_layer(3, LayerOptions::default(), || {
                 let mut container = group()
                     .flex_col()
                     .p(20.0)

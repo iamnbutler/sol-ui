@@ -18,6 +18,7 @@ pub struct App {
     renderer: MetalRenderer,
     _layer_manager: LayerManager,
     text_system: TextSystem,
+    last_window_size: Option<(f32, f32)>,
 }
 
 pub struct AppBuilder {
@@ -132,6 +133,7 @@ impl AppBuilder {
             renderer,
             _layer_manager,
             text_system,
+            last_window_size: None,
         }
     }
 }
@@ -187,6 +189,23 @@ impl App {
         // Clear text system frame caches
         self.text_system.begin_frame();
 
+        // Check if window size changed
+        let current_size = self.window.size();
+        if let Some(last_size) = self.last_window_size {
+            if last_size != current_size {
+                let resize_start = Instant::now();
+                info!("Window resized from {:?} to {:?}", last_size, current_size);
+
+                // Mark all layers for rebuild on resize
+                let invalidate_start = Instant::now();
+                self._layer_manager.invalidate_all();
+                info!("Layer invalidation took {:?}", invalidate_start.elapsed());
+
+                info!("Total resize handling took {:?}", resize_start.elapsed());
+            }
+        }
+        self.last_window_size = Some(current_size);
+
         // Get the next drawable from the Metal layer
         let drawable = {
             let start = Instant::now();
@@ -222,6 +241,15 @@ impl App {
         {
             let start = Instant::now();
             let _render_span = info_span!("layer_manager_render").entered();
+
+            // Check if this is a post-resize render
+            let is_resize_render =
+                self.last_window_size.is_some() && self.last_window_size != Some(current_size);
+
+            if is_resize_render {
+                info!("Starting post-resize render");
+            }
+
             self._layer_manager.render(
                 &mut self.renderer,
                 &command_buffer,
@@ -230,7 +258,13 @@ impl App {
                 &mut self.text_system,
                 scale_factor,
             );
-            info!("Layer manager render completed in {:?}", start.elapsed());
+
+            let render_time = start.elapsed();
+            if is_resize_render {
+                info!("Post-resize render completed in {:?}", render_time);
+            } else {
+                info!("Layer manager render completed in {:?}", render_time);
+            }
         }
 
         // Present drawable and commit

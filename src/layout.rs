@@ -7,7 +7,7 @@ use crate::text_system::{TextConfig, TextSystem};
 use glam::Vec2;
 use parley::FontStack;
 use taffy::prelude::*;
-use tracing::{debug, info_span};
+use tracing::{debug, info, info_span};
 
 /// The main UI context for building element trees
 pub struct UiContext {
@@ -68,10 +68,11 @@ impl UiContext {
         text_system: &mut TextSystem,
     ) -> Result<(), taffy::TaffyError> {
         let _compute_span = info_span!("taffy_compute_layout").entered();
+        let compute_start = std::time::Instant::now();
         let screen_size = self.screen_size;
         let scale_factor = self.scale_factor;
 
-        debug!("Computing layout for screen size: {:?}", screen_size);
+        info!("Computing layout for screen size: {:?}", screen_size);
 
         let result = self.taffy.compute_layout_with_measure(
             root,
@@ -91,7 +92,10 @@ impl UiContext {
             },
         );
 
-        debug!("Layout computation complete");
+        info!(
+            "Layout computation complete in {:?}",
+            compute_start.elapsed()
+        );
         result
     }
 
@@ -359,6 +363,7 @@ fn measure_element(
     scale_factor: f32,
 ) -> Size<f32> {
     let _measure_span = info_span!("measure_element").entered();
+    let measure_start = std::time::Instant::now();
     if let Some(data) = node_data {
         if let Some((content, style)) = &data.text {
             let _text_measure_span =
@@ -379,16 +384,19 @@ fn measure_element(
             let measured_size =
                 text_system.measure_text(content, &text_config, max_width, scale_factor);
 
-            debug!(
-                "Measured text '{}' -> {}x{}",
-                if content.len() > 20 {
-                    format!("{}...", &content[..20])
-                } else {
-                    content.clone()
-                },
-                measured_size.x,
-                measured_size.y
-            );
+            if measure_start.elapsed() > std::time::Duration::from_millis(10) {
+                info!(
+                    "Slow text measurement ({:?}): '{}' -> {}x{}",
+                    measure_start.elapsed(),
+                    if content.len() > 20 {
+                        format!("{}...", &content[..20])
+                    } else {
+                        content.clone()
+                    },
+                    measured_size.x,
+                    measured_size.y
+                );
+            }
 
             Size {
                 width: measured_size.x,
