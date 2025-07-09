@@ -1,19 +1,37 @@
 use palette::Srgba;
 use toy_ui::{
     app,
+    draw::TextStyle,
     layer::{LayerManager, LayerOptions},
-    taffy::{col, group, row, text},
-    ui::TextStyle,
+    layout::{col, group, row, text},
 };
+use tracing::{info, info_span};
+use tracing_subscriber::{EnvFilter, fmt};
 
 fn main() {
+    // Initialize tracing
+    let subscriber = fmt()
+        .with_env_filter(
+            EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| EnvFilter::new("toy_ui=trace,info")),
+        )
+        .with_target(true)
+        .with_thread_ids(true)
+        .with_timer(fmt::time::uptime())
+        .init();
+
+    info!("Starting Toy UI application");
+    let _main_span = info_span!("main").entered();
+
     app()
         .title("Toy UI - Taffy Layout Demo")
         .size(800.0, 600.0)
         .with_layers(|layer_manager: &mut LayerManager| {
+            let _layers_span = info_span!("layer_setup").entered();
 
             // Layer 1: Basic text layout
-            layer_manager.add_taffy_ui_layer(0, LayerOptions::default(), || {
+            info!("Setting up Layer 1: Basic text layout");
+            layer_manager.add_ui_layer(0, LayerOptions::default(), || {
                 Box::new(
                     col()
                         .p(20.0)
@@ -61,7 +79,8 @@ fn main() {
             });
 
             // Layer 2: Centered content with background
-            layer_manager.add_taffy_ui_layer(1, LayerOptions::default(), || {
+            info!("Setting up Layer 2: Centered content with background");
+            layer_manager.add_ui_layer(1, LayerOptions::default(), || {
                 Box::new(
                     group()
                         .size_full()
@@ -108,7 +127,8 @@ fn main() {
             });
 
             // Layer 3: Complex layout example
-            layer_manager.add_taffy_ui_layer(2, LayerOptions::default(), || {
+            info!("Setting up Layer 3: Complex layout example");
+            layer_manager.add_ui_layer(2, LayerOptions::default(), || {
                 Box::new(
                     group()
                         .flex_col()
@@ -182,7 +202,8 @@ fn main() {
             });
 
             // Layer 4: Performance test with many elements
-            layer_manager.add_taffy_ui_layer(3, LayerOptions::default(), || {
+            info!("Setting up Layer 4: Performance test with many elements");
+            layer_manager.add_ui_layer(3, LayerOptions::default(), || {
                 let mut container = group()
                     .flex_col()
                     .p(20.0)
@@ -225,6 +246,7 @@ fn main() {
 
                 Box::new(container)
             });
+            info!("All layers setup complete");
         })
         .run();
 }

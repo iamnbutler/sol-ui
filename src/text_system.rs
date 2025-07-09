@@ -11,6 +11,8 @@ use swash::FontRef;
 use swash::scale::{Render, ScaleContext, Source};
 
 use crate::color::Color;
+use std::time::Instant;
+use tracing::{debug, info, info_span};
 
 /// Convert our Color to RGBA bytes for Parley
 fn color_to_rgba(color: Color) -> [u8; 4] {
@@ -300,15 +302,48 @@ pub struct TextSystem {
     next_font_id: u64,
     /// Cache of shaped text
     shaped_text_cache: HashMap<ShapedTextCacheKey, ShapedText>,
+    /// Frame-based cache for text measurements to avoid duplicate work
+    measurement_cache: HashMap<MeasurementCacheKey, Vec2>,
+}
+
+/// Key for text measurement cache
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct MeasurementCacheKey {
+    text: String,
+    font_stack: String,
+    size: u32,
+    weight: u16,
+    line_height: u32,
+    max_width: Option<u32>,
+    scale_factor: u32,
 }
 
 impl TextSystem {
     /// Create a new text system with the given Metal device
     pub fn new(device: &Device) -> Result<Self, String> {
+        let _new_span = info_span!("text_system_new").entered();
+        let total_start = Instant::now();
+
+        let start = Instant::now();
         let font_context = FontContext::new();
+        info!("FontContext created in {:?}", start.elapsed());
+
+        let start = Instant::now();
         let layout_context = LayoutContext::new();
+        info!("LayoutContext created in {:?}", start.elapsed());
+
+        let start = Instant::now();
         let scale_context = ScaleContext::new();
+        info!("ScaleContext created in {:?}", start.elapsed());
+
+        let start = Instant::now();
         let glyph_atlas = GlyphAtlas::new(device, 2048, 2048)?;
+        info!("GlyphAtlas created in {:?}", start.elapsed());
+
+        info!(
+            "Total TextSystem initialization: {:?}",
+            total_start.elapsed()
+        );
 
         Ok(Self {
             font_context,
@@ -318,7 +353,17 @@ impl TextSystem {
             font_id_cache: HashMap::new(),
             next_font_id: 1,
             shaped_text_cache: HashMap::new(),
+            measurement_cache: HashMap::new(),
         })
+    }
+
+    /// Clear frame-based caches - should be called at the start of each frame
+    pub fn begin_frame(&mut self) {
+        self.measurement_cache.clear();
+        debug!(
+            "Cleared {} cached measurements",
+            self.measurement_cache.len()
+        );
     }
 
     /// Measure text with the given configuration
@@ -329,8 +374,35 @@ impl TextSystem {
         max_width: Option<f32>,
         scale_factor: f32,
     ) -> Vec2 {
+        let _measure_span = info_span!("measure_text", text_len = text.len()).entered();
         if text.is_empty() {
             return Vec2::ZERO;
+        }
+
+        // Create cache key
+        let cache_key = MeasurementCacheKey {
+            text: text.to_string(),
+            font_stack: format!("{:?}", config.font_stack),
+            size: (config.size * 100.0) as u32,
+            weight: config.weight.value() as u16,
+            line_height: (config.line_height * 100.0) as u32,
+            max_width: max_width.map(|w| (w * 100.0) as u32),
+            scale_factor: (scale_factor * 100.0) as u32,
+        };
+
+        // Check cache
+        if let Some(&cached_size) = self.measurement_cache.get(&cache_key) {
+            debug!(
+                "Using cached measurement for '{}' -> {}x{}",
+                if text.len() > 20 {
+                    format!("{}...", &text[..20])
+                } else {
+                    text.to_string()
+                },
+                cached_size.x,
+                cached_size.y
+            );
+            return cached_size;
         }
 
         // Create a layout
@@ -354,7 +426,22 @@ impl TextSystem {
         let mut layout: Layout<[u8; 4]> = builder.build(text);
         layout.break_all_lines(max_width);
 
-        Vec2::new(layout.width(), layout.height())
+        let size = Vec2::new(layout.width(), layout.height());
+
+        // Store in cache
+        self.measurement_cache.insert(cache_key, size);
+
+        debug!(
+            "Measured text '{}' -> {}x{} (cached)",
+            if text.len() > 20 {
+                format!("{}...", &text[..20])
+            } else {
+                text.to_string()
+            },
+            size.x,
+            size.y
+        );
+        size
     }
 
     /// Shape and prepare text for rendering
@@ -365,6 +452,7 @@ impl TextSystem {
         max_width: Option<f32>,
         scale_factor: f32,
     ) -> Result<ShapedText, String> {
+        let _shape_span = info_span!("shape_text", text_len = text.len()).entered();
         if text.is_empty() {
             return Ok(ShapedText {
                 glyphs: vec![],
@@ -384,6 +472,7 @@ impl TextSystem {
         };
 
         // Check cache
+        let cache_check = info_span!("check_shaped_text_cache").entered();
         if let Some(cached) = self.shaped_text_cache.get(&cache_key) {
             // Ensure all glyphs are still in the atlas
             let mut all_glyphs_cached = true;
@@ -398,6 +487,8 @@ impl TextSystem {
             }
 
             if all_glyphs_cached {
+                debug!("Using cached shaped text");
+                drop(cache_check);
                 return Ok(cached.clone());
             }
         }

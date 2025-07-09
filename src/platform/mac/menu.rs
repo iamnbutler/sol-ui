@@ -11,13 +11,11 @@ unsafe fn ns_string(string: &str) -> id {
 pub fn create_app_menu() {
     let app_name = "Toy UI";
 
-    // Create the menubar
     let menubar = unsafe {
         let menubar: id = msg_send![class!(NSMenu), new];
         menubar
     };
 
-    // Create the app menu
     let app_menu_item = unsafe {
         let app_menu_item: id = msg_send![class!(NSMenuItem), new];
         app_menu_item
@@ -28,7 +26,6 @@ pub fn create_app_menu() {
         app_menu
     };
 
-    // Add Quit menu item
     let quit_title = unsafe { ns_string(&format!("Quit {}", app_name)) };
     let quit_action = sel!(terminate:);
     let quit_key = unsafe { ns_string("q") };
@@ -43,22 +40,18 @@ pub fn create_app_menu() {
         ]
     };
 
-    // Add separator before quit
     let separator: id = unsafe { msg_send![class!(NSMenuItem), separatorItem] };
 
-    // Add items to app menu
     unsafe {
         let _: () = msg_send![app_menu, addItem: separator];
         let _: () = msg_send![app_menu, addItem: quit_menu_item];
     }
 
-    // Set the app menu
     unsafe {
         let _: () = msg_send![app_menu_item, setSubmenu: app_menu];
         let _: () = msg_send![menubar, addItem: app_menu_item];
     }
 
-    // Set as main menu
     let app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
     unsafe {
         let _: () = msg_send![app, setMainMenu: menubar];
