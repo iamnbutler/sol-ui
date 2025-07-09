@@ -87,10 +87,10 @@ impl Default for BlendMode {
 
 /// Core trait that all layers must implement
 pub trait Layer: Any {
-    /// Get the z-index of this layer (higher values render on top)
+    /// Get the z-index for layer ordering
     fn z_index(&self) -> i32;
 
-    /// Get the options for this layer
+    /// Get layer options
     fn options(&self) -> &LayerOptions;
 
     /// Render this layer
@@ -105,13 +105,18 @@ pub trait Layer: Any {
         is_first_layer: bool,
     );
 
-    /// Handle input if this layer is configured to receive it
+    /// Handle input events
     fn handle_input(&mut self, _event: &InputEvent) -> bool {
         false
     }
 
-    /// Get mutable access as Any for downcasting
+    /// Get mutable reference as Any for downcasting
     fn as_any_mut(&mut self) -> &mut dyn Any;
+
+    /// Invalidate any cached data, forcing a rebuild on next render
+    fn invalidate(&mut self) {
+        // Default implementation does nothing
+    }
 }
 
 /// A raw layer with direct shader access
@@ -196,6 +201,10 @@ where
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn invalidate(&mut self) {
+        // Raw layers don't cache anything, so nothing to invalidate
     }
 }
 
@@ -301,12 +310,19 @@ where
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn invalidate(&mut self) {
+        // UI layers don't currently cache, so nothing to invalidate
+    }
 }
 
 /// A UI layer that uses Taffy for layout
 pub struct TaffyUiLayer<F> {
     options: LayerOptions,
     render_fn: F,
+    cached_draw_list: Option<crate::draw::DrawList>,
+    cached_size: Option<Vec2>,
+    needs_rebuild: bool,
 }
 
 impl<F> TaffyUiLayer<F>
@@ -315,7 +331,13 @@ where
 {
     /// Create a new Taffy UI layer
     pub fn new(options: LayerOptions, render_fn: F) -> Self {
-        Self { options, render_fn }
+        Self {
+            options,
+            render_fn,
+            cached_draw_list: None,
+            cached_size: None,
+            needs_rebuild: true,
+        }
     }
 }
 
@@ -342,6 +364,53 @@ where
         is_first_layer: bool,
     ) {
         let _taffy_render_span = info_span!("taffy_ui_layer_render").entered();
+
+        // Check if we need to rebuild the UI tree
+        let size_changed = self.cached_size != Some(size);
+        if size_changed {
+            debug!("Size changed, marking for rebuild");
+            self.needs_rebuild = true;
+            self.cached_size = Some(size);
+        }
+
+        // Use cached draw list if available and no rebuild needed
+        if !self.needs_rebuild && self.cached_draw_list.is_some() {
+            debug!("Using cached draw list");
+            let cached_list = self.cached_draw_list.as_ref().unwrap();
+
+            // Determine load action and clear color
+            let (load_action, clear_color) = if is_first_layer {
+                (
+                    metal::MTLLoadAction::Clear,
+                    metal::MTLClearColor::new(0.95, 0.95, 0.95, 1.0), // Light gray background
+                )
+            } else {
+                (
+                    metal::MTLLoadAction::Load,
+                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
+                )
+            };
+
+            // Render the cached draw list
+            let _metal_render_span = info_span!(
+                "metal_render_draw_list",
+                command_count = cached_list.commands().len()
+            )
+            .entered();
+            renderer.render_draw_list(
+                cached_list,
+                command_buffer,
+                drawable,
+                (size.x, size.y),
+                scale_factor,
+                text_system,
+                load_action,
+                clear_color,
+            );
+            return;
+        }
+
+        debug!("Rebuilding UI tree");
 
         // Build the UI tree by calling the render function
         let root_element = {
@@ -372,6 +441,10 @@ where
                 }
             }
         };
+
+        // Cache the draw list
+        self.cached_draw_list = Some(draw_list.clone());
+        self.needs_rebuild = false;
 
         // Determine load action and clear color
         let (load_action, clear_color) = if is_first_layer {
@@ -406,6 +479,12 @@ where
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn invalidate(&mut self) {
+        debug!("Invalidating TaffyUiLayer cache");
+        self.needs_rebuild = true;
+        self.cached_draw_list = None;
     }
 }
 
@@ -459,7 +538,23 @@ impl LayerManager {
         self.layers.clear();
     }
 
-    /// Render all layers in order
+    /// Invalidate all layers, forcing them to rebuild their cached data
+    pub fn invalidate_all(&mut self) {
+        debug!("Invalidating all layers");
+        for (_, layer) in &mut self.layers {
+            layer.invalidate();
+        }
+    }
+
+    /// Invalidate a specific layer by z-index
+    pub fn invalidate_layer(&mut self, z_index: i32) {
+        if let Some((_, layer)) = self.layers.iter_mut().find(|(_, l)| l.z_index() == z_index) {
+            debug!("Invalidating layer with z-index {}", z_index);
+            layer.invalidate();
+        }
+    }
+
+    /// Render all layers
     pub fn render(
         &mut self,
         renderer: &mut MetalRenderer,

@@ -182,11 +182,20 @@ impl App {
     }
 
     fn render_frame(&mut self) {
+        let frame_start = Instant::now();
+
+        // Clear text system frame caches
+        self.text_system.begin_frame();
+
         // Get the next drawable from the Metal layer
         let drawable = {
+            let start = Instant::now();
             let _drawable_span = info_span!("get_next_drawable").entered();
             match self.window.metal_layer().next_drawable() {
-                Some(drawable) => drawable,
+                Some(drawable) => {
+                    debug!("Next drawable acquired in {:?}", start.elapsed());
+                    drawable
+                }
                 None => {
                     eprintln!("Failed to get next drawable");
                     return;
@@ -195,17 +204,23 @@ impl App {
         };
 
         // Get window size and scale factor
+        let start = Instant::now();
         let size = self.window.size();
         let scale_factor = self.window.scale_factor();
+        debug!("Window size/scale retrieved in {:?}", start.elapsed());
 
         // Create command buffer
         let command_buffer = {
+            let start = Instant::now();
             let _cmd_span = info_span!("create_command_buffer").entered();
-            self.command_queue.new_command_buffer()
+            let buffer = self.command_queue.new_command_buffer();
+            debug!("Command buffer created in {:?}", start.elapsed());
+            buffer
         };
 
         // Render all layers using the layer manager
         {
+            let start = Instant::now();
             let _render_span = info_span!("layer_manager_render").entered();
             self._layer_manager.render(
                 &mut self.renderer,
@@ -215,14 +230,19 @@ impl App {
                 &mut self.text_system,
                 scale_factor,
             );
+            info!("Layer manager render completed in {:?}", start.elapsed());
         }
 
         // Present drawable and commit
         {
+            let start = Instant::now();
             let _present_span = info_span!("present_and_commit").entered();
             command_buffer.present_drawable(&drawable);
             command_buffer.commit();
+            debug!("Present and commit completed in {:?}", start.elapsed());
         }
+
+        debug!("Total frame time: {:?}", frame_start.elapsed());
     }
 
     pub fn device(&self) -> &Device {

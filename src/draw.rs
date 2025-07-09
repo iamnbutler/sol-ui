@@ -189,6 +189,7 @@ pub enum DrawCommand {
 }
 
 /// A list of draw commands to be rendered
+#[derive(Clone)]
 pub struct DrawList {
     commands: Vec<DrawCommand>,
     clip_stack: Vec<Rect>,
@@ -200,8 +201,8 @@ pub struct DrawList {
     debug_culling: bool,
 }
 
-/// Statistics about viewport culling
-#[derive(Debug, Clone, Default)]
+/// Statistics for viewport culling
+#[derive(Clone, Default)]
 pub struct CullingStats {
     /// Number of draw calls that were culled (not rendered)
     pub culled_count: usize,

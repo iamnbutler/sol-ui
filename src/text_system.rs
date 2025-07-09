@@ -302,6 +302,20 @@ pub struct TextSystem {
     next_font_id: u64,
     /// Cache of shaped text
     shaped_text_cache: HashMap<ShapedTextCacheKey, ShapedText>,
+    /// Frame-based cache for text measurements to avoid duplicate work
+    measurement_cache: HashMap<MeasurementCacheKey, Vec2>,
+}
+
+/// Key for text measurement cache
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+struct MeasurementCacheKey {
+    text: String,
+    font_stack: String,
+    size: u32,
+    weight: u16,
+    line_height: u32,
+    max_width: Option<u32>,
+    scale_factor: u32,
 }
 
 impl TextSystem {
@@ -339,7 +353,17 @@ impl TextSystem {
             font_id_cache: HashMap::new(),
             next_font_id: 1,
             shaped_text_cache: HashMap::new(),
+            measurement_cache: HashMap::new(),
         })
+    }
+
+    /// Clear frame-based caches - should be called at the start of each frame
+    pub fn begin_frame(&mut self) {
+        self.measurement_cache.clear();
+        debug!(
+            "Cleared {} cached measurements",
+            self.measurement_cache.len()
+        );
     }
 
     /// Measure text with the given configuration
@@ -353,6 +377,32 @@ impl TextSystem {
         let _measure_span = info_span!("measure_text", text_len = text.len()).entered();
         if text.is_empty() {
             return Vec2::ZERO;
+        }
+
+        // Create cache key
+        let cache_key = MeasurementCacheKey {
+            text: text.to_string(),
+            font_stack: format!("{:?}", config.font_stack),
+            size: (config.size * 100.0) as u32,
+            weight: config.weight.value() as u16,
+            line_height: (config.line_height * 100.0) as u32,
+            max_width: max_width.map(|w| (w * 100.0) as u32),
+            scale_factor: (scale_factor * 100.0) as u32,
+        };
+
+        // Check cache
+        if let Some(&cached_size) = self.measurement_cache.get(&cache_key) {
+            debug!(
+                "Using cached measurement for '{}' -> {}x{}",
+                if text.len() > 20 {
+                    format!("{}...", &text[..20])
+                } else {
+                    text.to_string()
+                },
+                cached_size.x,
+                cached_size.y
+            );
+            return cached_size;
         }
 
         // Create a layout
@@ -377,8 +427,12 @@ impl TextSystem {
         layout.break_all_lines(max_width);
 
         let size = Vec2::new(layout.width(), layout.height());
+
+        // Store in cache
+        self.measurement_cache.insert(cache_key, size);
+
         debug!(
-            "Measured text '{}' -> {}x{}",
+            "Measured text '{}' -> {}x{} (cached)",
             if text.len() > 20 {
                 format!("{}...", &text[..20])
             } else {
