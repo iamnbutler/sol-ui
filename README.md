@@ -2,18 +2,7 @@
 
 A lightweight UI framework for Rust, built on Metal for macOS. This is an experimental project exploring immediate-mode UI concepts with native performance.
 
-## Features
-
-- Immediate-mode UI API
-- Hardware-accelerated rendering via Metal
-- Text rendering with Core Text
-- Basic UI elements (text, rectangles, groups, windows)
-- Layout helpers (horizontal/vertical stacking, spacing)
-- Color support via the `palette` crate
-
 ## Usage
-
-### Adding as a Dependency
 
 Add this to your `Cargo.toml`:
 
@@ -56,54 +45,4 @@ fn main() {
 }
 ```
 
-## API Overview
-
-### App Builder
-
-Create and configure your application window:
-
-```rust
-app()
-    .size(width, height)
-    .title("Window Title")
-    .layer(render_fn)
-    .run()
-```
-
-### UiContext
-
-The main UI building interface, passed to your render function:
-
-- `text(string)` - Render text
-- `rect(size, color)` - Draw a colored rectangle
-- `space(pixels)` - Add vertical spacing
-- `horizontal(fn)` - Layout children horizontally
-- `vertical(fn)` - Layout children vertically
-- `group(fn)` / `group_styled(color, fn)` - Group elements with optional background
-- `window(title, position, size, fn)` - Create a movable window
-
-## Requirements
-
-- macOS (Metal rendering backend)
-- Rust 2024 edition
-
-## Project Structure
-
-- `src/app.rs` - Application setup and main loop
-- `src/platform/` - Platform-specific code (macOS window management)
-- `src/renderer/` - Metal rendering implementation
-- `src/ui/` - UI context and drawing commands
-- `src/layer/` - Layer management for rendering
-- `src/text/` - Text rendering system
-
-## Example Project
-
-See the `toy-ui-example` directory for a complete example of using toy-ui as a library dependency.
-
-## Status
-
-This is an experimental project and the API is subject to change. Not recommended for production use.
-
-## License
-
-[Add your license here]
+Lots of inspiration from [GPUI](https://gpui.rs).
