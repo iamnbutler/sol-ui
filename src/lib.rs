@@ -4,8 +4,10 @@
 pub mod app;
 pub mod color;
 pub mod layer;
+
 pub mod metal_renderer;
 pub mod platform;
+pub mod taffy;
 pub mod text_system;
 pub mod ui;
 
