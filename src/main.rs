@@ -1,9 +1,9 @@
 use palette::Srgba;
 use toy_ui::{
     app,
+    draw::TextStyle,
     layer::{LayerManager, LayerOptions},
-    taffy::{col, group, row, text},
-    ui::TextStyle,
+    layout::{col, group, row, text},
 };
 
 fn main() {

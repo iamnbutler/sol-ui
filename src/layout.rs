@@ -1,8 +1,9 @@
-//! Clean, builder-based UI system with integrated Taffy layout
+//! Taffy-based layout system with clean builder API
 
 use crate::color::Color;
+use crate::draw::{DrawList, TextStyle};
+use crate::geometry::Rect;
 use crate::text_system::{TextConfig, TextSystem};
-use crate::ui::{DrawList, Rect, TextStyle};
 use glam::Vec2;
 use parley::FontStack;
 use taffy::prelude::*;
@@ -115,12 +116,12 @@ impl UiContext {
 
 /// Data stored with each element
 #[derive(Debug, Clone, Default)]
-struct ElementData {
+pub struct ElementData {
     text: Option<(String, TextStyle)>,
     background: Option<Color>,
 }
 
-/// Trait for UI elements
+/// Trait for UI elements (internal use)
 pub trait Element {
     /// Build this element into the Taffy tree
     fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId;

@@ -1,16 +1,18 @@
+//! Element identification and hierarchy management
+
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
-/// A unique identifier for a widget in the immediate mode UI system.
+/// A unique identifier for an element in the UI system.
 ///
-/// IDs are generated based on the widget's location in the code and optional user data.
-/// This allows widgets to maintain state across frames while being created dynamically.
+/// IDs are generated based on the element's location in the code and optional user data.
+/// This allows elements to maintain state across frames while being created dynamically.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct WidgetId(u64);
+pub struct ElementId(u64);
 
-impl WidgetId {
-    /// Create a new widget ID from a source location.
-    /// This is typically used with the `widget_id!()` macro.
+impl ElementId {
+    /// Create a new element ID from a source location.
+    /// This is typically used with the `element_id!()` macro.
     pub fn from_source_location(file: &str, line: u32, column: u32) -> Self {
         let mut hasher = DefaultHasher::new();
         file.hash(&mut hasher);
@@ -19,8 +21,8 @@ impl WidgetId {
         Self(hasher.finish())
     }
 
-    /// Create a widget ID with additional user data.
-    /// Useful for widgets in loops or dynamic lists.
+    /// Create an element ID with additional user data.
+    /// Useful for elements in loops or dynamic lists.
     pub fn with_data<T: Hash>(self, data: T) -> Self {
         let mut hasher = DefaultHasher::new();
         self.0.hash(&mut hasher);
@@ -29,7 +31,7 @@ impl WidgetId {
     }
 
     /// Combine this ID with a child index.
-    /// Used internally for nested widgets.
+    /// Used internally for nested elements.
     pub fn with_index(self, index: usize) -> Self {
         self.with_data(index)
     }
@@ -40,22 +42,22 @@ impl WidgetId {
     }
 }
 
-/// Stack-based ID generation for hierarchical widgets.
+/// Stack-based ID generation for hierarchical elements.
 pub struct IdStack {
-    stack: Vec<WidgetId>,
+    stack: Vec<ElementId>,
     current_child_index: Vec<usize>,
 }
 
 impl IdStack {
     pub fn new() -> Self {
         Self {
-            stack: vec![WidgetId(0)], // Root ID
+            stack: vec![ElementId(0)], // Root ID
             current_child_index: vec![0],
         }
     }
 
     /// Push a new ID onto the stack.
-    pub fn push(&mut self, base_id: WidgetId) {
+    pub fn push(&mut self, base_id: ElementId) {
         let parent = self.stack.last().unwrap();
         let child_index = self.current_child_index.last_mut().unwrap();
 
@@ -77,7 +79,7 @@ impl IdStack {
     }
 
     /// Get the current ID.
-    pub fn current(&self) -> WidgetId {
+    pub fn current(&self) -> ElementId {
         *self.stack.last().unwrap()
     }
 
@@ -90,14 +92,15 @@ impl IdStack {
     }
 }
 
-/// Macro to generate a widget ID from the current source location.
+/// Macro to generate an element ID from the current source location.
 #[macro_export]
-macro_rules! widget_id {
+macro_rules! element_id {
     () => {
-        $crate::ui::WidgetId::from_source_location(file!(), line!(), column!())
+        $crate::element::ElementId::from_source_location(file!(), line!(), column!())
     };
     ($data:expr) => {
-        $crate::ui::WidgetId::from_source_location(file!(), line!(), column!()).with_data($data)
+        $crate::element::ElementId::from_source_location(file!(), line!(), column!())
+            .with_data($data)
     };
 }
 
@@ -106,18 +109,18 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_widget_id_equality() {
-        let id1 = WidgetId::from_source_location("test.rs", 10, 5);
-        let id2 = WidgetId::from_source_location("test.rs", 10, 5);
-        let id3 = WidgetId::from_source_location("test.rs", 11, 5);
+    fn test_element_id_equality() {
+        let id1 = ElementId::from_source_location("test.rs", 10, 5);
+        let id2 = ElementId::from_source_location("test.rs", 10, 5);
+        let id3 = ElementId::from_source_location("test.rs", 11, 5);
 
         assert_eq!(id1, id2);
         assert_ne!(id1, id3);
     }
 
     #[test]
-    fn test_widget_id_with_data() {
-        let base = WidgetId::from_source_location("test.rs", 10, 5);
+    fn test_element_id_with_data() {
+        let base = ElementId::from_source_location("test.rs", 10, 5);
         let id1 = base.with_data(1);
         let id2 = base.with_data(2);
 
@@ -128,7 +131,7 @@ mod tests {
     #[test]
     fn test_id_stack() {
         let mut stack = IdStack::new();
-        let id1 = WidgetId::from_source_location("test.rs", 10, 5);
+        let id1 = ElementId::from_source_location("test.rs", 10, 5);
 
         stack.push(id1);
         let stacked_id1 = stack.current();
@@ -137,5 +140,23 @@ mod tests {
         let stacked_id2 = stack.current();
 
         assert_ne!(stacked_id1, stacked_id2);
+    }
+
+    #[test]
+    fn test_id_stack_hierarchy() {
+        let mut stack = IdStack::new();
+
+        // First child
+        let id1 = ElementId::from_source_location("test.rs", 10, 5);
+        stack.push(id1);
+        let first_child = stack.current();
+
+        // Second child at same level
+        stack.pop();
+        stack.push(id1);
+        let second_child = stack.current();
+
+        // These should be different because they have different child indices
+        assert_ne!(first_child, second_child);
     }
 }

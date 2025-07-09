@@ -1,5 +1,5 @@
 use crate::layer::LayerManager;
-use crate::metal_renderer::MetalRenderer;
+use crate::platform::mac::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
 use crate::text_system::TextSystem;
 

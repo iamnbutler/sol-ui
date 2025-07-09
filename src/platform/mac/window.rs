@@ -10,7 +10,6 @@ use std::ffi::c_void;
 use std::ptr;
 use std::sync::Arc;
 
-// Helper function to create NSString
 unsafe fn ns_string(string: &str) -> id {
     let str: id = unsafe { NSString::alloc(nil).init_str(string) };
     unsafe { msg_send![str, autorelease] }
@@ -43,7 +42,6 @@ pub struct Window {
 
 impl Window {
     pub fn new(width: f64, height: f64, title: &str, device: &metal::Device) -> Arc<Self> {
-        // Ensure classes are initialized
         unsafe { ensure_classes_initialized() };
 
         let _pool = unsafe { NSAutoreleasePool::new(nil) };

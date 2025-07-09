@@ -3,13 +3,18 @@
 #![allow(deprecated)]
 pub mod app;
 pub mod color;
+pub mod draw;
+pub mod element;
+pub mod geometry;
 pub mod layer;
-
-pub mod metal_renderer;
+pub mod layout;
 pub mod platform;
-pub mod taffy;
 pub mod text_system;
-pub mod ui;
 
 pub use app::{AppBuilder, app};
 pub use platform::Window;
+
+// Re-export commonly used types
+pub use draw::{DrawCommand, DrawList, FrameStyle, TextStyle};
+pub use element::{ElementId, IdStack};
+pub use geometry::Rect;

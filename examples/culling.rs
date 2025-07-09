@@ -7,8 +7,9 @@ use glam::Vec2;
 use palette::Srgba;
 use toy_ui::{
     app,
+    draw::TextStyle,
+    geometry::Rect,
     layer::{LayerManager, LayerOptions, UiLayerContext},
-    ui::{Rect, TextStyle},
 };
 
 fn main() {
