@@ -1037,6 +1037,9 @@ impl MetalRenderer {
             .object_at(0)
             .unwrap();
         attachment.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+        attachment.set_blending_enabled(true);
+        attachment.set_source_rgb_blend_factor(metal::MTLBlendFactor::SourceAlpha);
+        attachment.set_destination_rgb_blend_factor(metal::MTLBlendFactor::OneMinusSourceAlpha);
 
         let pipeline_state = match self.device.new_render_pipeline_state(&pipeline_descriptor) {
             Ok(state) => state,

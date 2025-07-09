@@ -196,10 +196,10 @@ impl App {
                 );
             }
 
-            // Frame rate limiting: target 60 FPS (16.67ms per frame)
+            // Frame rate limiting: target 120 FPS (8.33ms per frame)
             if self.animation_frame_requested {
                 const TARGET_FRAME_TIME: std::time::Duration =
-                    std::time::Duration::from_micros(16_667);
+                    std::time::Duration::from_micros(8_333);
                 if let Some(sleep_duration) = TARGET_FRAME_TIME.checked_sub(frame_time) {
                     std::thread::sleep(sleep_duration);
                 }

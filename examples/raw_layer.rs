@@ -22,7 +22,7 @@ fn main() {
     let _main_span = info_span!("main").entered();
 
     app()
-        .title("Toy UI - Animated Fractals Demo")
+        .title("Toy UI - Cosmic Energy Visualization")
         .size(800.0, 600.0)
         .with_layers(|layer_manager: &mut LayerManager| {
             // Layer 0: Animated gradient background using raw layer
@@ -30,33 +30,52 @@ fn main() {
             layer_manager.add_raw_layer(0, LayerOptions::default().with_clear().with_clear_color(0.0, 0.0, 0.0, 1.0), |ctx| {
                 ctx.request_animation_frame();
 
-                let plasma_shader = r#"
+                // Draw an animated aurora background
+                let aurora_shader = r#"
                     float4 shader_main(float2 uv, float2 resolution, float time) {
-                        float2 pos = (uv - 0.5) * 3.0;
+                        float2 pos = (uv - 0.5) * 2.0;
 
-                        float pattern1 = sin(pos.x * 4.0 + time * 2.0) * cos(pos.y * 3.0 + time * 1.5);
-                        float pattern2 = sin(distance(pos, float2(sin(time * 0.8), cos(time * 0.6))) * 5.0 - time * 3.0);
-                        float pattern3 = sin(pos.x * sin(time * 0.5) * 3.0 + pos.y * cos(time * 0.3) * 4.0);
+                        // Create flowing aurora waves
+                        float wave1 = sin(pos.x * 3.0 + time * 0.7) * cos(pos.y * 2.0 + time * 0.3);
+                        float wave2 = sin(pos.x * 2.0 - time * 0.5) * sin(pos.y * 3.0 + time * 0.4);
+                        float wave3 = cos(pos.x * 4.0 + pos.y * 2.0 + time * 0.6);
 
-                        float plasma = (pattern1 + pattern2 + pattern3) / 3.0;
+                        float aurora = (wave1 + wave2 + wave3) / 3.0;
+                        aurora = aurora * 0.5 + 0.5; // Normalize to 0-1
 
-                        float3 color1 = float3(0.1, 0.0, 0.2);  // Deep purple
-                        float3 color2 = float3(0.0, 0.1, 0.3);  // Deep blue
-                        float3 color3 = float3(0.2, 0.0, 0.3);  // Magenta
-                        float3 color4 = float3(0.0, 0.2, 0.4);  // Teal
+                        // Height-based intensity
+                        float height_factor = 1.0 - abs(pos.y * 0.7);
+                        height_factor = pow(height_factor, 2.0);
+                        aurora *= height_factor;
 
-                        float t = (sin(plasma * 3.14159 + time) + 1.0) * 0.5;
-                        float3 color = mix(color1, color2, smoothstep(0.0, 0.33, t));
-                        color = mix(color, color3, smoothstep(0.33, 0.66, t));
-                        color = mix(color, color4, smoothstep(0.66, 1.0, t));
+                        // Deep space background gradient
+                        float3 bg_color = mix(
+                            float3(0.0, 0.0, 0.02),  // Almost black
+                            float3(0.0, 0.02, 0.05), // Very dark blue
+                            uv.y
+                        );
 
-                        color += float3(0.1, 0.05, 0.15) * abs(plasma);
+                        // Aurora colors - cool palette
+                        float3 aurora_color1 = float3(0.0, 0.8, 0.6);  // Cyan-green
+                        float3 aurora_color2 = float3(0.0, 0.4, 0.8);  // Blue
+                        float3 aurora_color3 = float3(0.4, 0.0, 0.6);  // Purple
+
+                        // Mix aurora colors
+                        float3 aurora_final = mix(aurora_color1, aurora_color2, sin(aurora * 3.14159 + time * 0.2));
+                        aurora_final = mix(aurora_final, aurora_color3, cos(aurora * 2.0 - time * 0.3));
+
+                        // Combine with background
+                        float3 color = bg_color + aurora_final * aurora * 0.6;
+
+                        // Add subtle stars
+                        float star = pow(fract(sin(dot(uv * 200.0, float2(12.9898, 78.233))) * 43758.5453), 40.0);
+                        color += float3(0.9, 0.9, 1.0) * star;
 
                         return float4(color, 1.0);
                     }
                 "#;
 
-                ctx.draw_fullscreen_quad(plasma_shader);
+                ctx.draw_fullscreen_quad(aurora_shader);
             });
 
             // Layer 1: 3D scene using raw layer
@@ -65,81 +84,173 @@ fn main() {
                 // Request continuous animation
                 ctx.request_animation_frame();
 
-                // Draw an animated Julia set fractal
-                let julia_shader = r#"
+                // Draw flowing cosmic ribbons
+                let cosmic_ribbons_shader = r#"
                     float4 shader_main(float2 uv, float2 resolution, float time) {
-                        // Julia set with animated parameter
-                        float2 z = (uv - 0.5) * 3.0;
+                        float2 pos = (uv - 0.5) * float2(resolution.x / resolution.y, 1.0) * 2.0;
+                        float3 color = float3(0.0);
 
-                        // Animate the Julia parameter in a loop
-                        float angle = time * 0.5;
-                        float radius = 0.7885;  // This radius creates interesting patterns
-                        float2 c = float2(radius * cos(angle), radius * sin(angle));
+                        // Create flowing ribbon paths
+                        for (int i = 0; i < 3; i++) {
+                            float fi = float(i);
+                            float speed = 0.5 + fi * 0.2;
 
-                        int iterations = 0;
-                        const int max_iterations = 80;
-                        float escape_radius = 2.0;
+                            // Ribbon path
+                            float y_offset = sin(pos.x * 2.0 + time * speed + fi * 2.0) * 0.3;
+                            y_offset += cos(pos.x * 3.0 - time * speed * 0.7 + fi) * 0.2;
 
-                        for (int i = 0; i < max_iterations; i++) {
-                            float x = z.x * z.x - z.y * z.y + c.x;
-                            float y = 2.0 * z.x * z.y + c.y;
-                            z = float2(x, y);
+                            // Distance from ribbon center
+                            float dist = abs(pos.y - y_offset - (fi - 1.0) * 0.5);
 
-                            if (length(z) > escape_radius) {
-                                iterations = i;
-                                break;
-                            }
+                            // Ribbon intensity with smooth edges
+                            float ribbon = exp(-dist * dist * 30.0);
+
+                            // Pulsing along the ribbon
+                            float pulse = sin(pos.x * 5.0 - time * 2.0 + fi * 3.0) * 0.5 + 0.5;
+                            ribbon *= 0.7 + pulse * 0.3;
+
+                            // Color each ribbon differently
+                            float3 ribbon_color;
+                            if (i == 0) ribbon_color = float3(0.3, 0.7, 1.0);  // Light blue
+                            else if (i == 1) ribbon_color = float3(0.5, 0.3, 0.9);  // Purple-blue
+                            else ribbon_color = float3(0.2, 0.9, 0.8);  // Cyan
+
+                            color += ribbon_color * ribbon * 0.8;
                         }
 
-                        // Smooth coloring
-                        float smooth_iter = float(iterations);
-                        if (iterations < max_iterations) {
-                            float log_zn = log(length(z));
-                            float nu = log(log_zn / log(2.0)) / log(2.0);
-                            smooth_iter = float(iterations) + 1.0 - nu;
-                        }
+                        // Add some cosmic dust/glow
+                        float glow = 0.02 / (length(pos) + 0.1);
+                        color += float3(0.4, 0.5, 0.8) * glow;
 
-                        // Create a beautiful color gradient
-                        float t = smooth_iter / float(max_iterations);
+                        // Subtle vignette
+                        float vignette = 1.0 - length(pos * 0.5) * 0.7;
+                        color *= vignette;
 
-                        float3 color;
-                        if (iterations == max_iterations) {
-                            // Points inside the Julia set - dark blue
-                            color = float3(0.0, 0.05, 0.1);
-                        } else {
-                            // Create a multi-color gradient
-                            float h = t * 6.0 + time * 0.1;  // Slowly shift colors
-                            float3 c1 = float3(0.5, 0.0, 0.5);  // Purple
-                            float3 c2 = float3(0.0, 0.3, 0.7);  // Blue
-                            float3 c3 = float3(0.0, 0.7, 0.7);  // Cyan
-                            float3 c4 = float3(0.9, 0.5, 0.0);  // Orange
-
-                            float segment = fmod(h, 4.0);
-                            if (segment < 1.0) {
-                                color = mix(c1, c2, segment);
-                            } else if (segment < 2.0) {
-                                color = mix(c2, c3, segment - 1.0);
-                            } else if (segment < 3.0) {
-                                color = mix(c3, c4, segment - 2.0);
-                            } else {
-                                color = mix(c4, c1, segment - 3.0);
-                            }
-
-                            // Add brightness variation based on escape time
-                            color *= 0.5 + 0.5 * sin(smooth_iter * 0.5);
-                        }
-
-                        // Add slight transparency for blending
-                        return float4(color, 0.85);
+                        return float4(color, 0.5);
                     }
                 "#;
 
-                ctx.draw_fullscreen_quad(julia_shader);
+                ctx.draw_fullscreen_quad(cosmic_ribbons_shader);
             });
 
-            // Layer 2: Particle system overlay using raw layer
-            info!("Setting up Layer 2: Particle system");
-            // Skip layer 2 - we'll just have background and mandelbrot
+            // Layer 4: Film grain and post effects
+            info!("Setting up Layer 4: Film grain");
+            layer_manager.add_raw_layer(4, LayerOptions::default(), |ctx| {
+                ctx.request_animation_frame();
+
+                // Film grain and subtle post effects
+                let film_grain_shader = r#"
+                    float rand(float2 co) {
+                        return fract(sin(dot(co.xy, float2(12.9898, 78.233))) * 43758.5453);
+                    }
+
+                    float4 shader_main(float2 uv, float2 resolution, float time) {
+                        // Film grain
+                        float grain_amount = 0.03;
+                        float grain = rand(uv * resolution + time) * grain_amount - grain_amount * 0.5;
+
+                        // Animated noise pattern for organic feel
+                        float2 noise_uv = uv * 50.0 + time * 10.0;
+                        float noise_pattern = rand(noise_uv) * 0.02;
+
+                        // Subtle vignette
+                        float2 pos = uv - 0.5;
+                        float vignette = 1.0 - length(pos) * 0.4;
+                        vignette = smoothstep(0.0, 1.0, vignette);
+
+                        // Combine effects
+                        float3 color = float3(grain + noise_pattern) * vignette;
+
+                        // Slight color tint to the grain
+                        color *= float3(0.9, 0.95, 1.0);
+
+                        return float4(color, grain_amount * vignette);
+                    }
+                "#;
+
+                ctx.draw_fullscreen_quad(film_grain_shader);
+            });
+
+            // Layer 3: Particle system overlay
+            info!("Setting up Layer 3: Particle system");
+            layer_manager.add_raw_layer(3, LayerOptions::default(), |ctx| {
+                // Request continuous animation
+                ctx.request_animation_frame();
+
+                // Draw small glowing particles
+                let particle_shader = r#"
+                    float hash(float2 p) {
+                        return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
+                    }
+
+                    float4 shader_main(float2 uv, float2 resolution, float time) {
+                        float3 color = float3(0.0);
+
+                        // More particles but much smaller
+                        const int num_particles = 100;
+
+                        for (int i = 0; i < num_particles; i++) {
+                            float fi = float(i);
+
+                            // Generate particle properties
+                            float2 seed = float2(fi * 0.1, fi * 0.2);
+                            float rand1 = hash(seed);
+                            float rand2 = hash(seed + 1.0);
+                            float rand3 = hash(seed + 2.0);
+                            float rand4 = hash(seed + 3.0);
+                            float rand5 = hash(seed + 4.0);
+
+                            // Drifting motion
+                            float2 base_pos = float2(rand1, rand2);
+                            float2 drift = float2(
+                                sin(time * 0.3 + fi * 1.7) * 0.1,
+                                cos(time * 0.2 + fi * 2.3) * 0.15 + time * 0.05
+                            );
+                            float2 particle_pos = fract(base_pos + drift);
+
+                            // Distance from current pixel
+                            float2 diff = (uv - particle_pos) * resolution;
+                            float dist = length(diff);
+
+                            // Much smaller particles
+                            float pulse = sin(time * 4.0 + fi * 3.0) * 0.2 + 0.8;
+                            float glow_size = (0.5 + rand4 * 0.5) * pulse; // Much smaller
+
+                            // Sharp, bright points
+                            float glow = exp(-dist * dist / (glow_size * glow_size));
+
+                            // Cool color palette matching aurora
+                            float3 particle_color;
+                            float color_choice = rand5;
+                            if (color_choice < 0.3) particle_color = float3(0.4, 0.9, 1.0);     // Light cyan
+                            else if (color_choice < 0.6) particle_color = float3(0.6, 0.8, 1.0); // Light blue
+                            else if (color_choice < 0.8) particle_color = float3(0.8, 0.7, 1.0); // Light purple
+                            else particle_color = float3(1.0, 0.9, 0.8);                         // Warm white
+
+                            // Brightness variation
+                            float brightness = 0.5 + rand3 * 0.5;
+                            particle_color *= brightness;
+
+                            // Fade near edges
+                            float edge_fade = smoothstep(0.0, 0.1, particle_pos.x) *
+                                            smoothstep(1.0, 0.9, particle_pos.x) *
+                                            smoothstep(0.0, 0.1, particle_pos.y) *
+                                            smoothstep(1.0, 0.9, particle_pos.y);
+
+                            color += particle_color * glow * edge_fade * 2.0;
+                        }
+
+                        // Very subtle bloom
+                        color = pow(color, float3(0.95));
+
+                        // Alpha based on luminance
+                        float alpha = min(length(color), 1.0);
+                        return float4(color, alpha);
+                    }
+                "#;
+
+                ctx.draw_fullscreen_quad(particle_shader);
+            });
 
             // Layer 3: UI overlay (showing we can mix UI and raw layers)
             // info!("Setting up Layer 3: UI overlay");
