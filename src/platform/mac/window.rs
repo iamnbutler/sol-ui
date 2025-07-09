@@ -130,17 +130,39 @@ impl Window {
     }
 
     pub fn handle_events(&self) -> bool {
+        self.handle_events_internal(true)
+    }
+
+    pub fn handle_events_non_blocking(&self) -> bool {
+        self.handle_events_internal(false)
+    }
+
+    fn handle_events_internal(&self, blocking: bool) -> bool {
         let app = unsafe { NSApplication::shared() };
 
         loop {
             let event: *mut Object = unsafe {
-                msg_send![
-                    app,
-                    nextEventMatchingMask: !0
-                    untilDate: nil
-                    inMode: ns_string("kCFRunLoopDefaultMode")
-                    dequeue: YES
-                ]
+                if blocking {
+                    msg_send![
+                        app,
+                        nextEventMatchingMask: !0
+                        untilDate: nil
+                        inMode: ns_string("kCFRunLoopDefaultMode")
+                        dequeue: YES
+                    ]
+                } else {
+                    // Non-blocking: return immediately if no events
+                    msg_send![
+                        app,
+                        nextEventMatchingMask: !0
+                        untilDate: {
+                            let past: *mut Object = msg_send![class!(NSDate), distantPast];
+                            past
+                        }
+                        inMode: ns_string("kCFRunLoopDefaultMode")
+                        dequeue: YES
+                    ]
+                }
             };
 
             if event.is_null() {

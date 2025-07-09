@@ -104,6 +104,8 @@ pub trait Layer: Any {
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
+        animation_frame_requested: &mut bool,
+        elapsed_time: f32,
     );
 
     /// Handle input events
@@ -147,9 +149,15 @@ pub struct RawLayerContext<'a> {
     pub drawable: &'a metal::MetalDrawableRef,
     pub size: Vec2,
     pub time: f32,
+    animation_frame_requested: &'a mut bool,
 }
 
 impl<'a> RawLayerContext<'a> {
+    /// Request that another frame be rendered immediately after this one
+    pub fn request_animation_frame(&mut self) {
+        *self.animation_frame_requested = true;
+    }
+
     /// Draw a fullscreen quad with a custom shader
     pub fn draw_fullscreen_quad(&mut self, shader_source: &str) {
         self.renderer.draw_fullscreen_quad(
@@ -195,21 +203,18 @@ where
         _scale_factor: f32,
         _text_system: &mut crate::text_system::TextSystem,
         _is_first_layer: bool,
+        animation_frame_requested: &mut bool,
+        elapsed_time: f32,
     ) {
         let _raw_render_span = info_span!("raw_layer_render").entered();
-
-        // Get elapsed time for animations
-        let time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs_f32();
 
         let mut ctx = RawLayerContext {
             renderer,
             command_buffer,
             drawable,
             size,
-            time,
+            time: elapsed_time,
+            animation_frame_requested,
         };
 
         (self.render_fn)(&mut ctx);
@@ -268,6 +273,8 @@ where
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
+        _animation_frame_requested: &mut bool,
+        _elapsed_time: f32,
     ) {
         let _render_span = info_span!("taffy_ui_layer_render").entered();
         let total_start = std::time::Instant::now();
@@ -424,10 +431,13 @@ impl LayerManager {
         size: Vec2,
         text_system: &mut crate::text_system::TextSystem,
         scale_factor: f32,
-    ) {
+        elapsed_time: f32,
+    ) -> bool {
         let _render_all_span =
             info_span!("layer_manager_render_all", layer_count = self.layers.len()).entered();
         debug!("Rendering {} layers", self.layers.len());
+
+        let mut animation_frame_requested = false;
 
         for (i, (_, layer)) in self.layers.iter_mut().enumerate() {
             let _layer_span =
@@ -441,8 +451,12 @@ impl LayerManager {
                 scale_factor,
                 text_system,
                 is_first_layer,
+                &mut animation_frame_requested,
+                elapsed_time,
             );
         }
+
+        animation_frame_requested
     }
 
     /// Handle input, starting from the topmost layer that accepts input

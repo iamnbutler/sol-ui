@@ -10,7 +10,7 @@ use tracing_subscriber::{EnvFilter, fmt};
 
 fn main() {
     // Initialize tracing
-    let subscriber = fmt()
+    let _subscriber = fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| EnvFilter::new("toy_ui=trace,info")),

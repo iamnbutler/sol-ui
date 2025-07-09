@@ -1,4 +1,4 @@
-#![allow(unexpected_cfgs, dead_code)]
+#![allow(unexpected_cfgs, unused, dead_code)]
 // todo: remove these
 #![allow(deprecated)]
 pub mod app;
