@@ -1,7 +1,7 @@
 use crate::layer::LayerManager;
 use crate::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
-use crate::text::TextSystem;
+use crate::text_system::TextSystem;
 use crate::ui::UiContext;
 
 use cocoa::base::{YES, id};

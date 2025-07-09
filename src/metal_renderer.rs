@@ -1,5 +1,5 @@
 use crate::color::Color as UiColor;
-use crate::text::{ShapedText, TextSystem};
+use crate::text_system::{ShapedText, TextSystem};
 use crate::ui::{DrawCommand, DrawList, Fill, FrameStyle, Rect};
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
@@ -396,8 +396,8 @@ impl MetalRenderer {
                 // Calculate glyph position in screen space
                 // glyph.position is the baseline position from the shaper
                 // info.bearing_y is the distance from baseline to top of glyph
-                let glyph_x = position.x + glyph.position.x + info.bearing_x;
-                let glyph_y = position.y + glyph.position.y - info.bearing_y;
+                let glyph_x = position.x + glyph.position.x + info.left as f32;
+                let glyph_y = position.y + glyph.position.y - info.top as f32;
 
                 // Convert to NDC
                 let x1 = (glyph_x / screen_size.0) * 2.0 - 1.0;
@@ -473,12 +473,14 @@ impl MetalRenderer {
                     style,
                 } => {
                     // Shape and render text
-                    let text_config = crate::text::TextConfig {
-                        font: crate::text::FontSpec::default(),
+                    let text_config = crate::text_system::TextConfig {
+                        font_stack: parley::FontStack::from("system-ui"),
                         size: style.size,
                         color: style.color.clone(),
+                        weight: parley::FontWeight::NORMAL,
+                        line_height: 1.2,
                     };
-                    if let Ok(shaped) = text_system.shape_text(text, &text_config) {
+                    if let Ok(shaped) = text_system.shape_text(text, &text_config, None) {
                         let color = &style.color;
                         let vertices = self.text_to_vertices(
                             *position,

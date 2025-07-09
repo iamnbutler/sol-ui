@@ -88,7 +88,7 @@ pub trait Layer: Any {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     );
 
@@ -166,7 +166,7 @@ where
         command_buffer: &CommandBufferRef,
         _drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        _text_system: &mut crate::text::TextSystem,
+        _text_system: &mut crate::text_system::TextSystem,
         _is_first_layer: bool,
     ) {
         let mut ctx = RawLayerContext {
@@ -220,7 +220,7 @@ where
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
         // Create a new UI context for this layer
@@ -304,7 +304,7 @@ impl LayerManager {
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        text_system: &mut crate::text::TextSystem,
+        text_system: &mut crate::text_system::TextSystem,
     ) {
         for (index, layer) in self.layers.iter_mut().enumerate() {
             let is_first_layer = index == 0;

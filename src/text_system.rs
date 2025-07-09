@@ -1,0 +1,489 @@
+//! Text system using Parley for layout and rendering
+
+use glam::Vec2;
+use metal::{Device, Texture};
+use parley::{
+    FontContext, FontStack, FontWeight, GlyphRun, Layout, LayoutContext, LineHeight,
+    PositionedLayoutItem, StyleProperty,
+};
+use std::collections::HashMap;
+use swash::FontRef;
+use swash::scale::{Render, ScaleContext, Source};
+
+use crate::color::Color;
+
+/// Convert our Color to RGBA bytes for Parley
+fn color_to_rgba(color: Color) -> [u8; 4] {
+    [
+        (color.red * 255.0) as u8,
+        (color.green * 255.0) as u8,
+        (color.blue * 255.0) as u8,
+        (color.alpha * 255.0) as u8,
+    ]
+}
+
+/// Text rendering configuration
+#[derive(Debug, Clone)]
+pub struct TextConfig {
+    /// Font family names (will use first available)
+    pub font_stack: FontStack<'static>,
+    /// Font size in logical pixels
+    pub size: f32,
+    /// Font weight
+    pub weight: FontWeight,
+    /// Text color
+    pub color: Color,
+    /// Line height multiplier
+    pub line_height: f32,
+}
+
+impl Default for TextConfig {
+    fn default() -> Self {
+        Self {
+            font_stack: FontStack::from("system-ui"),
+            size: 16.0,
+            weight: FontWeight::NORMAL,
+            color: Color::new(0.0, 0.0, 0.0, 1.0),
+            line_height: 1.2,
+        }
+    }
+}
+
+/// Information about a glyph in the atlas
+#[derive(Debug, Clone, Copy)]
+pub struct GlyphInfo {
+    /// UV coordinates in the atlas (0.0 to 1.0)
+    pub uv_min: (f32, f32),
+    pub uv_max: (f32, f32),
+    /// Size of the glyph in pixels
+    pub width: u32,
+    pub height: u32,
+    /// Offset from the glyph origin to the top-left of the bitmap
+    pub left: i32,
+    pub top: i32,
+}
+
+/// Key for identifying a glyph in the atlas
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct GlyphKey {
+    font_id: u64,
+    glyph_id: u16,
+    size: u32,
+}
+
+/// A shelf in the atlas for packing glyphs
+#[derive(Debug)]
+struct Shelf {
+    y: u32,
+    height: u32,
+    next_x: u32,
+}
+
+/// Glyph atlas that manages glyph textures
+pub struct GlyphAtlas {
+    texture: Texture,
+    width: u32,
+    height: u32,
+    glyphs: HashMap<GlyphKey, GlyphInfo>,
+    shelves: Vec<Shelf>,
+}
+
+impl GlyphAtlas {
+    /// Create a new glyph atlas with the given dimensions
+    pub fn new(device: &Device, width: u32, height: u32) -> Result<Self, String> {
+        let descriptor = metal::TextureDescriptor::new();
+        descriptor.set_pixel_format(metal::MTLPixelFormat::R8Unorm);
+        descriptor.set_width(width as u64);
+        descriptor.set_height(height as u64);
+        descriptor
+            .set_usage(metal::MTLTextureUsage::ShaderRead | metal::MTLTextureUsage::ShaderWrite);
+        descriptor.set_storage_mode(metal::MTLStorageMode::Managed);
+
+        let texture = device.new_texture(&descriptor);
+
+        // Clear the texture to transparent
+        let zeros = vec![0u8; (width * height) as usize];
+        texture.replace_region(
+            metal::MTLRegion {
+                origin: metal::MTLOrigin { x: 0, y: 0, z: 0 },
+                size: metal::MTLSize {
+                    width: width as u64,
+                    height: height as u64,
+                    depth: 1,
+                },
+            },
+            0,
+            zeros.as_ptr() as *const _,
+            width as u64,
+        );
+
+        Ok(Self {
+            texture,
+            width,
+            height,
+            glyphs: HashMap::new(),
+            shelves: vec![],
+        })
+    }
+
+    /// Check if a glyph is in the atlas
+    pub fn contains(&self, font_id: u64, glyph_id: u16, size: u32) -> bool {
+        let key = GlyphKey {
+            font_id,
+            glyph_id,
+            size,
+        };
+        self.glyphs.contains_key(&key)
+    }
+
+    /// Add a glyph to the atlas
+    pub fn add_glyph(
+        &mut self,
+        font_id: u64,
+        glyph_id: u16,
+        size: u32,
+        data: &[u8],
+        width: u32,
+        height: u32,
+        left: i32,
+        top: i32,
+    ) -> Result<(), String> {
+        let key = GlyphKey {
+            font_id,
+            glyph_id,
+            size,
+        };
+
+        // Check if already in atlas
+        if self.glyphs.contains_key(&key) {
+            return Ok(());
+        }
+
+        // Find a position for the glyph
+        let (x, y) = self.find_position(width, height)?;
+
+        // Upload glyph data to texture
+        if !data.is_empty() && width > 0 && height > 0 {
+            self.texture.replace_region(
+                metal::MTLRegion {
+                    origin: metal::MTLOrigin {
+                        x: x as u64,
+                        y: y as u64,
+                        z: 0,
+                    },
+                    size: metal::MTLSize {
+                        width: width as u64,
+                        height: height as u64,
+                        depth: 1,
+                    },
+                },
+                0,
+                data.as_ptr() as *const _,
+                width as u64,
+            );
+        }
+
+        // Calculate UV coordinates
+        let uv_min = (x as f32 / self.width as f32, y as f32 / self.height as f32);
+        let uv_max = (
+            (x + width) as f32 / self.width as f32,
+            (y + height) as f32 / self.height as f32,
+        );
+
+        // Store glyph info
+        let info = GlyphInfo {
+            uv_min,
+            uv_max,
+            width,
+            height,
+            left,
+            top,
+        };
+
+        self.glyphs.insert(key, info);
+        Ok(())
+    }
+
+    /// Get information about a glyph in the atlas
+    pub fn get_glyph(&self, font_id: u64, glyph_id: u16, size: u32) -> Option<&GlyphInfo> {
+        let key = GlyphKey {
+            font_id,
+            glyph_id,
+            size,
+        };
+        self.glyphs.get(&key)
+    }
+
+    /// Get the atlas texture
+    pub fn texture(&self) -> &Texture {
+        &self.texture
+    }
+
+    /// Find a position for a glyph using shelf packing
+    fn find_position(&mut self, width: u32, height: u32) -> Result<(u32, u32), String> {
+        // Add padding around glyphs
+        let padded_width = width + 2;
+        let padded_height = height + 2;
+
+        // Try to fit in an existing shelf
+        for shelf in &mut self.shelves {
+            if shelf.height >= padded_height && shelf.next_x + padded_width <= self.width {
+                let x = shelf.next_x;
+                shelf.next_x += padded_width;
+                return Ok((x + 1, shelf.y + 1)); // +1 for padding
+            }
+        }
+
+        // Need a new shelf
+        let next_y = if let Some(last_shelf) = self.shelves.last() {
+            last_shelf.y + last_shelf.height
+        } else {
+            0
+        };
+
+        if next_y + padded_height > self.height {
+            return Err("Atlas is full".to_string());
+        }
+
+        self.shelves.push(Shelf {
+            y: next_y,
+            height: padded_height,
+            next_x: padded_width,
+        });
+
+        Ok((1, next_y + 1)) // +1 for padding
+    }
+}
+
+/// A shaped glyph ready for rendering
+#[derive(Debug, Clone)]
+pub struct ShapedGlyph {
+    /// Font ID (unique identifier for font)
+    pub font_id: u64,
+    /// Glyph ID in the font
+    pub glyph_id: u16,
+    /// Size in pixels
+    pub size: u32,
+    /// Position relative to text origin
+    pub position: Vec2,
+}
+
+/// Result of text shaping
+#[derive(Debug, Clone)]
+pub struct ShapedText {
+    /// Individual glyphs with positions
+    pub glyphs: Vec<ShapedGlyph>,
+    /// Total size of the shaped text
+    pub size: Vec2,
+}
+
+/// Text system that manages fonts, shaping, and atlas
+pub struct TextSystem {
+    font_context: FontContext,
+    layout_context: LayoutContext,
+    scale_context: ScaleContext,
+    glyph_atlas: GlyphAtlas,
+    /// Cache of font data to ID mappings
+    font_id_cache: HashMap<Vec<u8>, u64>,
+    next_font_id: u64,
+}
+
+impl TextSystem {
+    /// Create a new text system with the given Metal device
+    pub fn new(device: &Device) -> Result<Self, String> {
+        let font_context = FontContext::new();
+        let layout_context = LayoutContext::new();
+        let scale_context = ScaleContext::new();
+        let glyph_atlas = GlyphAtlas::new(device, 2048, 2048)?;
+
+        Ok(Self {
+            font_context,
+            layout_context,
+            scale_context,
+            glyph_atlas,
+            font_id_cache: HashMap::new(),
+            next_font_id: 1,
+        })
+    }
+
+    /// Measure text with the given configuration
+    pub fn measure_text(
+        &mut self,
+        text: &str,
+        config: &TextConfig,
+        max_width: Option<f32>,
+    ) -> Vec2 {
+        if text.is_empty() {
+            return Vec2::ZERO;
+        }
+
+        // Create a layout
+        let mut builder = self.layout_context.ranged_builder(
+            &mut self.font_context,
+            text,
+            1.0,   // scale
+            false, // no pixel snapping for measurement
+        );
+
+        // Apply text styles
+        let brush = color_to_rgba(config.color);
+        builder.push_default(StyleProperty::Brush(brush));
+        builder.push_default(config.font_stack.clone());
+        builder.push_default(StyleProperty::FontSize(config.size));
+        builder.push_default(StyleProperty::FontWeight(config.weight));
+        builder.push_default(StyleProperty::LineHeight(LineHeight::FontSizeRelative(
+            config.line_height,
+        )));
+
+        let mut layout: Layout<[u8; 4]> = builder.build(text);
+        layout.break_all_lines(max_width);
+
+        Vec2::new(layout.width(), layout.height())
+    }
+
+    /// Shape and prepare text for rendering
+    pub fn shape_text(
+        &mut self,
+        text: &str,
+        config: &TextConfig,
+        max_width: Option<f32>,
+    ) -> Result<ShapedText, String> {
+        if text.is_empty() {
+            return Ok(ShapedText {
+                glyphs: vec![],
+                size: Vec2::ZERO,
+            });
+        }
+
+        // Create a layout
+        let mut builder = self.layout_context.ranged_builder(
+            &mut self.font_context,
+            text,
+            1.0,  // scale
+            true, // pixel snapping
+        );
+
+        // Apply text styles
+        let brush = color_to_rgba(config.color);
+        builder.push_default(StyleProperty::Brush(brush));
+        builder.push_default(config.font_stack.clone());
+        builder.push_default(StyleProperty::FontSize(config.size));
+        builder.push_default(StyleProperty::FontWeight(config.weight));
+        builder.push_default(StyleProperty::LineHeight(LineHeight::FontSizeRelative(
+            config.line_height,
+        )));
+
+        let mut layout: Layout<[u8; 4]> = builder.build(text);
+        layout.break_all_lines(max_width);
+
+        let mut shaped_glyphs = Vec::new();
+
+        // Process each line and glyph run
+        for line in layout.lines() {
+            for item in line.items() {
+                if let PositionedLayoutItem::GlyphRun(glyph_run) = item {
+                    self.process_glyph_run(&glyph_run, &mut shaped_glyphs)?;
+                }
+            }
+        }
+
+        Ok(ShapedText {
+            glyphs: shaped_glyphs,
+            size: Vec2::new(layout.width(), layout.height()),
+        })
+    }
+
+    /// Process a glyph run, rasterizing glyphs as needed
+    fn process_glyph_run(
+        &mut self,
+        glyph_run: &GlyphRun<'_, [u8; 4]>,
+        shaped_glyphs: &mut Vec<ShapedGlyph>,
+    ) -> Result<(), String> {
+        let run = glyph_run.run();
+        let font = run.font();
+        let font_size = run.font_size();
+        let normalized_coords = run.normalized_coords();
+
+        // Get or create font ID
+        let font_id = self.get_or_create_font_id(font.data.as_ref());
+
+        // Convert to swash font
+        let font_ref = FontRef::from_index(font.data.as_ref(), font.index as usize)
+            .ok_or_else(|| "Failed to create font reference".to_string())?;
+
+        // Create scaler for this run
+        let mut scaler = self
+            .scale_context
+            .builder(font_ref)
+            .size(font_size)
+            .hint(true)
+            .normalized_coords(normalized_coords)
+            .build();
+
+        let mut run_x = glyph_run.offset();
+        let run_y = glyph_run.baseline();
+
+        // Process each glyph
+        for glyph in glyph_run.glyphs() {
+            let glyph_x = run_x + glyph.x;
+            let glyph_y = run_y - glyph.y;
+            run_x += glyph.advance;
+
+            // Ensure glyph is in atlas
+            let size_u32 = font_size.round() as u32;
+            let needs_rasterization = !self.glyph_atlas.contains(font_id, glyph.id, size_u32);
+
+            if needs_rasterization {
+                // Render the glyph
+                let rendered = Render::new(&[Source::Outline])
+                    .format(swash::zeno::Format::Alpha)
+                    .render(&mut scaler, glyph.id)
+                    .ok_or_else(|| "Failed to render glyph".to_string())?;
+
+                // Add to atlas
+                self.glyph_atlas.add_glyph(
+                    font_id,
+                    glyph.id,
+                    size_u32,
+                    &rendered.data,
+                    rendered.placement.width,
+                    rendered.placement.height,
+                    rendered.placement.left,
+                    rendered.placement.top,
+                )?;
+            }
+
+            shaped_glyphs.push(ShapedGlyph {
+                font_id,
+                glyph_id: glyph.id,
+                size: size_u32,
+                position: Vec2::new(glyph_x, glyph_y),
+            });
+        }
+
+        Ok(())
+    }
+
+    /// Get or create a font ID for the given font data
+    fn get_or_create_font_id(&mut self, font_data: &[u8]) -> u64 {
+        let key = font_data.to_vec();
+        if let Some(&id) = self.font_id_cache.get(&key) {
+            id
+        } else {
+            let id = self.next_font_id;
+            self.next_font_id += 1;
+            self.font_id_cache.insert(key, id);
+            id
+        }
+    }
+
+    /// Get the glyph atlas texture
+    pub fn atlas_texture(&self) -> &Texture {
+        self.glyph_atlas.texture()
+    }
+
+    /// Get information about a glyph in the atlas
+    pub fn glyph_info(&self, font_id: u64, glyph_id: u16, size: u32) -> Option<&GlyphInfo> {
+        self.glyph_atlas.get_glyph(font_id, glyph_id, size)
+    }
+}

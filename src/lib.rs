@@ -6,7 +6,7 @@ pub mod color;
 pub mod layer;
 pub mod metal_renderer;
 pub mod platform;
-pub mod text;
+pub mod text_system;
 pub mod ui;
 
 pub use app::{AppBuilder, app};
