@@ -275,6 +275,13 @@ pub struct DrawList {
 #[derive(Debug, Clone, Copy)]
 pub struct DrawListPos(usize);
 
+impl DrawListPos {
+    /// Get the index position
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
+
 impl DrawList {
     pub fn new() -> Self {
         Self {
@@ -349,6 +356,11 @@ impl DrawList {
     /// Get all commands
     pub fn commands(&self) -> &[DrawCommand] {
         &self.commands
+    }
+
+    /// Get mutable access to commands (use with care)
+    pub fn commands_mut(&mut self) -> &mut Vec<DrawCommand> {
+        &mut self.commands
     }
 
     /// Check if the draw list is empty

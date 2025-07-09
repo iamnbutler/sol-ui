@@ -216,8 +216,94 @@ impl UiContext {
         self.advance_cursor(size);
     }
 
+    /// Create a frame container that can hold other UI elements
+    pub fn frame_container<R>(&mut self, style: FrameStyle, f: impl FnOnce(&mut Self) -> R) -> R {
+        // Save current layout state
+        let saved_cursor = self.cursor;
+        let saved_layout = self.layout.clone();
+
+        // Generate ID for this frame
+        let id = self.next_id();
+        self.id_stack.push(id);
+
+        // Record starting position
+        let start_pos = self.cursor;
+
+        // Reset layout for frame content
+        self.layout.start_pos = self.cursor;
+        self.layout.max_cross_axis = 0.0;
+
+        // Draw the frame background first
+        let temp_rect = Rect::from_pos_size(start_pos, Vec2::new(1.0, 1.0));
+        self.draw_list.add_frame(temp_rect, style.clone());
+        let frame_cmd_pos = self.draw_list.commands().len() - 1;
+
+        // Push clipping for content
+        self.draw_list.push_clip(temp_rect);
+        let clip_cmd_pos = self.draw_list.commands().len() - 1;
+
+        // Call the frame content function
+        let result = f(self);
+
+        // Pop clipping
+        self.draw_list.pop_clip();
+
+        // Calculate actual frame bounds
+        let size = match self.layout.direction {
+            LayoutDirection::Vertical => {
+                Vec2::new(self.layout.max_cross_axis, self.cursor.y - start_pos.y)
+            }
+            LayoutDirection::Horizontal => {
+                Vec2::new(self.cursor.x - start_pos.x, self.layout.max_cross_axis)
+            }
+        };
+
+        // Update frame command with actual size
+        let frame_rect = Rect::from_pos_size(start_pos, size);
+        let commands = self.draw_list.commands_mut();
+        if let Some(super::DrawCommand::Frame { rect, .. }) = commands.get_mut(frame_cmd_pos) {
+            *rect = frame_rect;
+        }
+
+        // Update clip command with actual size
+        if let Some(super::DrawCommand::PushClip { rect }) = commands.get_mut(clip_cmd_pos) {
+            *rect = frame_rect;
+        }
+
+        // Restore layout state and advance cursor
+        self.cursor = saved_cursor;
+        self.layout = saved_layout;
+        self.advance_cursor(size);
+
+        // Pop ID
+        self.id_stack.pop();
+
+        result
+    }
+
+    /// Create a frame container with padding
+    pub fn frame_container_padded<R>(
+        &mut self,
+        style: FrameStyle,
+        padding: f32,
+        f: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        self.frame_container(style, |ui| {
+            // Apply padding
+            ui.cursor += Vec2::new(padding, padding);
+            ui.layout.start_pos = ui.cursor;
+
+            let result = f(ui);
+
+            // Add padding to final size
+            ui.cursor += Vec2::new(padding, padding);
+
+            result
+        })
+    }
+
     /// Advance cursor based on element size and current layout
-    fn advance_cursor(&mut self, size: Vec2) {
+    pub fn advance_cursor(&mut self, size: Vec2) {
         match self.layout.direction {
             LayoutDirection::Vertical => {
                 self.cursor.y += size.y + self.layout.spacing;
