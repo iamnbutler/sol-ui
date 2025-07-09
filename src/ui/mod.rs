@@ -2,7 +2,7 @@ mod context;
 mod draw;
 mod id;
 
-pub use context::UiContext;
+pub use context::ImmediateUiContext;
 pub use draw::{
     CornerRadii, DrawCommand, DrawList, DrawListPos, Fill, FrameStyle, Rect, Shadow, TextStyle,
 };

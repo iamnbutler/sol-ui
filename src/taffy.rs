@@ -1,153 +1,56 @@
-//! Taffy-based UI system
+//! Clean, builder-based UI system with integrated Taffy layout
 
+use crate::color::Color;
 use crate::text_system::{TextConfig, TextSystem};
-use crate::ui::{DrawList, TextStyle};
+use crate::ui::{DrawList, Rect, TextStyle};
 use glam::Vec2;
 use parley::FontStack;
-use std::collections::HashMap;
 use taffy::prelude::*;
 
-/// Node content types
-#[derive(Debug, Clone)]
-pub enum NodeContent {
-    /// Container node (div-like)
-    Container,
-    /// Text leaf node
-    Text { content: String, style: TextStyle },
-}
-
-/// UI layer context using Taffy for layout
-pub struct UiTaffyContext {
-    /// Taffy tree for layout
-    taffy: TaffyTree<NodeContent>,
-    /// Stack of parent nodes for building hierarchy
-    node_stack: Vec<NodeId>,
-    /// Current node being built
-    current_node: Option<NodeId>,
-    /// Screen size
+/// The main UI context for building element trees
+pub struct UiContext {
+    taffy: TaffyTree<ElementData>,
     screen_size: Vec2,
-    /// Scale factor for display
     scale_factor: f32,
-    /// Draw commands to be rendered
+    root: Option<NodeId>,
     draw_list: DrawList,
-    /// Map from node ID to content for rendering phase
-    node_map: HashMap<NodeId, NodeContent>,
 }
 
-impl UiTaffyContext {
+impl UiContext {
     /// Create a new UI context
     pub fn new(screen_size: Vec2, scale_factor: f32) -> Self {
         Self {
             taffy: TaffyTree::new(),
-            node_stack: Vec::new(),
-            current_node: None,
             screen_size,
             scale_factor,
+            root: None,
             draw_list: DrawList::new(),
-            node_map: HashMap::new(),
         }
     }
 
-    /// Begin a container (like a div)
-    pub fn begin_container(&mut self, style: impl Into<Style>) {
-        let node = match self
-            .taffy
-            .new_leaf_with_context(style.into(), NodeContent::Container)
-        {
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!("Failed to create container node: {:?}", e);
-                return;
-            }
-        };
+    /// Build the UI tree with the given root element
+    pub fn build(mut self, root: Box<dyn Element>) -> Self {
+        let root_id = root.build(&mut self.taffy);
+        self.root = Some(root_id);
+        self
+    }
 
-        self.node_map.insert(node, NodeContent::Container);
-
-        // If we have a current node, add this as a child
-        if let Some(parent) = self.current_node {
-            if let Err(e) = self.taffy.add_child(parent, node) {
-                eprintln!("Failed to add child to parent: {:?}", e);
-            }
+    /// Compute layout and generate draw commands
+    pub fn render(mut self, text_system: &mut TextSystem) -> Result<DrawList, taffy::TaffyError> {
+        // Compute layout if we have a root
+        if let Some(root) = self.root {
+            self.compute_layout(root, text_system)?;
+            self.build_draw_commands(root, Vec2::ZERO, text_system)?;
         }
 
-        // Push current node to stack and make this the current
-        if let Some(current) = self.current_node {
-            self.node_stack.push(current);
-        }
-        self.current_node = Some(node);
+        Ok(self.draw_list)
     }
 
-    /// End the current container
-    pub fn end_container(&mut self) {
-        if let Some(_) = self.current_node {
-            self.current_node = self.node_stack.pop();
-        }
-    }
-
-    /// Add text to the current container
-    pub fn text(&mut self, text: impl Into<String>, style: TextStyle) {
-        let content = text.into();
-        let node_content = NodeContent::Text {
-            content: content.clone(),
-            style: style.clone(),
-        };
-
-        let node = match self
-            .taffy
-            .new_leaf_with_context(Style::default(), node_content.clone())
-        {
-            Ok(n) => n,
-            Err(e) => {
-                eprintln!("Failed to create text node: {:?}", e);
-                return;
-            }
-        };
-
-        self.node_map.insert(node, node_content);
-
-        // Add to current container
-        if let Some(parent) = self.current_node {
-            if let Err(e) = self.taffy.add_child(parent, node) {
-                eprintln!("Failed to add text node to parent: {:?}", e);
-            }
-        }
-    }
-
-    /// Helper for vertical layout
-    pub fn vertical<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.begin_container(Style {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            ..Default::default()
-        });
-
-        let result = f(self);
-        self.end_container();
-        result
-    }
-
-    /// Helper for horizontal layout
-    pub fn horizontal<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.begin_container(Style {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Row,
-            ..Default::default()
-        });
-
-        let result = f(self);
-        self.end_container();
-        result
-    }
-
-    /// Compute layout using Taffy with text measurement
-    pub fn compute_layout(
+    fn compute_layout(
         &mut self,
+        root: NodeId,
         text_system: &mut TextSystem,
     ) -> Result<(), taffy::TaffyError> {
-        // Find root node (first node without parent)
-        let root = self.find_root_node()?;
-
-        // Compute layout with measure function
         let screen_size = self.screen_size;
         let scale_factor = self.scale_factor;
 
@@ -158,7 +61,7 @@ impl UiTaffyContext {
                 height: AvailableSpace::Definite(screen_size.y),
             },
             |known_dimensions, available_space, _node_id, node_context, _style| {
-                measure_node(
+                measure_element(
                     known_dimensions,
                     available_space,
                     node_context,
@@ -166,120 +69,257 @@ impl UiTaffyContext {
                     scale_factor,
                 )
             },
-        )?;
-
-        Ok(())
+        )
     }
 
-    /// Measure function for text nodes
-    /// Build draw commands from the laid out tree
-    pub fn build_draw_list(
-        &mut self,
-        text_system: &mut TextSystem,
-    ) -> Result<DrawList, taffy::TaffyError> {
-        self.draw_list.clear();
-
-        let root = self.find_root_node()?;
-        self.build_draw_commands_recursive(root, Vec2::ZERO, text_system)?;
-
-        let mut draw_list = DrawList::new();
-        std::mem::swap(&mut draw_list, &mut self.draw_list);
-        Ok(draw_list)
-    }
-
-    /// Find the root node (node without parent)
-    fn find_root_node(&self) -> Result<NodeId, taffy::TaffyError> {
-        // For now, assume the first node created is the root
-        // In a real implementation, we'd track this explicitly
-        self.node_map
-            .keys()
-            .find(|&&node| self.taffy.parent(node).is_none())
-            .copied()
-            .ok_or(taffy::TaffyError::ChildIndexOutOfBounds {
-                parent: taffy::NodeId::from(0u64),
-                child_index: 0,
-                child_count: 0,
-            })
-    }
-
-    /// Get the final draw list
-    pub fn draw_list(&self) -> &DrawList {
-        &self.draw_list
-    }
-
-    /// Recursively build draw commands
-    fn build_draw_commands_recursive(
+    fn build_draw_commands(
         &mut self,
         node: NodeId,
         parent_offset: Vec2,
         text_system: &mut TextSystem,
     ) -> Result<(), taffy::TaffyError> {
         let layout = self.taffy.layout(node)?;
-        let position = parent_offset + Vec2::new(layout.location.x, layout.location.y);
+        let bounds = Vec2::new(layout.location.x, layout.location.y);
+        let position = parent_offset + bounds;
+        let size = Vec2::new(layout.size.width, layout.size.height);
 
-        // Draw based on node content
-        if let Some(content) = self.node_map.get(&node) {
-            match content {
-                NodeContent::Text { content, style } => {
-                    // Shape and add text to draw list
-                    let text_config = TextConfig {
-                        font_stack: FontStack::from("system-ui"),
-                        size: style.size,
-                        weight: parley::FontWeight::NORMAL,
-                        color: style.color.clone(),
-                        line_height: 1.2,
-                    };
+        // Get element data
+        if let Some(data) = self.taffy.get_node_context(node) {
+            // Render background if present
+            if let Some(bg) = &data.background {
+                self.draw_list
+                    .add_rect(Rect::from_pos_size(position, size), bg.clone());
+            }
 
-                    let _shaped = text_system
-                        .shape_text(
-                            content.as_str(),
-                            &text_config,
-                            Some(layout.size.width),
-                            self.scale_factor,
-                        )
-                        .map_err(|_e| taffy::TaffyError::ChildIndexOutOfBounds {
-                            parent: node,
-                            child_index: 0,
-                            child_count: 0,
-                        })?;
-
-                    self.draw_list.add_text(position, content, style.clone());
-                }
-                NodeContent::Container => {
-                    // Containers might have background, borders, etc.
-                    // For now, just recurse to children
-                }
+            // Render text if present
+            if let Some((text, style)) = &data.text {
+                self.draw_list.add_text(position, text, style.clone());
             }
         }
 
-        // Process children
-        let children = self.taffy.children(node)?;
-        for child in children {
-            self.build_draw_commands_recursive(child, position, text_system)?;
+        // Render children
+        for child in self.taffy.children(node)? {
+            self.build_draw_commands(child, position, text_system)?;
         }
 
         Ok(())
     }
 }
 
-/// Measure function for text nodes (moved outside to avoid borrow issues)
-fn measure_node(
+/// Data stored with each element
+#[derive(Debug, Clone, Default)]
+struct ElementData {
+    text: Option<(String, TextStyle)>,
+    background: Option<Color>,
+}
+
+/// Trait for UI elements
+pub trait Element {
+    /// Build this element into the Taffy tree
+    fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId;
+}
+
+/// A div container element
+pub struct Div {
+    style: Style,
+    data: ElementData,
+    children: Vec<Box<dyn Element>>,
+}
+
+/// Create a new div element
+pub fn div() -> Div {
+    Div {
+        style: Style::default(),
+        data: ElementData::default(),
+        children: Vec::new(),
+    }
+}
+
+impl Div {
+    /// Set the background color
+    pub fn bg(mut self, color: impl Into<Color>) -> Self {
+        self.data.background = Some(color.into());
+        self
+    }
+
+    /// Set display to flex
+    pub fn flex(mut self) -> Self {
+        self.style.display = Display::Flex;
+        self
+    }
+
+    /// Set flex direction to column
+    pub fn flex_col(mut self) -> Self {
+        self.style.display = Display::Flex;
+        self.style.flex_direction = FlexDirection::Column;
+        self
+    }
+
+    /// Set flex direction to row
+    pub fn flex_row(mut self) -> Self {
+        self.style.display = Display::Flex;
+        self.style.flex_direction = FlexDirection::Row;
+        self
+    }
+
+    /// Add padding
+    pub fn p(mut self, padding: f32) -> Self {
+        self.style.padding = taffy::Rect {
+            left: LengthPercentage::length(padding),
+            right: LengthPercentage::length(padding),
+            top: LengthPercentage::length(padding),
+            bottom: LengthPercentage::length(padding),
+        };
+        self
+    }
+
+    /// Add margin
+    pub fn m(mut self, margin: f32) -> Self {
+        self.style.margin = taffy::Rect {
+            left: LengthPercentageAuto::length(margin),
+            right: LengthPercentageAuto::length(margin),
+            top: LengthPercentageAuto::length(margin),
+            bottom: LengthPercentageAuto::length(margin),
+        };
+        self
+    }
+
+    /// Set gap between flex items
+    pub fn gap(mut self, gap: f32) -> Self {
+        self.style.gap = Size {
+            width: LengthPercentage::length(gap),
+            height: LengthPercentage::length(gap),
+        };
+        self
+    }
+
+    /// Set width
+    pub fn w(mut self, width: f32) -> Self {
+        self.style.size.width = Dimension::length(width);
+        self
+    }
+
+    /// Set height
+    pub fn h(mut self, height: f32) -> Self {
+        self.style.size.height = Dimension::length(height);
+        self
+    }
+
+    /// Set both width and height
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.style.size = Size {
+            width: Dimension::length(width),
+            height: Dimension::length(height),
+        };
+        self
+    }
+
+    /// Set width to 100%
+    pub fn w_full(mut self) -> Self {
+        self.style.size.width = Dimension::percent(1.0);
+        self
+    }
+
+    /// Set height to 100%
+    pub fn h_full(mut self) -> Self {
+        self.style.size.height = Dimension::percent(1.0);
+        self
+    }
+
+    /// Set both width and height to 100%
+    pub fn size_full(mut self) -> Self {
+        self.style.size = Size {
+            width: Dimension::percent(1.0),
+            height: Dimension::percent(1.0),
+        };
+        self
+    }
+
+    /// Center items on main axis
+    pub fn justify_center(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::Center);
+        self
+    }
+
+    /// Center items on cross axis
+    pub fn items_center(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Center);
+        self
+    }
+
+    /// Add a child element
+    pub fn child(mut self, child: impl Element + 'static) -> Self {
+        self.children.push(Box::new(child));
+        self
+    }
+
+    /// Add multiple children
+    pub fn children(mut self, children: impl IntoIterator<Item = impl Element + 'static>) -> Self {
+        for child in children {
+            self.children.push(Box::new(child));
+        }
+        self
+    }
+}
+
+impl Element for Div {
+    fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let node = tree
+            .new_leaf_with_context(self.style, self.data)
+            .expect("Failed to create div node");
+
+        // Build and add children
+        for child in self.children {
+            let child_node = child.build(tree);
+            tree.add_child(node, child_node)
+                .expect("Failed to add child");
+        }
+
+        node
+    }
+}
+
+/// A text element
+pub struct Text {
+    content: String,
+    style: TextStyle,
+}
+
+/// Create a text element
+pub fn text(content: impl Into<String>, style: TextStyle) -> Text {
+    Text {
+        content: content.into(),
+        style,
+    }
+}
+
+impl Element for Text {
+    fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        let data = ElementData {
+            text: Some((self.content, self.style)),
+            background: None,
+        };
+
+        tree.new_leaf_with_context(Style::default(), data)
+            .expect("Failed to create text node")
+    }
+}
+
+/// Measure function for elements
+fn measure_element(
     _known_dimensions: Size<Option<f32>>,
     available_space: Size<AvailableSpace>,
-    node_content: Option<&mut NodeContent>,
+    node_data: Option<&mut ElementData>,
     text_system: &mut TextSystem,
     scale_factor: f32,
 ) -> Size<f32> {
-    match node_content {
-        Some(NodeContent::Text { content, style }) => {
-            // Convert available space to max width for text wrapping
+    if let Some(data) = node_data {
+        if let Some((content, style)) = &data.text {
             let max_width = match available_space.width {
                 AvailableSpace::Definite(w) => Some(w),
-                AvailableSpace::MinContent => None, // No wrapping
-                AvailableSpace::MaxContent => None, // No wrapping
+                _ => None,
             };
 
-            // Create text config from style
             let text_config = TextConfig {
                 font_stack: FontStack::from("system-ui"),
                 size: style.size,
@@ -288,7 +328,6 @@ fn measure_node(
                 line_height: 1.2,
             };
 
-            // Measure with text system
             let measured_size =
                 text_system.measure_text(content, &text_config, max_width, scale_factor);
 
@@ -296,60 +335,87 @@ fn measure_node(
                 width: measured_size.x,
                 height: measured_size.y,
             }
+        } else {
+            Size::ZERO
         }
-        _ => Size::ZERO, // Container nodes have no intrinsic size
+    } else {
+        Size::ZERO
     }
 }
 
-/// Builder-style API for common patterns
-impl UiTaffyContext {
-    /// Create a flex column with padding
-    pub fn padded_column<R>(&mut self, padding: f32, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.begin_container(Style {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            padding: Rect {
-                left: LengthPercentage::length(padding),
-                right: LengthPercentage::length(padding),
-                top: LengthPercentage::length(padding),
-                bottom: LengthPercentage::length(padding),
-            },
-            ..Default::default()
-        });
+/// Builder for complex layouts
+pub struct Column {
+    div: Div,
+}
 
-        let result = f(self);
-        self.end_container();
-        result
+/// Create a column layout
+pub fn col() -> Column {
+    Column {
+        div: div().flex_col(),
+    }
+}
+
+impl Column {
+    /// Add gap between items
+    pub fn gap(mut self, gap: f32) -> Self {
+        self.div = self.div.gap(gap);
+        self
     }
 
-    /// Create a centered container
-    pub fn centered<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
-        self.begin_container(Style {
-            display: Display::Flex,
-            justify_content: Some(JustifyContent::Center),
-            align_items: Some(AlignItems::Center),
-            size: Size {
-                width: Dimension::percent(1.0),
-                height: Dimension::percent(1.0),
-            },
-            ..Default::default()
-        });
-
-        let result = f(self);
-        self.end_container();
-        result
+    /// Add padding
+    pub fn p(mut self, padding: f32) -> Self {
+        self.div = self.div.p(padding);
+        self
     }
 
-    /// Add spacing between elements
-    pub fn space(&mut self, height: f32) {
-        self.begin_container(Style {
-            size: Size {
-                width: Dimension::auto(),
-                height: Dimension::length(height),
-            },
-            ..Default::default()
-        });
-        self.end_container();
+    /// Add a child
+    pub fn child(mut self, child: impl Element + 'static) -> Self {
+        self.div = self.div.child(child);
+        self
+    }
+}
+
+impl Element for Column {
+    fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        Box::new(self.div).build(tree)
+    }
+}
+
+/// Builder for row layouts
+pub struct Row {
+    div: Div,
+}
+
+/// Create a row layout
+pub fn row() -> Row {
+    Row {
+        div: div().flex_row(),
+    }
+}
+
+impl Row {
+    /// Add gap between items
+    pub fn gap(mut self, gap: f32) -> Self {
+        self.div = self.div.gap(gap);
+        self
+    }
+
+    /// Add padding
+    pub fn p(mut self, padding: f32) -> Self {
+        self.div = self.div.p(padding);
+        self
+    }
+
+    /// Add a child
+    pub fn child(mut self, child: impl Element + 'static) -> Self {
+        self.div = self.div.child(child);
+        self
+    }
+}
+
+impl Element for Row {
+    fn build(self: Box<Self>, tree: &mut TaffyTree<ElementData>) -> NodeId {
+        Box::new(self.div).build(tree)
     }
 }
 
@@ -359,31 +425,39 @@ mod tests {
     use crate::color::colors;
 
     #[test]
-    fn test_basic_layout() {
-        let mut ui = UiTaffyContext::new(Vec2::new(800.0, 600.0), 1.0);
-
-        // Build a simple layout
-        ui.vertical(|ui| {
-            ui.text(
-                "Hello",
+    fn test_builder_api() {
+        let ui = div()
+            .flex_col()
+            .p(20.0)
+            .gap(10.0)
+            .bg(colors::WHITE)
+            .child(text(
+                "Hello World",
                 TextStyle {
                     size: 24.0,
                     color: colors::BLACK.into(),
                 },
+            ))
+            .child(
+                row()
+                    .gap(5.0)
+                    .child(text(
+                        "Item 1",
+                        TextStyle {
+                            size: 16.0,
+                            color: colors::BLACK.into(),
+                        },
+                    ))
+                    .child(text(
+                        "Item 2",
+                        TextStyle {
+                            size: 16.0,
+                            color: colors::BLACK.into(),
+                        },
+                    )),
             );
 
-            ui.space(10.0);
-
-            ui.text(
-                "World",
-                TextStyle {
-                    size: 16.0,
-                    color: colors::BLUE.into(),
-                },
-            );
-        });
-
-        // Would need a text system to actually compute layout
-        // This just tests that the API works
+        // This compiles and creates a clean tree structure
+        let _ = ui;
     }
 }

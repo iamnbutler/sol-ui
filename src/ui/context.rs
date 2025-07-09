@@ -4,7 +4,7 @@ use super::{DrawList, FrameStyle, IdStack, Rect, TextStyle, WidgetId};
 use glam::Vec2;
 
 /// The main context for immediate mode UI
-pub struct UiContext {
+pub struct ImmediateUiContext {
     /// Draw commands accumulated during the frame
     draw_list: DrawList,
 
@@ -43,7 +43,7 @@ enum LayoutDirection {
     Horizontal,
 }
 
-impl UiContext {
+impl ImmediateUiContext {
     /// Create a new UI context with the given screen dimensions
     pub fn new(screen_size: Vec2) -> Self {
         Self {
@@ -327,7 +327,7 @@ impl UiContext {
 }
 
 /// Builder-style methods for common patterns
-impl UiContext {
+impl ImmediateUiContext {
     /// Create a centered group
     pub fn centered<R>(&mut self, f: impl FnOnce(&mut Self) -> R) -> R {
         let center = self.screen_size * 0.5;

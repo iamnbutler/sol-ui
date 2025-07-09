@@ -1,6 +1,6 @@
 use crate::metal_renderer::MetalRenderer;
-use crate::taffy::UiTaffyContext;
-use crate::ui::UiContext;
+use crate::taffy::UiContext;
+use crate::ui::ImmediateUiContext;
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
@@ -123,7 +123,7 @@ pub struct RawLayer<F> {
 
 impl<F> RawLayer<F>
 where
-    F: FnMut(&mut RawLayerContext),
+    F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any,
 {
     pub fn new(z_index: i32, options: LayerOptions, render_fn: F) -> Self {
         Self {
@@ -163,7 +163,7 @@ impl<'a> RawLayerContext<'a> {
 
 impl<F> Layer for RawLayer<F>
 where
-    F: FnMut(&mut RawLayerContext) + Any,
+    F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any,
 {
     fn z_index(&self) -> i32 {
         self.z_index
@@ -196,7 +196,28 @@ where
     }
 }
 
-/// A UI layer using the immediate mode API
+/// Context passed to UI layer render functions
+pub struct UiLayerContext {
+    /// The immediate mode UI context
+    pub ui: ImmediateUiContext,
+    /// The screen size
+    pub size: Vec2,
+    /// The display scale factor
+    pub scale_factor: f32,
+}
+
+impl UiLayerContext {
+    /// Create a new UI layer context
+    pub fn new(size: Vec2, scale_factor: f32) -> Self {
+        Self {
+            ui: ImmediateUiContext::new(size),
+            size,
+            scale_factor,
+        }
+    }
+}
+
+/// A UI layer that provides immediate mode GUI context
 pub struct UiLayer<F> {
     z_index: i32,
     options: LayerOptions,
@@ -205,7 +226,7 @@ pub struct UiLayer<F> {
 
 impl<F> UiLayer<F>
 where
-    F: FnMut(&mut UiContext),
+    F: FnMut(&mut UiLayerContext) + 'static,
 {
     pub fn new(z_index: i32, options: LayerOptions, render_fn: F) -> Self {
         Self {
@@ -218,7 +239,7 @@ where
 
 impl<F> Layer for UiLayer<F>
 where
-    F: FnMut(&mut UiContext) + Any,
+    F: FnMut(&mut UiLayerContext) + 'static,
 {
     fn z_index(&self) -> i32 {
         self.z_index
@@ -238,17 +259,22 @@ where
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
-        // Create a new UI context for this layer
-        let mut ui_context = UiContext::new(size);
+        // Create UI layer context
+        let mut context = UiLayerContext::new(size, scale_factor);
+        context.ui.begin_frame();
 
-        // Run the UI function
-        (self.render_fn)(&mut ui_context);
+        // Execute the render function
+        (self.render_fn)(&mut context);
 
-        // Render the UI draw list
-        let draw_list = ui_context.draw_list();
-        // Determine load action and clear color based on layer options
-        let (load_action, clear_color) = if self.options.clear || is_first_layer {
-            (metal::MTLLoadAction::Clear, self.options.clear_color)
+        // Get the draw list
+        let draw_list = context.ui.end_frame();
+
+        // Determine load action and clear color
+        let (load_action, clear_color) = if is_first_layer {
+            (
+                metal::MTLLoadAction::Clear,
+                metal::MTLClearColor::new(0.1, 0.1, 0.1, 1.0),
+            )
         } else {
             (
                 metal::MTLLoadAction::Load,
@@ -256,6 +282,7 @@ where
             )
         };
 
+        // Render the draw list
         renderer.render_draw_list(
             draw_list,
             command_buffer,
@@ -281,7 +308,7 @@ pub struct TaffyUiLayer<F> {
 
 impl<F> TaffyUiLayer<F>
 where
-    F: FnMut(&mut UiTaffyContext) + 'static,
+    F: Fn() -> Box<dyn crate::taffy::Element> + 'static,
 {
     /// Create a new Taffy UI layer
     pub fn new(options: LayerOptions, render_fn: F) -> Self {
@@ -291,7 +318,7 @@ where
 
 impl<F> Layer for TaffyUiLayer<F>
 where
-    F: FnMut(&mut UiTaffyContext) + 'static,
+    F: Fn() -> Box<dyn crate::taffy::Element> + 'static,
 {
     fn z_index(&self) -> i32 {
         self.options.z_index
@@ -311,23 +338,17 @@ where
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
     ) {
-        // Create a new Taffy UI context
-        let mut ui_context = UiTaffyContext::new(size, scale_factor);
+        // Build the UI tree by calling the render function
+        let root_element = (self.render_fn)();
 
-        // Execute the render function to build the UI tree
-        (self.render_fn)(&mut ui_context);
+        // Create a UI context and build the tree
+        let ui_context = UiContext::new(size, scale_factor).build(root_element);
 
-        // Compute layout using Taffy with text measurement
-        if let Err(e) = ui_context.compute_layout(text_system) {
-            eprintln!("Failed to compute layout: {:?}", e);
-            return;
-        }
-
-        // Build draw commands from the laid out tree
-        let draw_list = match ui_context.build_draw_list(text_system) {
+        // Render the UI tree and get draw commands
+        let draw_list = match ui_context.render(text_system) {
             Ok(list) => list,
             Err(e) => {
-                eprintln!("Failed to build draw list: {:?}", e);
+                eprintln!("Failed to render UI: {:?}", e);
                 return;
             }
         };
@@ -376,7 +397,7 @@ impl LayerManager {
     /// Add a raw layer
     pub fn add_raw_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: FnMut(&mut RawLayerContext) + Any + 'static,
+        F: for<'a> FnMut(&mut RawLayerContext<'a>) + Any + 'static,
     {
         let layer = RawLayer::new(z_index, options, render_fn);
         self.add_layer(Box::new(layer));
@@ -385,7 +406,7 @@ impl LayerManager {
     /// Add a UI layer
     pub fn add_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: FnMut(&mut UiContext) + Any + 'static,
+        F: FnMut(&mut UiLayerContext) + Any + 'static,
     {
         let layer = UiLayer::new(z_index, options, render_fn);
         self.add_layer(Box::new(layer));
@@ -394,7 +415,7 @@ impl LayerManager {
     /// Add a Taffy UI layer
     pub fn add_taffy_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: FnMut(&mut UiTaffyContext) + Any + 'static,
+        F: Fn() -> Box<dyn crate::taffy::Element> + Any + 'static,
     {
         let layer = TaffyUiLayer::new(options.with_z_index(z_index), render_fn);
         self.add_layer(Box::new(layer));

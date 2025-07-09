@@ -2,243 +2,229 @@ use palette::Srgba;
 use toy_ui::{
     app,
     layer::{LayerManager, LayerOptions},
-    taffy::UiTaffyContext,
+    taffy::{col, div, row, text},
     ui::TextStyle,
 };
 
 fn main() {
     app()
-        .size(900.0, 800.0)
-        .title("Toy UI - Text Rendering Test")
+        .title("Toy UI - Taffy Layout Demo")
+        .size(800.0, 600.0)
         .with_layers(|layer_manager: &mut LayerManager| {
-            // Add a Taffy UI layer with proper layout
-            layer_manager.add_taffy_ui_layer(
-                0,
-                LayerOptions::default().with_input(),
-                |ui: &mut UiTaffyContext| {
-                    ui.padded_column(0.0, |ui| {
-                        ui.text(
-                            "Text Rendering Test Suite",
+
+            // Layer 1: Basic text layout
+            layer_manager.add_taffy_ui_layer(0, LayerOptions::default(), || {
+                Box::new(
+                    col()
+                        .p(20.0)
+                        .gap(10.0)
+                        .child(text(
+                            "Hello from Taffy!",
                             TextStyle {
-                                size: 32.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                                size: 24.0,
+                                color: Srgba::new(0.0, 0.0, 0.0, 1.0),
                             },
-                        );
-
-                        ui.space(30.0);
-
-
-                        // ui.text(
-                        //     "Type Scale",
-                        //     TextStyle {
-                        //         size: 20.0,
-                        //         color: Srgba::new(0.2, 0.2, 0.2, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(15.0);
-
-                        // let sizes = [48.0, 36.0, 28.0, 24.0, 20.0, 18.0, 16.0, 14.0, 12.0, 10.0];
-                        // for size in sizes.iter() {
-                        //     ui.text(
-                        //         format!("{}px - The quick brown fox jumps over the lazy dog", size),
-                        //         TextStyle {
-                        //             size: *size,
-                        //             color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                        //         },
-                        //     );
-                        //     ui.space(8.0);
-                        // }
-
-                        // ui.space(30.0);
-
-
-                        // ui.text(
-                        //     "Character Set Test",
-                        //     TextStyle {
-                        //         size: 20.0,
-                        //         color: Srgba::new(0.2, 0.2, 0.2, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(15.0);
-
-                        // // Uppercase
-                        // ui.text(
-                        //     "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
-                        //     TextStyle {
-                        //         size: 16.0,
-                        //         color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(5.0);
-
-                        // // Lowercase
-                        // ui.text(
-                        //     "abcdefghijklmnopqrstuvwxyz",
-                        //     TextStyle {
-                        //         size: 16.0,
-                        //         color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(5.0);
-
-                        // // Numbers
-                        // ui.text(
-                        //     "0123456789",
-                        //     TextStyle {
-                        //         size: 16.0,
-                        //         color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(5.0);
-
-                        // // Special characters
-                        // ui.text(
-                        //     "!@#$%^&*()_+-=[]{}|;':\",./<>?",
-                        //     TextStyle {
-                        //         size: 16.0,
-                        //         color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                        //     },
-                        // );
-
-                        // ui.space(30.0);
-
-                        // Paragraph Test
-                        ui.begin_container(taffy::prelude::Style {
-                            display: taffy::prelude::Display::Flex,
-                            flex_direction: taffy::prelude::FlexDirection::Column,
-                            padding: taffy::prelude::Rect {
-                                left: taffy::prelude::LengthPercentage::length(20.0),
-                                right: taffy::prelude::LengthPercentage::length(20.0),
-                                top: taffy::prelude::LengthPercentage::length(20.0),
-                                bottom: taffy::prelude::LengthPercentage::length(20.0),
-                            },
-                            size: taffy::prelude::Size {
-                                width: taffy::prelude::Dimension::length(600.0),
-                                height: taffy::prelude::Dimension::auto(),
-                            },
-                            ..Default::default()
-                        });
-
-                        ui.text(
-                            "Paragraph Test",
-                            TextStyle {
-                                size: 20.0,
-                                color: Srgba::new(0.2, 0.2, 0.2, 1.0),
-                            },
-                        );
-
-                        ui.space(15.0);
-
-                        // Body text
-                        ui.text(
-                            "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
+                        ))
+                        .child(text(
+                            "This is a column layout with padding and gap.",
                             TextStyle {
                                 size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                                color: Srgba::new(0.3, 0.3, 0.3, 1.0),
                             },
-                        );
+                        ))
+                        .child(
+                            row()
+                                .gap(15.0)
+                                .child(text(
+                                    "Row item 1",
+                                    TextStyle {
+                                        size: 14.0,
+                                        color: Srgba::new(0.0, 0.5, 0.0, 1.0),
+                                    },
+                                ))
+                                .child(text(
+                                    "Row item 2",
+                                    TextStyle {
+                                        size: 14.0,
+                                        color: Srgba::new(0.0, 0.0, 0.5, 1.0),
+                                    },
+                                ))
+                                .child(text(
+                                    "Row item 3",
+                                    TextStyle {
+                                        size: 14.0,
+                                        color: Srgba::new(0.5, 0.0, 0.0, 1.0),
+                                    },
+                                )),
+                        ),
+                )
+            });
 
-                        ui.space(10.0);
+            // Layer 2: Centered content with background
+            layer_manager.add_taffy_ui_layer(1, LayerOptions::default(), || {
+                Box::new(
+                    div()
+                        .size_full()
+                        .justify_center()
+                        .items_center()
+                        .child(
+                            div()
+                                .bg(Srgba::new(0.9, 0.9, 0.9, 0.95))
+                                .p(30.0)
+                                .child(
+                                    col()
+                                        .gap(20.0)
+                                        .child(text(
+                                            "Centered Content",
+                                            TextStyle {
+                                                size: 28.0,
+                                                color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                                            },
+                                        ))
+                                        .child(text(
+                                            "This div is centered in the window",
+                                            TextStyle {
+                                                size: 16.0,
+                                                color: Srgba::new(0.4, 0.4, 0.4, 1.0),
+                                            },
+                                        ))
+                                        .child(
+                                            div()
+                                                .bg(Srgba::new(0.2, 0.3, 0.8, 1.0))
+                                                .size(200.0, 50.0)
+                                                .justify_center()
+                                                .items_center()
+                                                .child(text(
+                                                    "Button-like div",
+                                                    TextStyle {
+                                                        size: 16.0,
+                                                        color: Srgba::new(1.0, 1.0, 1.0, 1.0),
+                                                    },
+                                                )),
+                                        ),
+                                ),
+                        ),
+                )
+            });
 
-                        ui.text(
-                            "The quick brown fox jumps over the lazy dog. Pack my box with five dozen liquor jugs. How vexingly quick daft zebras jump! The five boxing wizards jump quickly.",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                            },
-                        );
+            // Layer 3: Complex layout example
+            layer_manager.add_taffy_ui_layer(2, LayerOptions::default(), || {
+                Box::new(
+                    div()
+                        .flex_col()
+                        .p(20.0)
+                        .gap(20.0)
+                        .child(
+                            div()
+                                .bg(Srgba::new(0.95, 0.95, 0.95, 0.9))
+                                .p(20.0)
+                                .w(600.0)
+                                .child(
+                                    col()
+                                        .gap(15.0)
+                                        .child(text(
+                                            "Complex Layout Example",
+                                            TextStyle {
+                                                size: 24.0,
+                                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                                            },
+                                        ))
+                                        .child(text(
+                                            "This demonstrates nested layouts with the builder pattern.",
+                                            TextStyle {
+                                                size: 16.0,
+                                                color: Srgba::new(0.3, 0.3, 0.3, 1.0),
+                                            },
+                                        ))
+                                        .child(
+                                            row()
+                                                .gap(10.0)
+                                                .child(
+                                                    div()
+                                                        .bg(Srgba::new(1.0, 0.8, 0.8, 1.0))
+                                                        .p(10.0)
+                                                        .child(text(
+                                                            "Card 1",
+                                                            TextStyle {
+                                                                size: 14.0,
+                                                                color: Srgba::new(0.5, 0.0, 0.0, 1.0),
+                                                            },
+                                                        )),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .bg(Srgba::new(0.8, 1.0, 0.8, 1.0))
+                                                        .p(10.0)
+                                                        .child(text(
+                                                            "Card 2",
+                                                            TextStyle {
+                                                                size: 14.0,
+                                                                color: Srgba::new(0.0, 0.5, 0.0, 1.0),
+                                                            },
+                                                        )),
+                                                )
+                                                .child(
+                                                    div()
+                                                        .bg(Srgba::new(0.8, 0.8, 1.0, 1.0))
+                                                        .p(10.0)
+                                                        .child(text(
+                                                            "Card 3",
+                                                            TextStyle {
+                                                                size: 14.0,
+                                                                color: Srgba::new(0.0, 0.0, 0.5, 1.0),
+                                                            },
+                                                        )),
+                                                ),
+                                        ),
+                                ),
+                        ),
+                )
+            });
 
-                        ui.end_container();
+            // Layer 4: Performance test with many elements
+            layer_manager.add_taffy_ui_layer(3, LayerOptions::default(), || {
+                let mut container = div()
+                    .flex_col()
+                    .p(20.0)
+                    .gap(5.0)
+                    .h(400.0)
+                    .m(50.0)
+                    .bg(Srgba::new(0.0, 0.0, 0.0, 0.1));
 
-                        ui.space(30.0);
+                // Add header
+                container = container.child(text(
+                    "Performance Test - 50 Items",
+                    TextStyle {
+                        size: 20.0,
+                        color: Srgba::new(0.0, 0.0, 0.0, 1.0),
+                    },
+                ));
 
-                        // Color and Style Test
-                        ui.begin_container(taffy::prelude::Style {
-                            display: taffy::prelude::Display::Flex,
-                            flex_direction: taffy::prelude::FlexDirection::Column,
-                            padding: taffy::prelude::Rect {
-                                left: taffy::prelude::LengthPercentage::length(20.0),
-                                right: taffy::prelude::LengthPercentage::length(20.0),
-                                top: taffy::prelude::LengthPercentage::length(20.0),
-                                bottom: taffy::prelude::LengthPercentage::length(20.0),
-                            },
-                            ..Default::default()
-                        });
+                // Create many items
+                for i in 0..50 {
+                    let hue = i as f32 / 50.0;
+                    let color = Srgba::new(hue, 0.8, 0.9, 1.0);
 
-                        ui.text(
-                            "Color and Style Test",
-                            TextStyle {
-                                size: 20.0,
-                                color: Srgba::new(0.2, 0.2, 0.2, 1.0),
-                            },
-                        );
+                    container = container.child(
+                        row()
+                            .gap(10.0)
+                            .child(
+                                div()
+                                    .bg(color)
+                                    .size(30.0, 20.0),
+                            )
+                            .child(text(
+                                format!("Item {}", i + 1),
+                                TextStyle {
+                                    size: 14.0,
+                                    color: Srgba::new(0.3, 0.3, 0.3, 1.0),
+                                },
+                            )),
+                    );
+                }
 
-                        ui.space(15.0);
-
-                        // Different colors
-                        ui.text(
-                            "Red text color test",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.8, 0.1, 0.1, 1.0),
-                            },
-                        );
-                        ui.text(
-                            "Green text color test",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.7, 0.1, 1.0),
-                            },
-                        );
-                        ui.text(
-                            "Blue text color test",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.8, 1.0),
-                            },
-                        );
-
-                        ui.space(10.0);
-
-                        // Different opacities
-                        ui.text(
-                            "100% opacity",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                            },
-                        );
-                        ui.text(
-                            "75% opacity",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 0.75),
-                            },
-                        );
-                        ui.text(
-                            "50% opacity",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 0.5),
-                            },
-                        );
-                        ui.text(
-                            "25% opacity",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.1, 0.1, 0.1, 0.25),
-                            },
-                        );
-
-                        ui.end_container();
-                    });
-                },
-            );
+                Box::new(container)
+            });
         })
         .run();
 }
