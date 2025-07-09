@@ -277,6 +277,18 @@ pub struct ShapedText {
     pub size: Vec2,
 }
 
+/// Cache key for shaped text
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct ShapedTextCacheKey {
+    text: String,
+    font_stack: String,
+    size: u32,
+    weight: u16,
+    line_height: u32,
+    max_width: Option<u32>,
+    scale_factor: u32,
+}
+
 /// Text system that manages fonts, shaping, and atlas
 pub struct TextSystem {
     font_context: FontContext,
@@ -286,6 +298,8 @@ pub struct TextSystem {
     /// Cache of font data to ID mappings
     font_id_cache: HashMap<Vec<u8>, u64>,
     next_font_id: u64,
+    /// Cache of shaped text
+    shaped_text_cache: HashMap<ShapedTextCacheKey, ShapedText>,
 }
 
 impl TextSystem {
@@ -303,6 +317,7 @@ impl TextSystem {
             glyph_atlas,
             font_id_cache: HashMap::new(),
             next_font_id: 1,
+            shaped_text_cache: HashMap::new(),
         })
     }
 
@@ -357,6 +372,36 @@ impl TextSystem {
             });
         }
 
+        // Create cache key
+        let cache_key = ShapedTextCacheKey {
+            text: text.to_string(),
+            font_stack: format!("{:?}", config.font_stack),
+            size: (config.size * 100.0) as u32,
+            weight: config.weight.value() as u16,
+            line_height: (config.line_height * 100.0) as u32,
+            max_width: max_width.map(|w| (w * 100.0) as u32),
+            scale_factor: (scale_factor * 100.0) as u32,
+        };
+
+        // Check cache
+        if let Some(cached) = self.shaped_text_cache.get(&cache_key) {
+            // Ensure all glyphs are still in the atlas
+            let mut all_glyphs_cached = true;
+            for glyph in &cached.glyphs {
+                if !self
+                    .glyph_atlas
+                    .contains(glyph.font_id, glyph.glyph_id, glyph.size)
+                {
+                    all_glyphs_cached = false;
+                    break;
+                }
+            }
+
+            if all_glyphs_cached {
+                return Ok(cached.clone());
+            }
+        }
+
         // Create a layout
         let mut builder = self.layout_context.ranged_builder(
             &mut self.font_context,
@@ -389,10 +434,16 @@ impl TextSystem {
             }
         }
 
-        Ok(ShapedText {
+        let shaped_text = ShapedText {
             glyphs: shaped_glyphs,
             size: Vec2::new(layout.width(), layout.height()),
-        })
+        };
+
+        // Store in cache
+        self.shaped_text_cache
+            .insert(cache_key, shaped_text.clone());
+
+        Ok(shaped_text)
     }
 
     /// Process a glyph run, rasterizing glyphs as needed

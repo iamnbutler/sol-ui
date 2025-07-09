@@ -1,120 +1,142 @@
 use palette::Srgba;
 use toy_ui::{
     app,
-    ui::{FrameStyle, UiContext, vec2},
+    ui::{TextStyle, UiContext, vec2},
 };
 
 fn main() {
     app()
-        .size(800.0, 600.0)
-        .title("Toy UI - Nested Frames Demo")
+        .size(900.0, 800.0)
+        .title("Toy UI - Text Rendering Test")
         .layer(|ui: &mut UiContext| {
             // Light background
-            ui.rect(vec2(800.0, 600.0), Srgba::new(0.54, 0.54, 0.54, 1.0));
-            ui.set_cursor(vec2(30.0, 30.0));
+            ui.rect(vec2(900.0, 800.0), Srgba::new(0.95, 0.95, 0.95, 1.0));
+            ui.set_cursor(vec2(40.0, 40.0));
 
-            ui.text("Nested Frames Demo");
+            // Title
+            ui.text_styled(
+                "Text Rendering Test Suite",
+                TextStyle {
+                    size: 32.0,
+                    color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                },
+            );
+            ui.space(30.0);
+
+            ui.text_styled(
+                "Character Set Test",
+                TextStyle {
+                    size: 20.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(15.0);
+
+            // Uppercase
+            ui.text_styled(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+                TextStyle {
+                    size: 10.0,
+                    color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                },
+            );
+            ui.space(5.0);
+
+            // Lowercase
+            ui.text_styled(
+                "abcdefghijklmnopqrstuvwxyz",
+                TextStyle {
+                    size: 16.0,
+                    color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                },
+            );
+            ui.space(5.0);
+
+            // Numbers
+            ui.text_styled(
+                "0123456789",
+                TextStyle {
+                    size: 16.0,
+                    color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                },
+            );
+            ui.space(5.0);
+
+            // Special characters
+            ui.text_styled(
+                "!@#$%^&*()_+-=[]{}|;':\",./<>?",
+                TextStyle {
+                    size: 16.0,
+                    color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                },
+            );
+
             ui.space(20.0);
 
-            // Example 1: Simple nested frame
-            ui.frame_container_padded(
-                FrameStyle::new()
-                    .with_background(Srgba::new(1.0, 1.0, 1.0, 1.0))
-                    .with_corner_radius(12.0)
-                    .with_shadow(vec2(0.0, 4.0), 10.0, Srgba::new(0.0, 0.0, 0.0, 0.15)),
-                20.0,
-                |ui| {
-                    ui.text("Container Frame");
-                    ui.space(10.0);
-
-                    ui.frame_container_padded(
-                        FrameStyle::new()
-                            .with_linear_gradient(
-                                Srgba::new(0.9, 0.95, 1.0, 1.0),
-                                Srgba::new(0.8, 0.85, 0.95, 1.0),
-                                std::f32::consts::PI / 2.0,
-                            )
-                            .with_border(1.0, Srgba::new(0.6, 0.7, 0.9, 1.0))
-                            .with_corner_radius(8.0),
-                        15.0,
-                        |ui| {
-                            ui.text("Nested content");
-                            ui.text("With gradient background");
-                        },
-                    );
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 48.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
                 },
             );
-
-            ui.space(30.0);
-
-            // Example 2: Card with sections
-            ui.frame_container(
-                FrameStyle::new()
-                    .with_background(Srgba::new(1.0, 1.0, 1.0, 1.0))
-                    .with_corner_radius(10.0)
-                    .with_shadow(vec2(0.0, 2.0), 8.0, Srgba::new(0.0, 0.0, 0.0, 0.1)),
-                |ui| {
-                    // Header section
-                    ui.frame_container_padded(
-                        FrameStyle::new()
-                            .with_background(Srgba::new(0.2, 0.4, 0.8, 1.0))
-                            .with_corner_radii(toy_ui::ui::CornerRadii::new(10.0, 10.0, 0.0, 0.0)),
-                        15.0,
-                        |ui| {
-                            ui.text_styled(
-                                "Feature Card",
-                                toy_ui::ui::TextStyle {
-                                    size: 18.0,
-                                    color: Srgba::new(1.0, 1.0, 1.0, 1.0),
-                                },
-                            );
-                        },
-                    );
-
-                    // Content section
-                    ui.frame_container_padded(
-                        FrameStyle::new()
-                            .with_background(Srgba::new(1.0, 1.0, 1.0, 1.0))
-                            .with_corner_radii(toy_ui::ui::CornerRadii::new(0.0, 0.0, 10.0, 10.0)),
-                        15.0,
-                        |ui| {
-                            ui.text("Clean design");
-                            ui.text("Proper nesting");
-                            ui.text("Beautiful shadows");
-                        },
-                    );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 32.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
                 },
             );
-
-            ui.space(30.0);
-
-            // Example 3: Notification style with icon
-            ui.frame_container_padded(
-                FrameStyle::new()
-                    .with_radial_gradient(
-                        Srgba::new(0.3, 0.8, 0.5, 1.0),
-                        Srgba::new(0.2, 0.7, 0.4, 1.0),
-                    )
-                    .with_corner_radius(8.0)
-                    .with_shadow(vec2(0.0, 3.0), 8.0, Srgba::new(0.0, 0.0, 0.0, 0.2)),
-                15.0,
-                |ui| {
-                    ui.text_styled(
-                        "✓ Success",
-                        toy_ui::ui::TextStyle {
-                            size: 16.0,
-                            color: Srgba::new(1.0, 1.0, 1.0, 1.0),
-                        },
-                    );
-                    ui.text_styled(
-                        "Frame nesting is working!",
-                        toy_ui::ui::TextStyle {
-                            size: 14.0,
-                            color: Srgba::new(1.0, 1.0, 1.0, 0.9),
-                        },
-                    );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 24.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
                 },
             );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 16.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 12.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 8.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 4.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(8.0);
+            ui.text_styled(
+                "The quick brown fox jumps over the lazy dog",
+                TextStyle {
+                    size: 2.0,
+                    color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                },
+            );
+            ui.space(8.0);
         })
         .run();
 }
