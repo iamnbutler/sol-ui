@@ -1,4 +1,5 @@
-use crate::layout::UiContext;
+use crate::element::{Element, LayoutContext, PaintContext};
+use crate::layout_engine::TaffyLayoutEngine;
 use crate::platform::mac::metal_renderer::MetalRenderer;
 use glam::Vec2;
 use metal::CommandBufferRef;
@@ -103,6 +104,8 @@ pub trait Layer: Any {
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
+        animation_frame_requested: &mut bool,
+        elapsed_time: f32,
     );
 
     /// Handle input events
@@ -143,14 +146,27 @@ where
 pub struct RawLayerContext<'a> {
     pub renderer: &'a mut MetalRenderer,
     pub command_buffer: &'a CommandBufferRef,
+    pub drawable: &'a metal::MetalDrawableRef,
     pub size: Vec2,
+    pub time: f32,
+    animation_frame_requested: &'a mut bool,
 }
 
 impl<'a> RawLayerContext<'a> {
+    /// Request that another frame be rendered immediately after this one
+    pub fn request_animation_frame(&mut self) {
+        *self.animation_frame_requested = true;
+    }
+
     /// Draw a fullscreen quad with a custom shader
-    pub fn draw_fullscreen_quad(&mut self, _shader: ()) {
-        // TODO: Implement custom shader support
-        todo!("Custom shader support not yet implemented")
+    pub fn draw_fullscreen_quad(&mut self, shader_source: &str) {
+        self.renderer.draw_fullscreen_quad(
+            self.command_buffer,
+            self.drawable,
+            shader_source,
+            self.size,
+            self.time,
+        );
     }
 
     /// Set camera for 3D rendering
@@ -184,16 +200,21 @@ where
         command_buffer: &CommandBufferRef,
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
-        scale_factor: f32,
-        text_system: &mut crate::text_system::TextSystem,
-        is_first_layer: bool,
+        _scale_factor: f32,
+        _text_system: &mut crate::text_system::TextSystem,
+        _is_first_layer: bool,
+        animation_frame_requested: &mut bool,
+        elapsed_time: f32,
     ) {
         let _raw_render_span = info_span!("raw_layer_render").entered();
 
         let mut ctx = RawLayerContext {
             renderer,
             command_buffer,
+            drawable,
             size,
+            time: elapsed_time,
+            animation_frame_requested,
         };
 
         (self.render_fn)(&mut ctx);
@@ -212,30 +233,28 @@ where
 pub struct UiLayer<F> {
     options: LayerOptions,
     render_fn: F,
-    cached_draw_list: Option<crate::draw::DrawList>,
-    cached_size: Option<Vec2>,
-    needs_rebuild: bool,
+    layout_engine: TaffyLayoutEngine,
+    root_element: Option<Box<dyn Element>>,
 }
 
 impl<F> UiLayer<F>
 where
-    F: Fn() -> Box<dyn crate::layout::Element> + 'static,
+    F: Fn() -> Box<dyn Element> + 'static,
 {
     /// Create a new Taffy UI layer
     pub fn new(options: LayerOptions, render_fn: F) -> Self {
         Self {
             options,
             render_fn,
-            cached_draw_list: None,
-            cached_size: None,
-            needs_rebuild: true,
+            layout_engine: TaffyLayoutEngine::new(),
+            root_element: None,
         }
     }
 }
 
 impl<F> Layer for UiLayer<F>
 where
-    F: Fn() -> Box<dyn crate::layout::Element> + 'static,
+    F: Fn() -> Box<dyn Element> + 'static,
 {
     fn z_index(&self) -> i32 {
         self.options.z_index
@@ -254,108 +273,70 @@ where
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
         is_first_layer: bool,
+        _animation_frame_requested: &mut bool,
+        _elapsed_time: f32,
     ) {
-        let _taffy_render_span = info_span!("taffy_ui_layer_render").entered();
+        let _render_span = info_span!("taffy_ui_layer_render").entered();
         let total_start = std::time::Instant::now();
 
-        // Check if we need to rebuild the UI tree
-        let size_changed = self.cached_size != Some(size);
-        if size_changed {
-            info!(
-                "Size changed from {:?} to {:?}, marking for rebuild",
-                self.cached_size, size
-            );
-            self.needs_rebuild = true;
-            self.cached_size = Some(size);
-        }
+        // Clear layout engine every frame
+        self.layout_engine.clear();
 
-        // Use cached draw list if available and no rebuild needed
-        if !self.needs_rebuild && self.cached_draw_list.is_some() {
-            debug!("Using cached draw list");
-            let cached_list = self.cached_draw_list.as_ref().unwrap();
+        // Create root element
+        self.root_element = Some((self.render_fn)());
 
-            // Determine load action and clear color
-            let (load_action, clear_color) = if is_first_layer {
-                (
-                    metal::MTLLoadAction::Clear,
-                    metal::MTLClearColor::new(0.95, 0.95, 0.95, 1.0), // Light gray background
-                )
-            } else {
-                (
-                    metal::MTLLoadAction::Load,
-                    metal::MTLClearColor::new(0.0, 0.0, 0.0, 0.0),
-                )
-            };
+        // Phase 1: Layout
+        let layout_start = std::time::Instant::now();
+        let mut layout_ctx = LayoutContext {
+            engine: &mut self.layout_engine,
+            text_system,
+            scale_factor,
+        };
 
-            // Render the cached draw list
-            let _metal_render_span = info_span!(
-                "metal_render_draw_list",
-                command_count = cached_list.commands().len()
-            )
-            .entered();
-            renderer.render_draw_list(
-                cached_list,
-                command_buffer,
-                drawable,
-                (size.x, size.y),
-                scale_factor,
+        let root_node = self.root_element.as_mut().unwrap().layout(&mut layout_ctx);
+
+        // Compute layout with screen size
+        self.layout_engine
+            .compute_layout(
+                root_node,
+                taffy::Size {
+                    width: taffy::AvailableSpace::Definite(size.x),
+                    height: taffy::AvailableSpace::Definite(size.y),
+                },
                 text_system,
-                load_action,
-                clear_color,
-            );
-            return;
-        }
+                scale_factor,
+            )
+            .expect("Layout computation failed");
 
-        info!("Rebuilding UI tree for size {:?}", size);
+        info!("Layout phase took {:?}", layout_start.elapsed());
 
-        // Build the UI tree by calling the render function
-        let build_start = std::time::Instant::now();
-        let root_element = {
-            let _build_span = info_span!("build_ui_tree").entered();
-            (self.render_fn)()
-        };
-        info!("UI tree build took {:?}", build_start.elapsed());
-
-        // Create a UI context and build the tree
-        let context_start = std::time::Instant::now();
-        let ui_context = {
-            let _context_span = info_span!("create_ui_context_and_build").entered();
-            UiContext::new(size, scale_factor).build(root_element)
-        };
-        info!("UI context creation took {:?}", context_start.elapsed());
-
-        // Render the UI tree and get draw commands
-        let render_start = std::time::Instant::now();
-        let draw_list = {
-            let _render_tree_span = info_span!("render_ui_tree").entered();
-            match ui_context.render(text_system) {
-                Ok(list) => {
-                    debug!(
-                        "UI tree rendered successfully with {} commands",
-                        list.commands().len()
-                    );
-                    list
-                }
-                Err(e) => {
-                    eprintln!("Failed to render UI: {:?}", e);
-                    return;
-                }
-            }
+        // Phase 2: Paint
+        let paint_start = std::time::Instant::now();
+        let mut draw_list = crate::draw::DrawList::with_viewport(
+            crate::geometry::Rect::from_pos_size(Vec2::ZERO, size),
+        );
+        let mut paint_ctx = PaintContext {
+            draw_list: &mut draw_list,
+            text_system,
+            layout_engine: &self.layout_engine,
+            scale_factor,
+            parent_offset: Vec2::ZERO,
         };
 
-        info!("UI tree render took {:?}", render_start.elapsed());
+        // Paint the root element (which will recursively paint children)
+        let root_bounds = self.layout_engine.layout_bounds(root_node);
+        self.root_element
+            .as_mut()
+            .unwrap()
+            .paint(root_bounds, &mut paint_ctx);
 
-        // Cache the draw list
-        let cache_start = std::time::Instant::now();
-        self.cached_draw_list = Some(draw_list.clone());
-        self.needs_rebuild = false;
-        info!("Caching draw list took {:?}", cache_start.elapsed());
+        info!("Paint phase took {:?}", paint_start.elapsed());
 
         // Determine load action and clear color
         let (load_action, clear_color) = if is_first_layer {
             (
                 metal::MTLLoadAction::Clear,
-                metal::MTLClearColor::new(0.95, 0.95, 0.95, 1.0), // Light gray background
+                metal::MTLClearColor::new(0.95, 0.95, 0.95, 1.0),
             )
         } else {
             (
@@ -364,12 +345,7 @@ where
             )
         };
 
-        // Render the draw list
-        let _metal_render_span = info_span!(
-            "metal_render_draw_list",
-            command_count = draw_list.commands().len()
-        )
-        .entered();
+        // Render to screen
         renderer.render_draw_list(
             &draw_list,
             command_buffer,
@@ -386,12 +362,6 @@ where
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
-    }
-
-    fn invalidate(&mut self) {
-        debug!("Invalidating UiLayer cache");
-        self.needs_rebuild = true;
-        self.cached_draw_list = None;
     }
 }
 
@@ -417,7 +387,7 @@ impl LayerManager {
     /// Add a UI layer
     pub fn add_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: Fn() -> Box<dyn crate::layout::Element> + Any + 'static,
+        F: Fn() -> Box<dyn Element> + Any + 'static,
     {
         let layer = UiLayer::new(options.with_z_index(z_index), render_fn);
         self.add_layer(Box::new(layer));
@@ -461,10 +431,13 @@ impl LayerManager {
         size: Vec2,
         text_system: &mut crate::text_system::TextSystem,
         scale_factor: f32,
-    ) {
+        elapsed_time: f32,
+    ) -> bool {
         let _render_all_span =
             info_span!("layer_manager_render_all", layer_count = self.layers.len()).entered();
         debug!("Rendering {} layers", self.layers.len());
+
+        let mut animation_frame_requested = false;
 
         for (i, (_, layer)) in self.layers.iter_mut().enumerate() {
             let _layer_span =
@@ -478,8 +451,12 @@ impl LayerManager {
                 scale_factor,
                 text_system,
                 is_first_layer,
+                &mut animation_frame_requested,
+                elapsed_time,
             );
         }
+
+        animation_frame_requested
     }
 
     /// Handle input, starting from the topmost layer that accepts input

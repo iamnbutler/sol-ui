@@ -2,15 +2,15 @@ use palette::Srgba;
 use toy_ui::{
     app,
     draw::TextStyle,
+    elements::{column, container, row, text},
     layer::{LayerManager, LayerOptions},
-    layout::{col, group, row, text},
 };
 use tracing::{info, info_span};
 use tracing_subscriber::{EnvFilter, fmt};
 
 fn main() {
     // Initialize tracing
-    let subscriber = fmt()
+    let _subscriber = fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
                 .unwrap_or_else(|_| EnvFilter::new("toy_ui=trace,info")),
@@ -33,8 +33,8 @@ fn main() {
             info!("Setting up Layer 1: Basic text layout");
             layer_manager.add_ui_layer(0, LayerOptions::default(), || {
                 Box::new(
-                    col()
-                        .p(20.0)
+                    column()
+                        .padding(20.0)
                         .gap(10.0)
                         .child(text(
                             "Hello from Taffy!",
@@ -82,16 +82,17 @@ fn main() {
             info!("Setting up Layer 2: Centered content with background");
             layer_manager.add_ui_layer(1, LayerOptions::default(), || {
                 Box::new(
-                    group()
-                        .size_full()
+                    container()
+                        .width_full()
+                        .height_full()
                         .justify_center()
                         .items_center()
                         .child(
-                            group()
-                                .bg(Srgba::new(0.9, 0.9, 0.9, 0.95))
-                                .p(30.0)
+                            container()
+                                .background(Srgba::new(0.9, 0.9, 0.9, 0.95))
+                                .padding(30.0)
                                 .child(
-                                    col()
+                                    column()
                                         .gap(20.0)
                                         .child(text(
                                             "Centered Content",
@@ -108,8 +109,8 @@ fn main() {
                                             },
                                         ))
                                         .child(
-                                            group()
-                                                .bg(Srgba::new(0.2, 0.3, 0.8, 1.0))
+                                            container()
+                                                .background(Srgba::new(0.2, 0.3, 0.8, 1.0))
                                                 .size(200.0, 50.0)
                                                 .justify_center()
                                                 .items_center()
@@ -130,17 +131,17 @@ fn main() {
             info!("Setting up Layer 3: Complex layout example");
             layer_manager.add_ui_layer(2, LayerOptions::default(), || {
                 Box::new(
-                    group()
+                    container()
                         .flex_col()
-                        .p(20.0)
+                        .padding(20.0)
                         .gap(20.0)
                         .child(
-                            group()
-                                .bg(Srgba::new(0.95, 0.95, 0.95, 0.9))
-                                .p(20.0)
-                                .w(600.0)
+                            container()
+                                .background(Srgba::new(0.95, 0.95, 0.95, 0.9))
+                                .padding(20.0)
+                                .width(600.0)
                                 .child(
-                                    col()
+                                    column()
                                         .gap(15.0)
                                         .child(text(
                                             "Complex Layout Example",
@@ -160,9 +161,9 @@ fn main() {
                                             row()
                                                 .gap(10.0)
                                                 .child(
-                                                    group()
-                                                        .bg(Srgba::new(1.0, 0.8, 0.8, 1.0))
-                                                        .p(10.0)
+                                                    container()
+                                                        .background(Srgba::new(1.0, 0.8, 0.8, 1.0))
+                                                        .padding(10.0)
                                                         .child(text(
                                                             "Card 1",
                                                             TextStyle {
@@ -172,9 +173,9 @@ fn main() {
                                                         )),
                                                 )
                                                 .child(
-                                                    group()
-                                                        .bg(Srgba::new(0.8, 1.0, 0.8, 1.0))
-                                                        .p(10.0)
+                                                    container()
+                                                        .background(Srgba::new(0.8, 1.0, 0.8, 1.0))
+                                                        .padding(10.0)
                                                         .child(text(
                                                             "Card 2",
                                                             TextStyle {
@@ -184,9 +185,9 @@ fn main() {
                                                         )),
                                                 )
                                                 .child(
-                                                    group()
-                                                        .bg(Srgba::new(0.8, 0.8, 1.0, 1.0))
-                                                        .p(10.0)
+                                                    container()
+                                                        .background(Srgba::new(0.8, 0.8, 1.0, 1.0))
+                                                        .padding(10.0)
                                                         .child(text(
                                                             "Card 3",
                                                             TextStyle {
@@ -204,16 +205,16 @@ fn main() {
             // Layer 4: Performance test with many elements
             info!("Setting up Layer 4: Performance test with many elements");
             layer_manager.add_ui_layer(3, LayerOptions::default(), || {
-                let mut container = group()
+                let mut root_container = container()
                     .flex_col()
-                    .p(20.0)
+                    .padding(20.0)
                     .gap(5.0)
-                    .h(400.0)
-                    .m(50.0)
-                    .bg(Srgba::new(0.0, 0.0, 0.0, 0.1));
+                    .height(400.0)
+                    .margin(50.0)
+                    .background(Srgba::new(0.0, 0.0, 0.0, 0.1));
 
                 // Add header
-                container = container.child(text(
+                root_container = root_container.child(text(
                     "Performance Test - 50 Items",
                     TextStyle {
                         size: 20.0,
@@ -226,12 +227,12 @@ fn main() {
                     let hue = i as f32 / 50.0;
                     let color = Srgba::new(hue, 0.8, 0.9, 1.0);
 
-                    container = container.child(
+                    root_container = root_container.child(
                         row()
                             .gap(10.0)
                             .child(
-                                group()
-                                    .bg(color)
+                                container()
+                                    .background(color)
                                     .size(30.0, 20.0),
                             )
                             .child(text(
@@ -244,7 +245,7 @@ fn main() {
                     );
                 }
 
-                Box::new(container)
+                Box::new(root_container)
             });
             info!("All layers setup complete");
         })

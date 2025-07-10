@@ -19,6 +19,8 @@ pub struct App {
     _layer_manager: LayerManager,
     text_system: TextSystem,
     last_window_size: Option<(f32, f32)>,
+    animation_frame_requested: bool,
+    start_time: Instant,
 }
 
 pub struct AppBuilder {
@@ -134,6 +136,8 @@ impl AppBuilder {
             _layer_manager,
             text_system,
             last_window_size: None,
+            animation_frame_requested: false,
+            start_time: Instant::now(),
         }
     }
 }
@@ -157,7 +161,18 @@ impl App {
         let loop_start = Instant::now();
         let mut first_frame_completed = false;
 
-        while self.window.handle_events() {
+        loop {
+            // Use non-blocking event handling if animation frame was requested
+            let should_continue = if self.animation_frame_requested {
+                self.window.handle_events_non_blocking()
+            } else {
+                self.window.handle_events()
+            };
+
+            if !should_continue {
+                break;
+            }
+
             let frame_start = Instant::now();
             let _frame_span = info_span!("frame", frame_number = frame_count).entered();
             self.render_frame();
@@ -174,11 +189,20 @@ impl App {
 
             frame_count += 1;
 
-            if frame_count % 60 == 0 {
+            if frame_count % 100 == 0 {
                 debug!(
                     "Rendered {} frames, last frame took {:?}",
                     frame_count, frame_time
                 );
+            }
+
+            // Frame rate limiting: target 120 FPS (8.33ms per frame)
+            if self.animation_frame_requested {
+                const TARGET_FRAME_TIME: std::time::Duration =
+                    std::time::Duration::from_micros(8_333);
+                if let Some(sleep_duration) = TARGET_FRAME_TIME.checked_sub(frame_time) {
+                    std::thread::sleep(sleep_duration);
+                }
             }
         }
     }
@@ -250,13 +274,18 @@ impl App {
                 info!("Starting post-resize render");
             }
 
-            self._layer_manager.render(
+            // Calculate elapsed time since app start for animations
+            let elapsed_time = self.start_time.elapsed().as_secs_f32();
+
+            // Render all layers and check if any requested animation frame
+            self.animation_frame_requested = self._layer_manager.render(
                 &mut self.renderer,
                 &command_buffer,
                 &drawable,
-                glam::vec2(size.0, size.1),
+                (size.0, size.1).into(),
                 &mut self.text_system,
                 scale_factor,
+                elapsed_time,
             );
 
             let render_time = start.elapsed();

@@ -271,6 +271,11 @@ impl DrawList {
         self.viewport = viewport;
     }
 
+    /// Get the current viewport
+    pub fn viewport(&self) -> &Option<Rect> {
+        &self.viewport
+    }
+
     /// Enable or disable debug visualization of culled elements
     pub fn set_debug_culling(&mut self, enabled: bool) {
         self.debug_culling = enabled;
