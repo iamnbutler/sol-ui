@@ -2,6 +2,8 @@
 
 A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
+![]()
+
 ## Usage
 
 There isn't a published crate yet, for now you can try it out by cloning the repository and adding the library to your project and referencing it locally:
