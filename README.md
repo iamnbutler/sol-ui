@@ -2,7 +2,8 @@
 
 A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
-![]()
+![](https://github.com/user-attachments/assets/79b966d3-94b0-4a12-9121-a4980cf8a960
+)
 
 ## Usage
 
