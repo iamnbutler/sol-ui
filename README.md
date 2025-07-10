@@ -2,6 +2,8 @@
 
 A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
+![](https://github.com/user-attachments/assets/79b966d3-94b0-4a12-9121-a4980cf8a960)
+
 ## Usage
 
 There isn't a published crate yet, for now you can try it out by cloning the repository and adding the library to your project and referencing it locally:
