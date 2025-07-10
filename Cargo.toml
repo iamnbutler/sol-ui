@@ -19,5 +19,21 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 
 [[example]]
-name = "culling"
-path = "examples/culling.rs"
+name = "interactive_ui"
+path = "examples/interactive_ui.rs"
+
+[[example]]
+name = "raw_layer"
+path = "examples/raw_layer.rs"
+
+[[example]]
+name = "readme_example"
+path = "examples/readme_example.rs"
+
+[[example]]
+name = "simple_animation.rs"
+path = "examples/simple_animation.rs"
+
+[[example]]
+name = "simple_shader.rs"
+path = "examples/simple_shader.rs"

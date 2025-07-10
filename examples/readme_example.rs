@@ -1,19 +1,3 @@
-# Toy UI
-
-A lightweight immediate mode gui library for Rust, built on Metal for macOS.
-
-## Usage
-
-There isn't a published crate yet, for now you can try it out by cloning the repository and adding the library to your project and referencing it locally:
-
-```toml
-[dependencies]
-toy-ui = { path = "../toy-ui" }
-```
-
-### Basic Example
-
-```rust
 use std::cell::RefCell;
 use std::rc::Rc;
 use toy_ui::{
@@ -189,16 +173,3 @@ fn main() {
         })
         .run();
 }
-```
-
-## Features
-
-- **Immediate mode UI** with declarative syntax
-- **Hardware accelerated** rendering using Metal
-- **Multi-layer system** for complex compositions
-- **Interactive elements** with hover and click states
-- **Raw shader layers** for custom GPU effects
-- **Built-in layout system** using Taffy (Flexbox)
-- **Z-order based hit testing** for proper event handling
-
-Lots of inspiration from [GPUI](https://gpui.rs).
