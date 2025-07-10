@@ -222,13 +222,17 @@ impl Element for Container {
             });
         }
 
-        // Create child context with this container's position
-        let mut child_ctx = ctx.child_context(bounds.pos);
-
-        // Paint children with their computed bounds
+        // Paint children with their computed bounds relative to this container
         for (child, &child_node) in self.children.iter_mut().zip(&self.child_nodes) {
-            let child_bounds = child_ctx.get_bounds(child_node);
-            child.paint(child_bounds, &mut child_ctx);
+            // Get child's layout bounds (relative to parent)
+            let child_layout_bounds = ctx.layout_engine.layout_bounds(child_node);
+            // Convert to absolute bounds for painting
+            let child_absolute_bounds = Rect::from_pos_size(
+                bounds.pos + child_layout_bounds.pos,
+                child_layout_bounds.size,
+            );
+
+            child.paint(child_absolute_bounds, ctx);
         }
     }
 }

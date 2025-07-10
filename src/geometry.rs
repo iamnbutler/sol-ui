@@ -2,6 +2,31 @@
 
 use glam::Vec2;
 
+/// A point in 2D space
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Point {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+impl From<Vec2> for Point {
+    fn from(v: Vec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+}
+
+impl From<Point> for Vec2 {
+    fn from(p: Point) -> Self {
+        Vec2::new(p.x, p.y)
+    }
+}
+
 /// A rectangle defined by position and size
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Rect {
@@ -29,7 +54,7 @@ impl Rect {
         self.pos + self.size
     }
 
-    pub fn contains(&self, point: Vec2) -> bool {
+    pub fn contains(&self, point: Point) -> bool {
         point.x >= self.pos.x
             && point.y >= self.pos.y
             && point.x <= self.pos.x + self.size.x
@@ -108,11 +133,11 @@ mod tests {
     fn test_rect_contains() {
         let rect = Rect::new(10.0, 10.0, 100.0, 100.0);
 
-        assert!(rect.contains(Vec2::new(50.0, 50.0)));
-        assert!(rect.contains(Vec2::new(10.0, 10.0)));
-        assert!(rect.contains(Vec2::new(110.0, 110.0)));
-        assert!(!rect.contains(Vec2::new(9.0, 50.0)));
-        assert!(!rect.contains(Vec2::new(111.0, 50.0)));
+        assert!(rect.contains(Point::new(50.0, 50.0)));
+        assert!(rect.contains(Point::new(10.0, 10.0)));
+        assert!(rect.contains(Point::new(110.0, 110.0)));
+        assert!(!rect.contains(Point::new(9.0, 50.0)));
+        assert!(!rect.contains(Point::new(111.0, 50.0)));
     }
 
     #[test]

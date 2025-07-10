@@ -1,4 +1,7 @@
 use crate::element::{Element, LayoutContext, PaintContext};
+use crate::interaction::hit_test::HitTestBuilder;
+use crate::interaction::registry::{ElementRegistry, clear_current_registry, set_current_registry};
+use crate::interaction::{InteractionEvent, InteractionSystem};
 use crate::layout_engine::TaffyLayoutEngine;
 use crate::platform::mac::metal_renderer::MetalRenderer;
 use glam::Vec2;
@@ -235,6 +238,8 @@ pub struct UiLayer<F> {
     render_fn: F,
     layout_engine: TaffyLayoutEngine,
     root_element: Option<Box<dyn Element>>,
+    interaction_system: InteractionSystem,
+    element_registry: std::rc::Rc<std::cell::RefCell<ElementRegistry>>,
 }
 
 impl<F> UiLayer<F>
@@ -248,6 +253,8 @@ where
             render_fn,
             layout_engine: TaffyLayoutEngine::new(),
             root_element: None,
+            interaction_system: InteractionSystem::new(),
+            element_registry: std::rc::Rc::new(std::cell::RefCell::new(ElementRegistry::new())),
         }
     }
 }
@@ -296,6 +303,10 @@ where
         let root_node = self.root_element.as_mut().unwrap().layout(&mut layout_ctx);
 
         // Compute layout with screen size
+        info!(
+            "Computing layout with size: {:?}, scale_factor: {}",
+            size, scale_factor
+        );
         self.layout_engine
             .compute_layout(
                 root_node,
@@ -315,12 +326,29 @@ where
         let mut draw_list = crate::draw::DrawList::with_viewport(
             crate::geometry::Rect::from_pos_size(Vec2::ZERO, size),
         );
+
+        // Clear and set the current element registry for this paint phase
+        self.element_registry.borrow_mut().clear();
+        set_current_registry(self.element_registry.clone());
+
+        // Create hit test builder for this layer
+        let hit_test_builder = std::rc::Rc::new(std::cell::RefCell::new(HitTestBuilder::new(
+            0,
+            self.z_index(),
+        )));
+        info!(
+            "Created hit test builder for layer with z_index: {}, size: {:?}, scale_factor: {}",
+            self.z_index(),
+            size,
+            scale_factor
+        );
         let mut paint_ctx = PaintContext {
             draw_list: &mut draw_list,
             text_system,
             layout_engine: &self.layout_engine,
             scale_factor,
             parent_offset: Vec2::ZERO,
+            hit_test_builder: Some(hit_test_builder.clone()),
         };
 
         // Paint the root element (which will recursively paint children)
@@ -331,6 +359,17 @@ where
             .paint(root_bounds, &mut paint_ctx);
 
         info!("Paint phase took {:?}", paint_start.elapsed());
+
+        // Update hit test results in interaction system
+        let hit_test_entries = hit_test_builder.borrow_mut().build();
+        info!("Built {} hit test entries", hit_test_entries.len());
+        for entry in &hit_test_entries {
+            info!("Hit test entry: {:?}", entry);
+        }
+        self.interaction_system.update_hit_test(hit_test_entries);
+
+        // Clear the current registry after painting
+        clear_current_registry();
 
         // Determine load action and clear color
         let (load_action, clear_color) = if is_first_layer {
@@ -358,6 +397,26 @@ where
         );
 
         info!("Total UiLayer render took {:?}", total_start.elapsed());
+    }
+
+    fn handle_input(&mut self, event: &InputEvent) -> bool {
+        if !self.options.receives_input {
+            return false;
+        }
+
+        // Process the event through the interaction system
+        let interaction_events = self.interaction_system.handle_input(event);
+
+        // Dispatch events to registered elements
+        let mut handled = false;
+        for event in &interaction_events {
+            if self.element_registry.borrow_mut().dispatch_event(event) {
+                handled = true;
+            }
+        }
+
+        // Return true if any events were handled
+        handled || !interaction_events.is_empty()
     }
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
@@ -478,6 +537,7 @@ pub enum InputEvent {
     MouseMove { position: Vec2 },
     MouseDown { position: Vec2, button: MouseButton },
     MouseUp { position: Vec2, button: MouseButton },
+    MouseLeave,
     KeyDown { key: Key },
     KeyUp { key: Key },
 }

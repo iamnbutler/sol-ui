@@ -1,4 +1,4 @@
-use crate::layer::LayerManager;
+use crate::layer::{InputEvent, LayerManager};
 use crate::platform::mac::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
 use crate::text_system::TextSystem;
@@ -16,7 +16,7 @@ pub struct App {
     device: Device,
     command_queue: CommandQueue,
     renderer: MetalRenderer,
-    _layer_manager: LayerManager,
+    layer_manager: LayerManager,
     text_system: TextSystem,
     last_window_size: Option<(f32, f32)>,
     animation_frame_requested: bool,
@@ -133,7 +133,7 @@ impl AppBuilder {
             device,
             command_queue,
             renderer,
-            _layer_manager,
+            layer_manager: _layer_manager,
             text_system,
             last_window_size: None,
             animation_frame_requested: false,
@@ -151,7 +151,7 @@ impl App {
             let _setup_span = info_span!("layer_setup_execution").entered();
             let start = Instant::now();
             info!("Setting up layers");
-            layer_setup(&mut self._layer_manager);
+            layer_setup(&mut self.layer_manager);
             info!("Layer setup complete in {:?}", start.elapsed());
         }
 
@@ -171,6 +171,12 @@ impl App {
 
             if !should_continue {
                 break;
+            }
+
+            // Process input events
+            let input_events = self.window.get_pending_input_events();
+            for event in &input_events {
+                self.layer_manager.handle_input(event);
             }
 
             let frame_start = Instant::now();
@@ -222,7 +228,7 @@ impl App {
 
                 // Mark all layers for rebuild on resize
                 let invalidate_start = Instant::now();
-                self._layer_manager.invalidate_all();
+                self.layer_manager.invalidate_all();
                 info!("Layer invalidation took {:?}", invalidate_start.elapsed());
 
                 info!("Total resize handling took {:?}", resize_start.elapsed());
@@ -278,7 +284,7 @@ impl App {
             let elapsed_time = self.start_time.elapsed().as_secs_f32();
 
             // Render all layers and check if any requested animation frame
-            self.animation_frame_requested = self._layer_manager.render(
+            self.animation_frame_requested = self.layer_manager.render(
                 &mut self.renderer,
                 &command_buffer,
                 &drawable,

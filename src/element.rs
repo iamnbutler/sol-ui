@@ -4,10 +4,14 @@ use crate::color::Color;
 use crate::draw::{DrawList, TextStyle};
 use crate::geometry::Edges;
 use crate::geometry::Rect;
+use crate::interaction::ElementId;
+use crate::interaction::hit_test::HitTestBuilder;
 use crate::layout_engine::{ElementData, TaffyLayoutEngine};
 use crate::paint::{PaintQuad, PaintShadow, PaintText};
 use crate::text_system::TextSystem;
 use glam::Vec2;
+use std::cell::RefCell;
+use std::rc::Rc;
 use taffy::prelude::*;
 
 /// Elements participate in a two-phase rendering process
@@ -84,6 +88,7 @@ pub struct PaintContext<'a> {
     pub(crate) layout_engine: &'a TaffyLayoutEngine,
     pub(crate) scale_factor: f32,
     pub(crate) parent_offset: Vec2,
+    pub(crate) hit_test_builder: Option<Rc<RefCell<HitTestBuilder>>>,
 }
 
 impl<'a> PaintContext<'a> {
@@ -185,6 +190,15 @@ impl<'a> PaintContext<'a> {
             layout_engine: self.layout_engine,
             scale_factor: self.scale_factor,
             parent_offset: self.parent_offset + offset,
+            hit_test_builder: self.hit_test_builder.clone(),
+        }
+    }
+
+    /// Register an element for hit testing
+    pub fn register_hit_test(&mut self, element_id: ElementId, bounds: Rect, z_index: i32) {
+        if let Some(builder) = &self.hit_test_builder {
+            // bounds are already in screen coordinates (absolute position)
+            builder.borrow_mut().add_entry(element_id, bounds, z_index);
         }
     }
 }

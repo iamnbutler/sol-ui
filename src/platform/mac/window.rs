@@ -2,12 +2,15 @@ use cocoa::base::{NO, YES, id, nil};
 use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
 use core_graphics::geometry::CGSize;
 
+use crate::layer::{InputEvent, MouseButton};
 use metal::MetalLayer;
 use objc::declare::ClassDecl;
 use objc::runtime::{BOOL, Class, Object, Sel};
 use objc::{class, msg_send, sel, sel_impl};
+use std::cell::RefCell;
 use std::ffi::c_void;
 use std::ptr;
+use std::rc::Rc;
 use std::sync::Arc;
 
 unsafe fn ns_string(string: &str) -> id {
@@ -33,6 +36,10 @@ pub struct NSApplication {
 // Window delegate to handle events
 static mut WINDOW_DELEGATE_CLASS: *const Class = ptr::null();
 static mut VIEW_CLASS: *const Class = ptr::null();
+
+thread_local! {
+    static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
+}
 
 pub struct Window {
     ns_window: *mut Object,
@@ -113,6 +120,9 @@ impl Window {
         let _: () = unsafe { msg_send![ns_window, center] };
         let _: () = unsafe { msg_send![ns_window, makeKeyAndOrderFront: nil] };
 
+        // Enable mouse moved events
+        let _: () = unsafe { msg_send![ns_window, setAcceptsMouseMovedEvents: YES] };
+
         Arc::new(Window {
             ns_window,
             ns_view,
@@ -135,6 +145,15 @@ impl Window {
 
     pub fn handle_events_non_blocking(&self) -> bool {
         self.handle_events_internal(false)
+    }
+
+    pub fn get_pending_input_events(&self) -> Vec<InputEvent> {
+        PENDING_EVENTS.with(|events| {
+            let mut events_ref = events.borrow_mut();
+            let result = events_ref.clone();
+            events_ref.clear();
+            result
+        })
     }
 
     fn handle_events_internal(&self, blocking: bool) -> bool {
@@ -169,6 +188,21 @@ impl Window {
                 break;
             }
 
+            // Get event type
+            let event_type: u64 = unsafe { msg_send![event, type] };
+
+            // Handle different event types
+            match event_type {
+                1 => self.handle_mouse_down(event),  // NSEventTypeLeftMouseDown
+                2 => self.handle_mouse_up(event),    // NSEventTypeLeftMouseUp
+                3 => self.handle_mouse_down(event),  // NSEventTypeRightMouseDown
+                4 => self.handle_mouse_up(event),    // NSEventTypeRightMouseUp
+                5 => self.handle_mouse_moved(event), // NSEventTypeMouseMoved
+                6 => self.handle_mouse_moved(event), // NSEventTypeLeftMouseDragged
+                7 => self.handle_mouse_moved(event), // NSEventTypeRightMouseDragged
+                _ => {}
+            }
+
             let _: () = unsafe { msg_send![app, sendEvent: event] };
         }
 
@@ -180,6 +214,68 @@ impl Window {
     pub fn scale_factor(&self) -> f32 {
         let scale: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
         scale as f32
+    }
+
+    fn handle_mouse_moved(&self, event: *mut Object) {
+        let location = self.get_mouse_location(event);
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::MouseMove {
+                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+            });
+        });
+    }
+
+    fn handle_mouse_down(&self, event: *mut Object) {
+        let location = self.get_mouse_location(event);
+        let event_type: u64 = unsafe { msg_send![event, type] };
+        let button = if event_type == 1 {
+            MouseButton::Left
+        } else if event_type == 3 {
+            MouseButton::Right
+        } else {
+            MouseButton::Middle
+        };
+
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::MouseDown {
+                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                button,
+            });
+        });
+    }
+
+    fn handle_mouse_up(&self, event: *mut Object) {
+        let location = self.get_mouse_location(event);
+        let event_type: u64 = unsafe { msg_send![event, type] };
+        let button = if event_type == 2 {
+            MouseButton::Left
+        } else if event_type == 4 {
+            MouseButton::Right
+        } else {
+            MouseButton::Middle
+        };
+
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::MouseUp {
+                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                button,
+            });
+        });
+    }
+
+    fn get_mouse_location(&self, event: *mut Object) -> (f64, f64) {
+        // Get location in window coordinates
+        let window_point: NSPoint = unsafe { msg_send![event, locationInWindow] };
+
+        // Get content view bounds
+        let content_view: *mut Object = unsafe { msg_send![self.ns_window, contentView] };
+        let bounds: NSRect = unsafe { msg_send![content_view, bounds] };
+
+        // Flip Y coordinate (macOS has origin at bottom-left, we want top-left)
+        let x = window_point.x;
+        let y = bounds.size.height - window_point.y;
+
+        (x, y)
     }
 }
 
@@ -250,6 +346,63 @@ unsafe fn create_view_class() {
         decl.add_class_method(
             sel!(layerClass),
             layer_class as extern "C" fn(&Class, Sel) -> *const Class,
+        );
+    }
+
+    // Add mouse tracking
+    extern "C" fn update_tracking_areas(this: &mut Object, _: Sel) {
+        unsafe {
+            // Call super
+            let superclass = class!(NSView);
+            let _: () = msg_send![super(this, superclass), updateTrackingAreas];
+
+            // Remove existing tracking areas
+            let tracking_areas: *mut Object = msg_send![this, trackingAreas];
+            let count: usize = msg_send![tracking_areas, count];
+            for i in 0..count {
+                let area: *mut Object = msg_send![tracking_areas, objectAtIndex: i];
+                let _: () = msg_send![this, removeTrackingArea: area];
+            }
+
+            // Add new tracking area
+            let bounds: NSRect = msg_send![this, bounds];
+            let options: u64 = 0x01 | 0x02 | 0x20 | 0x100; // NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingActiveInKeyWindow | NSTrackingInVisibleRect
+            let tracking_area: *mut Object = msg_send![class!(NSTrackingArea), alloc];
+            let tracking_area: *mut Object = msg_send![
+                tracking_area,
+                initWithRect:bounds
+                options:options
+                owner:this as *const Object
+                userInfo:nil
+            ];
+            let _: () = msg_send![this, addTrackingArea: tracking_area];
+        }
+    }
+
+    // Mouse entered view
+    extern "C" fn mouse_entered(_: &Object, _: Sel, _: *mut Object) {
+        // Mouse entered the view
+    }
+
+    // Mouse exited view
+    extern "C" fn mouse_exited(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::MouseLeave);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(updateTrackingAreas),
+            update_tracking_areas as extern "C" fn(&mut Object, Sel),
+        );
+        decl.add_method(
+            sel!(mouseEntered:),
+            mouse_entered as extern "C" fn(&Object, Sel, *mut Object),
+        );
+        decl.add_method(
+            sel!(mouseExited:),
+            mouse_exited as extern "C" fn(&Object, Sel, *mut Object),
         );
     }
 

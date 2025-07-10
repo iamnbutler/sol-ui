@@ -7,6 +7,7 @@ pub mod draw;
 pub mod element;
 pub mod elements;
 pub mod geometry;
+pub mod interaction;
 pub mod layer;
 pub mod layout_engine;
 pub mod paint;
