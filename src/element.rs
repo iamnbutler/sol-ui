@@ -1,14 +1,20 @@
 //! Two-phase element rendering system
+//!
+mod container;
+mod text;
 
-use crate::color::Color;
-use crate::draw::{DrawList, TextStyle};
-use crate::geometry::Edges;
-use crate::geometry::Rect;
-use crate::interaction::ElementId;
-use crate::interaction::hit_test::HitTestBuilder;
-use crate::layout_engine::{ElementData, TaffyLayoutEngine};
-use crate::paint::{PaintQuad, PaintShadow, PaintText};
-use crate::text_system::TextSystem;
+pub use container::{Container, column, container, row};
+pub use text::{Text, text};
+
+use crate::{
+    color::Color,
+    geometry::{Edges, Rect},
+    interaction::{ElementId, hit_test::HitTestBuilder},
+    layout_engine::{ElementData, TaffyLayoutEngine},
+    render::{DrawList, PaintQuad, PaintShadow, PaintText},
+    style::TextStyle,
+    text_system::TextSystem,
+};
 use glam::Vec2;
 use std::cell::RefCell;
 use std::rc::Rc;

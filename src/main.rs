@@ -1,9 +1,9 @@
 use palette::Srgba;
 use toy_ui::{
-    app,
-    draw::TextStyle,
-    elements::{column, container, row, text},
+    app::app,
+    element::{column, container, row, text},
     layer::{LayerManager, LayerOptions},
+    style::TextStyle,
 };
 use tracing::{info, info_span};
 use tracing_subscriber::{EnvFilter, fmt};

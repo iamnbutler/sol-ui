@@ -1,7 +1,10 @@
-use crate::color::Color;
-use crate::draw::{DrawCommand, DrawList, Fill, FrameStyle};
-use crate::geometry::Rect;
-use crate::text_system::{ShapedText, TextSystem};
+use crate::{
+    color::Color,
+    geometry::Rect,
+    render::{DrawCommand, DrawList},
+    style::{ElementStyle, Fill},
+    text_system::{ShapedText, TextSystem},
+};
 use glam::Vec2;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
@@ -464,7 +467,7 @@ impl MetalRenderer {
         screen_size: (f32, f32),
         scale_factor: f32,
         text_system: &mut TextSystem,
-    ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, FrameStyle)>) {
+    ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, ElementStyle)>) {
         let _vertices_span = info_span!(
             "draw_list_to_vertices",
             command_count = draw_list.commands().len()
@@ -583,7 +586,7 @@ impl MetalRenderer {
     fn frame_to_vertices(
         &self,
         rect: &Rect,
-        style: &FrameStyle,
+        style: &ElementStyle,
         screen_size: (f32, f32),
         scale_factor: f32,
     ) -> ([Vertex; 6], FrameUniforms) {

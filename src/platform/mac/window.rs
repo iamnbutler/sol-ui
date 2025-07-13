@@ -1,30 +1,36 @@
-use cocoa::base::{NO, YES, id, nil};
-use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
+use cocoa::{
+    base::{NO, YES, id, nil},
+    foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString},
+};
 use core_graphics::geometry::CGSize;
 
 use crate::layer::{InputEvent, MouseButton};
 use metal::MetalLayer;
-use objc::declare::ClassDecl;
-use objc::runtime::{BOOL, Class, Object, Sel};
-use objc::{class, msg_send, sel, sel_impl};
-use std::cell::RefCell;
-use std::ptr;
-use std::sync::Arc;
+use objc::{
+    class,
+    declare::ClassDecl,
+    msg_send,
+    runtime::{BOOL, Class, Object, Sel},
+    sel, sel_impl,
+};
+use std::{cell::RefCell, ffi::c_void, ptr, sync::Arc};
 
 unsafe fn ns_string(string: &str) -> id {
     let str: id = unsafe { NSString::alloc(nil).init_str(string) };
     unsafe { msg_send![str, autorelease] }
 }
 
-// #[repr(C)]
-// pub struct NSWindow {
-//     _private: [u8; 0],
-// }
+#[allow(dead_code)] // This is a false positive
+#[repr(C)]
+pub struct NSWindow {
+    _private: [u8; 0],
+}
 
-// #[repr(C)]
-// pub struct NSView {
-//     _private: [u8; 0],
-// }
+#[allow(dead_code)] // This is a false positive
+#[repr(C)]
+pub struct NSView {
+    _private: [u8; 0],
+}
 
 #[repr(C)]
 pub struct NSApplication {
@@ -39,9 +45,10 @@ thread_local! {
     static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
 }
 
+#[allow(dead_code)] // dead ns_view is a false positive
 pub struct Window {
     ns_window: *mut Object,
-    // ns_view: *mut Object,
+    ns_view: *mut Object,
     metal_layer: MetalLayer,
 }
 
@@ -82,8 +89,8 @@ impl Window {
         let _: () = unsafe { msg_send![ns_window, setDelegate: delegate] };
 
         // Create metal view
-        // let ns_view: *mut Object = unsafe { msg_send![VIEW_CLASS, alloc] };
-        // let ns_view: *mut Object = unsafe { msg_send![ns_view, initWithFrame: content_rect] };
+        let ns_view: *mut Object = unsafe { msg_send![VIEW_CLASS, alloc] };
+        let ns_view: *mut Object = unsafe { msg_send![ns_view, initWithFrame: content_rect] };
 
         // Set up Metal layer
         let layer = MetalLayer::new();
@@ -107,12 +114,12 @@ impl Window {
         }
 
         // Set the layer on the view
-        // let layer_ref = layer.as_ref() as *const _ as *mut c_void;
-        // let _: () = unsafe { msg_send![ns_view, setLayer: layer_ref] };
-        // let _: () = unsafe { msg_send![ns_view, setWantsLayer: YES] };
+        let layer_ref = layer.as_ref() as *const _ as *mut c_void;
+        let _: () = unsafe { msg_send![ns_view, setLayer: layer_ref] };
+        let _: () = unsafe { msg_send![ns_view, setWantsLayer: YES] };
 
         // Set view as content view
-        // let _: () = unsafe { msg_send![ns_window, setContentView: ns_view] };
+        let _: () = unsafe { msg_send![ns_window, setContentView: ns_view] };
 
         // Center and show window
         let _: () = unsafe { msg_send![ns_window, center] };
@@ -123,7 +130,7 @@ impl Window {
 
         Arc::new(Window {
             ns_window,
-            // ns_view,
+            ns_view,
             metal_layer: layer,
         })
     }

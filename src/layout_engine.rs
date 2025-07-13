@@ -9,7 +9,7 @@ use tracing::info_span;
 /// Data stored with each element in the taffy tree
 #[derive(Debug, Clone, Default)]
 pub struct ElementData {
-    pub text: Option<(String, crate::draw::TextStyle)>,
+    pub text: Option<(String, crate::style::TextStyle)>,
     pub background: Option<crate::color::Color>,
 }
 

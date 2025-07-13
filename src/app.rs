@@ -1,7 +1,8 @@
-use crate::layer::LayerManager;
-use crate::platform::mac::metal_renderer::MetalRenderer;
-use crate::platform::{Window, create_app_menu};
-use crate::text_system::TextSystem;
+use crate::{
+    layer::LayerManager,
+    platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
+    text_system::TextSystem,
+};
 use std::time::Instant;
 use tracing::{debug, info, info_span};
 

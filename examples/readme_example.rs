@@ -1,12 +1,12 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 use toy_ui::{
-    app,
+    app::app,
     color::colors,
-    draw::TextStyle,
-    elements::{container, row, text},
+    element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
+    style::TextStyle,
 };
 
 fn main() {

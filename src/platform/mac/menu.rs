@@ -1,5 +1,7 @@
-use cocoa::base::{id, nil};
-use cocoa::foundation::NSString;
+use cocoa::{
+    base::{id, nil},
+    foundation::NSString,
+};
 use objc::{class, msg_send, sel, sel_impl};
 
 // Helper function to create NSString
