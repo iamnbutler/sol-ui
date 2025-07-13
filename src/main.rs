@@ -2,7 +2,7 @@ use palette::Srgba;
 use toy_ui::{
     app,
     draw::TextStyle,
-    elements::{column, container, row, text},
+    element::{column, container, row, text},
     layer::{LayerManager, LayerOptions},
 };
 use tracing::{info, info_span};

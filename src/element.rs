@@ -1,4 +1,10 @@
 //! Two-phase element rendering system
+//!
+mod container;
+mod text;
+
+pub use container::{Container, column, container, row};
+pub use text::{Text, text};
 
 use crate::color::Color;
 use crate::draw::{DrawList, TextStyle};

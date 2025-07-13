@@ -2,12 +2,14 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
-use toy_ui::app::app;
-use toy_ui::color::{ColorExt, colors};
-use toy_ui::draw::TextStyle;
-use toy_ui::elements::{column, container, row, text};
-use toy_ui::interaction::Interactable;
-use toy_ui::layer::{LayerOptions, MouseButton};
+use toy_ui::{
+    app::app,
+    color::{ColorExt, colors},
+    draw::TextStyle,
+    element::{column, container, row, text},
+    interaction::Interactable,
+    layer::{LayerOptions, MouseButton},
+};
 
 fn main() {
     // Shared state for the counter

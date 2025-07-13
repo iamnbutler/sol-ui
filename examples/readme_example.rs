@@ -4,7 +4,7 @@ use toy_ui::{
     app,
     color::colors,
     draw::TextStyle,
-    elements::{container, row, text},
+    element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
 };

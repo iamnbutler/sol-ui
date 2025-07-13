@@ -1,48 +1,23 @@
-//! Basic UI element implementations
-
 use crate::color::Color;
-use crate::draw::TextStyle;
 use crate::element::{Element, LayoutContext, PaintContext};
 use crate::geometry::Rect;
 use crate::geometry::{Corners, Edges};
-use crate::paint::{PaintQuad, PaintText};
+use crate::paint::PaintQuad;
 use taffy::prelude::*;
 
-/// A simple text element
-pub struct Text {
-    content: String,
-    style: TextStyle,
-    node_id: Option<NodeId>,
+/// Create a new container element
+pub fn container() -> Container {
+    Container::new()
 }
 
-impl Text {
-    pub fn new(content: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            content: content.into(),
-            style,
-            node_id: None,
-        }
-    }
+/// Create a new horizontal layout container
+pub fn row() -> Container {
+    Container::new().flex_row()
 }
 
-impl Element for Text {
-    fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
-        let node_id = ctx.request_text_layout(Style::default(), &self.content, &self.style);
-        self.node_id = Some(node_id);
-        node_id
-    }
-
-    fn paint(&mut self, bounds: Rect, ctx: &mut PaintContext) {
-        if !ctx.is_visible(&bounds) {
-            return;
-        }
-
-        ctx.paint_text(PaintText {
-            position: bounds.pos,
-            text: self.content.clone(),
-            style: self.style.clone(),
-        });
-    }
+/// Create a new vertical layout container
+pub fn column() -> Container {
+    Container::new().flex_col()
 }
 
 /// A container element that can have children and styling
@@ -235,24 +210,4 @@ impl Element for Container {
             child.paint(child_absolute_bounds, ctx);
         }
     }
-}
-
-/// Helper function to create a container
-pub fn container() -> Container {
-    Container::new()
-}
-
-/// Helper function to create text
-pub fn text(content: impl Into<String>, style: TextStyle) -> Text {
-    Text::new(content, style)
-}
-
-/// A column is a container with flex-direction: column
-pub fn column() -> Container {
-    Container::new().flex_col()
-}
-
-/// A row is a container with flex-direction: row
-pub fn row() -> Container {
-    Container::new().flex_row()
 }
