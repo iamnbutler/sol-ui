@@ -58,16 +58,12 @@ impl MetalRenderer {
     }
 
     pub fn initialize(&mut self) -> Result<(), String> {
-        let _init_span = info_span!("metal_renderer_initialize").entered();
-        let total_start = Instant::now();
-
         // Create shader library
         let start = Instant::now();
         let library = self.compile_shaders()?;
         info!("Shaders compiled in {:?}", start.elapsed());
 
         // Create pipeline states
-        let start = Instant::now();
         self.pipeline_state = Some(self.create_pipeline_state(&library)?);
         self.text_pipeline_state = Some(self.create_text_pipeline_state(&library)?);
         self.frame_pipeline_state = Some(self.create_frame_pipeline_state(&library)?);
@@ -937,33 +933,6 @@ impl MetalRenderer {
             "draw_fullscreen_quad called with size: {:?}, time: {}",
             size, time
         );
-        // Create fullscreen vertex shader
-        let vertex_shader = r#"
-            #include <metal_stdlib>
-            using namespace metal;
-
-            struct VertexOut {
-                float4 position [[position]];
-                float2 uv;
-            };
-
-            vertex VertexOut fullscreen_vertex(uint vid [[vertex_id]]) {
-                VertexOut out;
-
-                // Generate fullscreen triangle
-                float2 positions[3] = {
-                    float2(-1.0, -1.0),
-                    float2( 3.0, -1.0),
-                    float2(-1.0,  3.0)
-                };
-
-                out.position = float4(positions[vid], 0.0, 1.0);
-                out.uv = (positions[vid] + 1.0) * 0.5;
-                out.uv.y = 1.0 - out.uv.y; // Flip Y
-
-                return out;
-            }
-        "#;
 
         // Combine vertex and fragment shaders
         let full_shader = format!(

@@ -304,7 +304,7 @@ impl DrawList {
     }
 
     /// Get the visibility ratio of a rectangle (0.0 = fully culled, 1.0 = fully visible)
-    fn get_visibility_ratio(&self, rect: &Rect) -> f32 {
+    fn _amount_visible(&self, rect: &Rect) -> f32 {
         let mut visibility = 1.0;
 
         // Check against viewport

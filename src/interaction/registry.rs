@@ -120,8 +120,8 @@ impl Default for ElementRegistry {
     }
 }
 
-/// Thread-local registry for the current frame
 thread_local! {
+    /// Thread-local registry for the current frame
     static CURRENT_REGISTRY: RefCell<Option<Rc<RefCell<ElementRegistry>>>> = RefCell::new(None);
 }
 

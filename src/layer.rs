@@ -1,7 +1,7 @@
 use crate::element::{Element, LayoutContext, PaintContext};
+use crate::interaction::InteractionSystem;
 use crate::interaction::hit_test::HitTestBuilder;
 use crate::interaction::registry::{ElementRegistry, clear_current_registry, set_current_registry};
-use crate::interaction::{InteractionEvent, InteractionSystem};
 use crate::layout_engine::TaffyLayoutEngine;
 use crate::platform::mac::metal_renderer::MetalRenderer;
 use glam::Vec2;

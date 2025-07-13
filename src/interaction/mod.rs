@@ -1,6 +1,6 @@
 //! Interaction system for handling mouse events with z-order based hit testing
 
-use crate::geometry::{Point, Rect};
+use crate::geometry::Point;
 use crate::layer::{InputEvent, MouseButton};
 use glam::Vec2;
 use std::collections::HashMap;

@@ -1,6 +1,6 @@
 //! Interactive element wrapper that adds interaction capabilities to any element
 
-use super::{ElementId, InteractionState};
+use super::ElementId;
 use crate::color::Color;
 use crate::element::{Element, LayoutContext, PaintContext};
 use crate::geometry::Rect;
@@ -89,7 +89,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the click handler
-    pub fn on_click<F>(mut self, handler: F) -> Self
+    pub fn on_click<F>(self, handler: F) -> Self
     where
         F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
     {
@@ -98,7 +98,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse enter handler
-    pub fn on_mouse_enter<F>(mut self, handler: F) -> Self
+    pub fn on_mouse_enter<F>(self, handler: F) -> Self
     where
         F: FnMut() + 'static,
     {
@@ -107,7 +107,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse leave handler
-    pub fn on_mouse_leave<F>(mut self, handler: F) -> Self
+    pub fn on_mouse_leave<F>(self, handler: F) -> Self
     where
         F: FnMut() + 'static,
     {
@@ -116,7 +116,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse move handler
-    pub fn on_mouse_move<F>(mut self, handler: F) -> Self
+    pub fn on_mouse_move<F>(self, handler: F) -> Self
     where
         F: FnMut(glam::Vec2, glam::Vec2) + 'static,
     {
@@ -125,7 +125,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse down handler
-    pub fn on_mouse_down<F>(mut self, handler: F) -> Self
+    pub fn on_mouse_down<F>(self, handler: F) -> Self
     where
         F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
     {
@@ -134,7 +134,7 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse up handler
-    pub fn on_mouse_up<F>(mut self, handler: F) -> Self
+    pub fn on_mouse_up<F>(self, handler: F) -> Self
     where
         F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
     {

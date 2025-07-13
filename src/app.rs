@@ -1,4 +1,4 @@
-use crate::layer::{InputEvent, LayerManager};
+use crate::layer::LayerManager;
 use crate::platform::mac::metal_renderer::MetalRenderer;
 use crate::platform::{Window, create_app_menu};
 use crate::text_system::TextSystem;
