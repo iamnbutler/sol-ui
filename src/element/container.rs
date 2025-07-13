@@ -1,8 +1,9 @@
-use crate::color::Color;
-use crate::element::{Element, LayoutContext, PaintContext};
-use crate::geometry::Rect;
-use crate::geometry::{Corners, Edges};
-use crate::paint::PaintQuad;
+use crate::{
+    color::Color,
+    element::{Element, LayoutContext, PaintContext},
+    geometry::{Corners, Edges, Rect},
+    render::PaintQuad,
+};
 use taffy::prelude::*;
 
 /// Create a new container element

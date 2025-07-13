@@ -5,7 +5,7 @@ use std::rc::Rc;
 use toy_ui::{
     app::app,
     color::{ColorExt, colors},
-    draw::TextStyle,
+    style::TextStyle,
     element::{column, container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},

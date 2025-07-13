@@ -1,7 +1,9 @@
-use crate::draw::TextStyle;
-use crate::element::{Element, LayoutContext, PaintContext};
-use crate::geometry::Rect;
-use crate::paint::PaintText;
+use crate::{
+    element::{Element, LayoutContext, PaintContext},
+    geometry::Rect,
+    render::PaintText,
+    style::TextStyle,
+};
 use taffy::prelude::*;
 
 /// Create a new text element

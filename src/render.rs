@@ -1,172 +1,75 @@
+//! Types and utilites that sit between the UI system and rendering pipeline
+
+use crate::{
+    color::{Color, ColorExt},
+    geometry::{Corners, Edges, Rect},
+    style::{ElementStyle, Fill, TextStyle},
+};
 use glam::Vec2;
 
-use crate::color::{
-    Color, ColorExt,
-    colors::{BLACK, WHITE},
-};
-use crate::geometry::Rect;
-
-/// Text styling information
-#[derive(Debug, Clone, PartialEq)]
-pub struct TextStyle {
-    pub size: f32,
-    pub color: Color,
-    // TODO: Add font family, weight, etc.
+/// A quad to be rendered
+#[derive(Clone, Debug)]
+pub struct PaintQuad {
+    /// The bounds of the quad within the window
+    pub bounds: Rect,
+    /// The radii of the quad's corners
+    pub corner_radii: Corners,
+    /// The background color of the quad
+    pub fill: Color,
+    /// The widths of the quad's borders
+    pub border_widths: Edges,
+    /// The color of the quad's borders
+    pub border_color: Color,
 }
 
-impl Default for TextStyle {
-    fn default() -> Self {
+impl PaintQuad {
+    /// Create a simple filled quad with no borders or corner radius
+    pub fn filled(bounds: Rect, color: Color) -> Self {
         Self {
-            size: 16.0,
-            color: WHITE,
+            bounds,
+            fill: color,
+            corner_radii: Corners::zero(),
+            border_widths: Edges::zero(),
+            border_color: crate::color::colors::TRANSPARENT,
         }
     }
 }
 
-/// Corner radii for a frame (top-left, top-right, bottom-right, bottom-left)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CornerRadii {
-    pub top_left: f32,
-    pub top_right: f32,
-    pub bottom_right: f32,
-    pub bottom_left: f32,
+/// Text to be rendered
+#[derive(Clone, Debug)]
+pub struct PaintText {
+    /// Position to render the text
+    pub position: Vec2,
+    /// The text content
+    pub text: String,
+    /// Text styling
+    pub style: TextStyle,
 }
 
-impl CornerRadii {
-    /// Create uniform corner radii
-    pub fn uniform(radius: f32) -> Self {
-        Self {
-            top_left: radius,
-            top_right: radius,
-            bottom_right: radius,
-            bottom_left: radius,
-        }
-    }
-
-    /// Create corner radii with different values for each corner
-    pub fn new(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
-        Self {
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
-        }
-    }
-}
-
-/// Shadow properties for frames
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Shadow {
-    /// Offset in pixels (x, y)
-    pub offset: Vec2,
-    /// Blur radius in pixels
-    pub blur: f32,
+/// A shadow to be rendered
+#[derive(Clone, Debug)]
+pub struct PaintShadow {
+    /// The bounds of the shadow
+    pub bounds: Rect,
+    /// Corner radii for rounded shadows
+    pub corner_radii: Corners,
     /// Shadow color
     pub color: Color,
+    /// Blur radius
+    pub blur_radius: f32,
+    /// Offset from the original element
+    pub offset: Vec2,
 }
 
-/// Background fill type for frames
-#[derive(Debug, Clone, PartialEq)]
-pub enum Fill {
-    /// Solid color fill
-    Solid(Color),
-    /// Linear gradient fill
-    LinearGradient {
-        /// Start color
-        start: Color,
-        /// End color
-        end: Color,
-        /// Angle in radians (0 = left to right, PI/2 = bottom to top)
-        angle: f32,
-    },
-    /// Radial gradient fill
-    RadialGradient {
-        /// Center color
-        center: Color,
-        /// Edge color
-        edge: Color,
-    },
-}
-
-/// Frame styling information for SDF-based rendering
-#[derive(Debug, Clone, PartialEq)]
-pub struct FrameStyle {
-    /// Background fill of the frame
-    pub fill: Fill,
-    /// Border width in pixels (0 for no border)
-    pub border_width: f32,
-    /// Border color
-    pub border_color: Color,
-    /// Corner radii
-    pub corner_radii: CornerRadii,
-    /// Optional shadow
-    pub shadow: Option<Shadow>,
-}
-
-impl Default for FrameStyle {
-    fn default() -> Self {
-        Self {
-            fill: Fill::Solid(WHITE),
-            border_width: 0.0,
-            border_color: BLACK,
-            corner_radii: CornerRadii::uniform(0.0),
-            shadow: None,
-        }
-    }
-}
-
-impl FrameStyle {
-    /// Create a new frame style with default values
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Set a solid background color
-    pub fn with_background(mut self, color: Color) -> Self {
-        self.fill = Fill::Solid(color);
-        self
-    }
-
-    /// Set a linear gradient background
-    pub fn with_linear_gradient(mut self, start: Color, end: Color, angle: f32) -> Self {
-        self.fill = Fill::LinearGradient { start, end, angle };
-        self
-    }
-
-    /// Set a radial gradient background
-    pub fn with_radial_gradient(mut self, center: Color, edge: Color) -> Self {
-        self.fill = Fill::RadialGradient { center, edge };
-        self
-    }
-
-    /// Set the border width and color
-    pub fn with_border(mut self, width: f32, color: Color) -> Self {
-        self.border_width = width;
-        self.border_color = color;
-        self
-    }
-
-    /// Set uniform corner radius
-    pub fn with_corner_radius(mut self, radius: f32) -> Self {
-        self.corner_radii = CornerRadii::uniform(radius);
-        self
-    }
-
-    /// Set individual corner radii
-    pub fn with_corner_radii(mut self, radii: CornerRadii) -> Self {
-        self.corner_radii = radii;
-        self
-    }
-
-    /// Add a shadow to the frame
-    pub fn with_shadow(mut self, offset: Vec2, blur: f32, color: Color) -> Self {
-        self.shadow = Some(Shadow {
-            offset,
-            blur,
-            color,
-        });
-        self
-    }
+/// An image to be rendered
+#[derive(Clone, Debug)]
+pub struct PaintImage {
+    /// The bounds of the image
+    pub bounds: Rect,
+    /// Path or identifier for the image
+    pub source: String,
+    /// Corner radii for rounded images
+    pub corner_radii: Corners,
 }
 
 /// A draw command represents a single drawing operation
@@ -181,7 +84,7 @@ pub enum DrawCommand {
         style: TextStyle,
     },
     /// Draw an SDF frame with rounded corners and optional border
-    Frame { rect: Rect, style: FrameStyle },
+    Frame { rect: Rect, style: ElementStyle },
     /// Push a clipping rectangle
     PushClip { rect: Rect },
     /// Pop the current clipping rectangle
@@ -465,7 +368,7 @@ impl DrawList {
     }
 
     /// Add an SDF frame to the draw list
-    pub fn add_frame(&mut self, rect: Rect, style: FrameStyle) {
+    pub fn add_frame(&mut self, rect: Rect, style: ElementStyle) {
         // Skip if completely transparent
         let has_visible_fill = match &style.fill {
             Fill::Solid(color) => color.alpha > 0.0,

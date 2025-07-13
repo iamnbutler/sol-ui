@@ -1,9 +1,14 @@
-use crate::element::{Element, LayoutContext, PaintContext};
-use crate::interaction::InteractionSystem;
-use crate::interaction::hit_test::HitTestBuilder;
-use crate::interaction::registry::{ElementRegistry, clear_current_registry, set_current_registry};
-use crate::layout_engine::TaffyLayoutEngine;
-use crate::platform::mac::metal_renderer::MetalRenderer;
+use crate::{
+    element::{Element, LayoutContext, PaintContext},
+    interaction::{
+        InteractionSystem,
+        hit_test::HitTestBuilder,
+        registry::{ElementRegistry, clear_current_registry, set_current_registry},
+    },
+    layout_engine::TaffyLayoutEngine,
+    platform::mac::metal_renderer::MetalRenderer,
+    render::DrawList,
+};
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
@@ -323,9 +328,8 @@ where
 
         // Phase 2: Paint
         let paint_start = std::time::Instant::now();
-        let mut draw_list = crate::draw::DrawList::with_viewport(
-            crate::geometry::Rect::from_pos_size(Vec2::ZERO, size),
-        );
+        let mut draw_list =
+            DrawList::with_viewport(crate::geometry::Rect::from_pos_size(Vec2::ZERO, size));
 
         // Clear and set the current element registry for this paint phase
         self.element_registry.borrow_mut().clear();

@@ -1,15 +1,19 @@
-use cocoa::base::{NO, YES, id, nil};
-use cocoa::foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString};
+use cocoa::{
+    base::{NO, YES, id, nil},
+    foundation::{NSAutoreleasePool, NSPoint, NSRect, NSSize, NSString},
+};
 use core_graphics::geometry::CGSize;
 
 use crate::layer::{InputEvent, MouseButton};
 use metal::MetalLayer;
-use objc::declare::ClassDecl;
-use objc::runtime::{BOOL, Class, Object, Sel};
-use objc::{class, msg_send, sel, sel_impl};
-use std::cell::RefCell;
-use std::ptr;
-use std::sync::Arc;
+use objc::{
+    class,
+    declare::ClassDecl,
+    msg_send,
+    runtime::{BOOL, Class, Object, Sel},
+    sel, sel_impl,
+};
+use std::{cell::RefCell, ptr, sync::Arc};
 
 unsafe fn ns_string(string: &str) -> id {
     let str: id = unsafe { NSString::alloc(nil).init_str(string) };

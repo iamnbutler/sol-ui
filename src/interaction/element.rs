@@ -1,12 +1,16 @@
 //! Interactive element wrapper that adds interaction capabilities to any element
 
 use super::ElementId;
-use crate::color::Color;
-use crate::element::{Element, LayoutContext, PaintContext};
-use crate::geometry::Rect;
-use crate::interaction::events::EventHandlers;
-use crate::interaction::registry::{get_element_state, register_element};
-use crate::paint::PaintQuad;
+use crate::{
+    color::Color,
+    element::{Element, LayoutContext, PaintContext},
+    geometry::Rect,
+    interaction::{
+        events::EventHandlers,
+        registry::{get_element_state, register_element},
+    },
+    render::PaintQuad,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use taffy::prelude::*;

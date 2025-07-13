@@ -1,7 +1,7 @@
 //! Example demonstrating raw layers with custom shader code
 
 use toy_ui::{
-    app,
+    app::app,
     layer::{LayerManager, LayerOptions},
 };
 use tracing::{info, info_span};
