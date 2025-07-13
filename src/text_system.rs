@@ -1,4 +1,4 @@
-//! Text system using Parley for layout and rendering
+//! A [Parley](https://crates.io/crates/parley) based system for laying out and rendering rich text
 
 use glam::Vec2;
 use metal::{Device, Texture};
@@ -10,24 +10,16 @@ use std::collections::HashMap;
 use swash::FontRef;
 use swash::scale::{Render, ScaleContext, Source};
 
-use crate::color::Color;
+use crate::color::{Color, ColorExt};
 use std::time::Instant;
 use tracing::{debug, info, info_span};
-
-/// Convert our Color to RGBA bytes for Parley
-fn color_to_rgba(color: Color) -> [u8; 4] {
-    [
-        (color.red * 255.0) as u8,
-        (color.green * 255.0) as u8,
-        (color.blue * 255.0) as u8,
-        (color.alpha * 255.0) as u8,
-    ]
-}
 
 /// Text rendering configuration
 #[derive(Debug, Clone)]
 pub struct TextConfig {
-    /// Font family names (will use first available)
+    /// Font family stack
+    ///
+    /// Will use the first available font in the stack
     pub font_stack: FontStack<'static>,
     /// Font size in logical pixels
     pub size: f32,
@@ -156,12 +148,10 @@ impl GlyphAtlas {
             size,
         };
 
-        // Check if already in atlas
         if self.glyphs.contains_key(&key) {
             return Ok(());
         }
 
-        // Find a position for the glyph
         let (x, y) = self.find_position(width, height)?;
 
         // Upload glyph data to texture
@@ -185,14 +175,12 @@ impl GlyphAtlas {
             );
         }
 
-        // Calculate UV coordinates
         let uv_min = (x as f32 / self.width as f32, y as f32 / self.height as f32);
         let uv_max = (
             (x + width) as f32 / self.width as f32,
             (y + height) as f32 / self.height as f32,
         );
 
-        // Store glyph info
         let info = GlyphInfo {
             uv_min,
             uv_max,
@@ -224,6 +212,7 @@ impl GlyphAtlas {
     /// Find a position for a glyph using shelf packing
     fn find_position(&mut self, width: u32, height: u32) -> Result<(u32, u32), String> {
         // Add padding around glyphs
+        // todo!("Why 2? Where does this magic number come from?");
         let padded_width = width + 2;
         let padded_height = height + 2;
 
@@ -232,7 +221,7 @@ impl GlyphAtlas {
             if shelf.height >= padded_height && shelf.next_x + padded_width <= self.width {
                 let x = shelf.next_x;
                 shelf.next_x += padded_width;
-                return Ok((x + 1, shelf.y + 1)); // +1 for padding
+                return Ok((x + 1, shelf.y + 1)); // +1 for padding // todo!("Why +1? Where does this magic number come from?");
             }
         }
 
@@ -320,6 +309,8 @@ struct MeasurementCacheKey {
 
 impl TextSystem {
     /// Create a new text system with the given Metal device
+    ///
+    /// future_todo!("Make this le")
     pub fn new(device: &Device) -> Result<Self, String> {
         let _new_span = info_span!("text_system_new").entered();
         let total_start = Instant::now();
@@ -414,7 +405,7 @@ impl TextSystem {
         );
 
         // Apply text styles
-        let brush = color_to_rgba(config.color);
+        let brush = config.color.as_u8_arr();
         builder.push_default(StyleProperty::Brush(brush));
         builder.push_default(config.font_stack.clone());
         builder.push_default(StyleProperty::FontSize(config.size));
@@ -502,7 +493,7 @@ impl TextSystem {
         );
 
         // Apply text styles
-        let brush = color_to_rgba(config.color);
+        let brush = config.color.as_u8_arr();
         builder.push_default(StyleProperty::Brush(brush));
         builder.push_default(config.font_stack.clone());
         builder.push_default(StyleProperty::FontSize(config.size));

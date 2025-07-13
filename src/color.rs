@@ -51,6 +51,7 @@ pub trait ColorExt {
     fn rgb(r: f32, g: f32, b: f32) -> Self;
     fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self;
     fn with_alpha(self, alpha: f32) -> Self;
+    fn as_u8_arr(&self) -> [u8; 4];
 }
 
 impl ColorExt for Color {
@@ -64,5 +65,14 @@ impl ColorExt for Color {
 
     fn with_alpha(self, alpha: f32) -> Self {
         Srgba::new(self.red, self.green, self.blue, alpha)
+    }
+
+    fn as_u8_arr(&self) -> [u8; 4] {
+        [
+            (self.red * 255.0) as u8,
+            (self.green * 255.0) as u8,
+            (self.blue * 255.0) as u8,
+            (self.alpha * 255.0) as u8,
+        ]
     }
 }
