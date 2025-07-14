@@ -3,13 +3,13 @@
 use super::ElementId;
 use crate::{
     color::Color,
-    element::{Element, LayoutContext, PaintContext},
+    element::{Element, LayoutContext},
     geometry::Rect,
     interaction::{
         events::EventHandlers,
         registry::{get_element_state, register_element},
     },
-    render::PaintQuad,
+    render::{PaintContext, PaintQuad},
 };
 use std::cell::RefCell;
 use std::rc::Rc;

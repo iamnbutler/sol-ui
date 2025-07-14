@@ -1,5 +1,5 @@
 use crate::{
-    element::{Element, LayoutContext, PaintContext},
+    element::{Element, LayoutContext},
     interaction::{
         InteractionSystem,
         hit_test::HitTestBuilder,
@@ -7,7 +7,7 @@ use crate::{
     },
     layout_engine::TaffyLayoutEngine,
     platform::mac::metal_renderer::MetalRenderer,
-    render::DrawList,
+    render::{DrawList, PaintContext},
 };
 use glam::Vec2;
 use metal::CommandBufferRef;

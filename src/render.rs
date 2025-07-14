@@ -1,11 +1,139 @@
 //! Types and utilites that sit between the UI system and rendering pipeline
 
+use std::{cell::RefCell, rc::Rc};
+
 use crate::{
     color::{Color, ColorExt},
     geometry::{Corners, Edges, Rect},
+    interaction::{ElementId, HitTestBuilder},
+    layout_engine::TaffyLayoutEngine,
     style::{ElementStyle, Fill, TextStyle},
+    text_system::TextSystem,
 };
 use glam::Vec2;
+use taffy::NodeId;
+
+/// Context for the paint phase
+pub struct PaintContext<'a> {
+    pub(crate) draw_list: &'a mut DrawList,
+    pub(crate) text_system: &'a mut TextSystem,
+    pub(crate) layout_engine: &'a TaffyLayoutEngine,
+    pub(crate) scale_factor: f32,
+    pub(crate) parent_offset: Vec2,
+    pub(crate) hit_test_builder: Option<Rc<RefCell<HitTestBuilder>>>,
+}
+
+impl<'a> PaintContext<'a> {
+    /// Paint a quad with all its properties
+    pub fn paint_quad(&mut self, quad: PaintQuad) {
+        // For now, just handle the fill
+        // TODO: Handle borders, corner radii, etc.
+        self.draw_list.add_rect(quad.bounds, quad.fill);
+
+        // Paint borders if present
+        if quad.border_widths != Edges::zero()
+            && quad.border_color != crate::color::colors::TRANSPARENT
+        {
+            // Top edge
+            if quad.border_widths.top > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos,
+                        Vec2::new(quad.bounds.size.x, quad.border_widths.top),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Bottom edge
+            if quad.border_widths.bottom > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos
+                            + Vec2::new(0.0, quad.bounds.size.y - quad.border_widths.bottom),
+                        Vec2::new(quad.bounds.size.x, quad.border_widths.bottom),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Left edge
+            if quad.border_widths.left > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos,
+                        Vec2::new(quad.border_widths.left, quad.bounds.size.y),
+                    ),
+                    quad.border_color,
+                );
+            }
+
+            // Right edge
+            if quad.border_widths.right > 0.0 {
+                self.draw_list.add_rect(
+                    Rect::from_pos_size(
+                        quad.bounds.pos
+                            + Vec2::new(quad.bounds.size.x - quad.border_widths.right, 0.0),
+                        Vec2::new(quad.border_widths.right, quad.bounds.size.y),
+                    ),
+                    quad.border_color,
+                );
+            }
+        }
+    }
+
+    /// Paint text
+    pub fn paint_text(&mut self, text: PaintText) {
+        self.draw_list
+            .add_text(text.position, &text.text, text.style);
+    }
+
+    /// Paint a shadow
+    pub fn paint_shadow(&mut self, _shadow: PaintShadow) {
+        // TODO: Add shadow support to draw list
+        // For now this is a no-op
+    }
+
+    /// Helper to create a simple filled quad
+    pub fn paint_solid_quad(&mut self, bounds: Rect, color: Color) {
+        self.paint_quad(PaintQuad::filled(bounds, color));
+    }
+
+    /// Check if a rect is visible (for culling)
+    pub fn is_visible(&self, rect: &Rect) -> bool {
+        if let Some(viewport) = self.draw_list.viewport() {
+            viewport.intersect(rect).is_some()
+        } else {
+            true
+        }
+    }
+
+    /// Get the computed bounds for a node
+    pub fn get_bounds(&self, node_id: NodeId) -> Rect {
+        let local_bounds = self.layout_engine.layout_bounds(node_id);
+        Rect::from_pos_size(self.parent_offset + local_bounds.pos, local_bounds.size)
+    }
+
+    /// Create a child paint context with updated offset
+    pub fn child_context(&mut self, offset: Vec2) -> PaintContext {
+        PaintContext {
+            draw_list: self.draw_list,
+            text_system: self.text_system,
+            layout_engine: self.layout_engine,
+            scale_factor: self.scale_factor,
+            parent_offset: self.parent_offset + offset,
+            hit_test_builder: self.hit_test_builder.clone(),
+        }
+    }
+
+    /// Register an element for hit testing
+    pub fn register_hit_test(&mut self, element_id: ElementId, bounds: Rect, z_index: i32) {
+        if let Some(builder) = &self.hit_test_builder {
+            // bounds are already in screen coordinates (absolute position)
+            builder.borrow_mut().add_entry(element_id, bounds, z_index);
+        }
+    }
+}
 
 /// A quad to be rendered
 #[derive(Clone, Debug)]
