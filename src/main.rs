@@ -6,18 +6,18 @@ use sol_ui::{
     style::TextStyle,
 };
 use tracing::{info, info_span};
-use tracing_subscriber::{EnvFilter, fmt};
+// use tracing_subscriber::{EnvFilter, fmt};
 
 fn main() {
     // Initialize tracing
-    let _subscriber = fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("sol=trace,info")),
-        )
-        .with_target(true)
-        .with_thread_ids(true)
-        .with_timer(fmt::time::uptime())
-        .init();
+    // let _subscriber = fmt()
+    //     .with_env_filter(
+    //         EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("sol=trace,info")),
+    //     )
+    //     .with_target(true)
+    //     .with_thread_ids(true)
+    //     .with_timer(fmt::time::uptime())
+    //     .init();
 
     info!("Starting Toy UI application");
     let _main_span = info_span!("main").entered();
