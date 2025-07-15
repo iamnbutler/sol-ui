@@ -1,7 +1,10 @@
 [package]
-name = "toy-ui"
+name = "sol-ui"
 version = "0.1.0"
 edition = "2024"
+categories = ["graphics", "gui", "rendering"]
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/iamnbutler/sol-ui"
 
 [dependencies]
 cocoa = "0.26.1"
