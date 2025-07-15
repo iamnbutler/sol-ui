@@ -1,5 +1,6 @@
 [package]
 name = "sol-ui"
+description = "An exploratory hybrid 2d/3d ui framework for macOS"
 version = "0.0.1"
 edition = "2024"
 categories = ["graphics", "gui", "rendering"]
