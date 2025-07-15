@@ -1,7 +1,7 @@
 //! Simple shader example demonstrating raw layers
 
 use toy_ui::{
-    app,
+    app::app,
     layer::{LayerManager, LayerOptions},
 };
 
