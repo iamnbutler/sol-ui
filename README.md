@@ -1,17 +1,8 @@
-# Toy UI
+# Sol UI
 
 A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
-![](https://github.com/user-attachments/assets/79b966d3-94b0-4a12-9121-a4980cf8a960)
-
-## Usage
-
-There isn't a published crate yet, for now you can try it out by cloning the repository and adding the library to your project and referencing it locally:
-
-```toml
-[dependencies]
-toy-ui = { path = "../toy-ui" }
-```
+`cargo add sol-ui`
 
 ### Basic Example
 
@@ -32,7 +23,7 @@ fn main() {
     let counter = Rc::new(RefCell::new(0));
 
     app()
-        .title("Toy UI Example")
+        .title("Sol UI Example")
         .size(800.0, 600.0)
         .with_layers(move |layers| {
             // Layer 0: Animated starfield
@@ -192,15 +183,5 @@ fn main() {
         .run();
 }
 ```
-
-## Features
-
-- **Immediate mode UI** with declarative syntax
-- **Hardware accelerated** rendering using Metal
-- **Multi-layer system** for complex compositions
-- **Interactive elements** with hover and click states
-- **Raw shader layers** for custom GPU effects
-- **Built-in layout system** using Taffy (Flexbox)
-- **Z-order based hit testing** for proper event handling
 
 Lots of inspiration from [GPUI](https://gpui.rs).
