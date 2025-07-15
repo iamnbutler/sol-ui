@@ -1,6 +1,4 @@
-use std::cell::RefCell;
-use std::rc::Rc;
-use toy_ui::{
+use sol_ui::{
     app::app,
     color::colors,
     element::{container, row, text},
@@ -8,6 +6,8 @@ use toy_ui::{
     layer::{LayerOptions, MouseButton},
     style::TextStyle,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn main() {
     // Shared state

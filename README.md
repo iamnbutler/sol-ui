@@ -18,7 +18,7 @@ toy-ui = { path = "../toy-ui" }
 ```rust
 use std::cell::RefCell;
 use std::rc::Rc;
-use toy_ui::{
+use sol_ui::{
     app,
     color::colors,
     draw::TextStyle,

@@ -1,6 +1,6 @@
-use toy_ui::{
+use sol_ui::{
     app::app,
-    element::{container, row, text},
+    element::{row, text},
     layer::{LayerManager, LayerOptions},
     style::TextStyle,
 };

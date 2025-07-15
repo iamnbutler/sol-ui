@@ -1,6 +1,6 @@
 //! Simple animation example showing how to use request_animation_frame
 
-use toy_ui::{
+use sol_ui::{
     app,
     layer::{LayerManager, LayerOptions},
 };

@@ -1,6 +1,6 @@
 //! Simple shader example demonstrating raw layers
 
-use toy_ui::{
+use sol_ui::{
     app::app,
     layer::{LayerManager, LayerOptions},
 };

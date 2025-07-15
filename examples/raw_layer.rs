@@ -1,6 +1,6 @@
 //! Example demonstrating raw layers with custom shader code
 
-use toy_ui::{
+use sol_ui::{
     app::app,
     layer::{LayerManager, LayerOptions},
 };
@@ -11,7 +11,7 @@ fn main() {
     // Initialize tracing
     let _subscriber = fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("toy_ui=info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("sol_ui=info")),
         )
         .with_target(true)
         .with_thread_ids(true)
@@ -256,8 +256,8 @@ fn main() {
             // info!("Setting up Layer 3: UI overlay");
             // layer_manager.add_ui_layer(3, LayerOptions::default(), || {
             //     use palette::Srgba;
-            //     use toy_ui::draw::TextStyle;
-            //     use toy_ui::elements::{container, text};
+            //     use sol_ui::draw::TextStyle;
+            //     use sol_ui::elements::{container, text};
 
             //     Box::new(
             //         container().padding(20.0).child(

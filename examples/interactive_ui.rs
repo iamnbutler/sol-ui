@@ -1,15 +1,15 @@
 //! Interactive UI example demonstrating click and hover interactions
 
-use std::cell::RefCell;
-use std::rc::Rc;
-use toy_ui::{
+use sol_ui::{
     app::app,
     color::{ColorExt, colors},
-    style::TextStyle,
     element::{column, container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
+    style::TextStyle,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn main() {
     // Shared state for the counter

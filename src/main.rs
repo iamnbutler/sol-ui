@@ -1,5 +1,5 @@
 use palette::Srgba;
-use toy_ui::{
+use sol_ui::{
     app::app,
     element::{column, container, row, text},
     layer::{LayerManager, LayerOptions},
@@ -12,8 +12,7 @@ fn main() {
     // Initialize tracing
     let _subscriber = fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("toy_ui=trace,info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("sol=trace,info")),
         )
         .with_target(true)
         .with_thread_ids(true)
