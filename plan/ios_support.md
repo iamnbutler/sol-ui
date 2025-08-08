@@ -74,8 +74,8 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 - Phase 5: Complete (tests added, MobileTestContext deferred)
 - Branch: ios-platform-support
 - Version bumped to 0.1.0
-- **Point System Refactor: In Progress** - Major refactor to Vec3-based coordinate system with semantic types (LocalPoint, WorldPoint, ScreenPoint)
-- Build currently broken due to incomplete point system migration
+- **Point System Refactor: Complete** - Successfully migrated to Vec3-based coordinate system with semantic types
+- All tests passing (17 tests)
 
 ## Open Questions
 
@@ -99,7 +99,7 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 - Added comprehensive test suite for iOS support (14 tests)
 - Fixed all compiler warnings and ensured cross-platform compatibility
 
-## Point System Refactor (In Progress)
+## Point System Refactor (Complete)
 
 - Replaced Vec2-based Point with Vec3-based coordinate space types
 - Added semantic point types: LocalPoint, WorldPoint, ScreenPoint
@@ -107,9 +107,10 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 - Removed PlatformPoint as unnecessary abstraction
 - Updated all input events to use ScreenPoint
 - Updated interaction system to use proper coordinate types
-- **TODO**: Fix remaining build errors in render and metal_renderer modules
-- **TODO**: Complete taffy::Size vs geometry::Size disambiguation
-- **TODO**: Add missing helper methods and operators for point types
+- Fixed all build errors in render and metal_renderer modules
+- Completed taffy::Size vs geometry::Size disambiguation
+- Added Corners and Edges types with proper helper methods
+- All coordinate conversions working correctly
 
 ## Notes
 
