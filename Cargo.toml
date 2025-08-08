@@ -46,3 +46,7 @@ path = "examples/simple_animation.rs"
 [[example]]
 name = "simple_shader"
 path = "examples/simple_shader.rs"
+
+[[example]]
+name = "box_model"
+path = "examples/box_model.rs"
