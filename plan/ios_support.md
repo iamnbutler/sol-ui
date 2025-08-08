@@ -23,7 +23,7 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 - [x] Window/View creation using UIWindow/UIView
 - [x] Metal layer setup for iOS
 - [x] Touch input handling (replacing mouse events)
-- [ ] App lifecycle management without UIKit dependencies where possible
+- [x] App lifecycle management without UIKit dependencies where possible
 
 ### Phase 3: Integration
 
@@ -34,14 +34,14 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 
 ### Phase 4: Examples
 
-- [ ] Create iOS-compatible example in `examples/`
+- [x] Create iOS-compatible example in `examples/`
 - [ ] Test deployment to jailbroken device
 
 ### Phase 5: Testing
 
 - [ ] Add MobileTestContext for complex iOS-specific tests
-- [ ] Mark untestable items with `test_todo!` comments
-- [ ] Ensure cross-platform compatibility isn't broken
+- [x] Mark untestable items with `test_todo!` comments
+- [x] Ensure cross-platform compatibility isn't broken
 
 ## Technical Notes
 
@@ -67,8 +67,10 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 ## Current Status
 
 - Phase 1: Complete
-- Phase 2: Mostly complete (app lifecycle needs work)
-- Phase 3: In progress
+- Phase 2: Complete
+- Phase 3: Complete
+- Phase 4: Mostly complete (deployment testing needed)
+- Phase 5: In progress
 - Branch: ios-platform-support
 - Version bumped to 0.1.0
 
@@ -86,6 +88,11 @@ Add iOS platform support to sol-ui, targeting iPhone 8 with iOS 11-14 and jailbr
 - Extended InputEvent enum with TouchDown, TouchUp, TouchMove, TouchCancel
 - Platform-specific dependency configuration in Cargo.toml
 - Shared metal_renderer between macOS and iOS platforms
+- Made app module platform-agnostic with conditional compilation
+- Added iOS example application (ios_basic.rs)
+- Unified Window API across platforms (Arc<Window>, same constructor signature)
+- Added compatibility methods to iOS Window (handle_events, get_size, get_metal_layer)
+- Touch events automatically mapped to mouse events in InteractionSystem
 
 ## Notes
 

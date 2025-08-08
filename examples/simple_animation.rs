@@ -1,7 +1,7 @@
 //! Simple animation example showing how to use request_animation_frame
 
 use sol_ui::{
-    app,
+    app::app,
     layer::{LayerManager, LayerOptions},
 };
 

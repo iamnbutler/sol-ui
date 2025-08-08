@@ -570,3 +570,72 @@ pub enum Key {
 }
 
 // Re-export commonly used types
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use glam::Vec2;
+
+    #[test]
+    fn test_input_event_creation() {
+        // Test mouse events
+        let mouse_move = InputEvent::MouseMove {
+            position: Vec2::new(10.0, 20.0),
+        };
+        match mouse_move {
+            InputEvent::MouseMove { position } => {
+                assert_eq!(position.x, 10.0);
+                assert_eq!(position.y, 20.0);
+            }
+            _ => panic!("Wrong event type"),
+        }
+
+        // Test touch events
+        let touch_down = InputEvent::TouchDown {
+            position: Vec2::new(30.0, 40.0),
+            id: 1,
+        };
+        match touch_down {
+            InputEvent::TouchDown { position, id } => {
+                assert_eq!(position.x, 30.0);
+                assert_eq!(position.y, 40.0);
+                assert_eq!(id, 1);
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn test_mouse_button() {
+        assert_eq!(MouseButton::Left, MouseButton::Left);
+        assert_ne!(MouseButton::Left, MouseButton::Right);
+        assert_ne!(MouseButton::Right, MouseButton::Middle);
+    }
+
+    #[test]
+    fn test_layer_options() {
+        let options = LayerOptions::default()
+            .with_z_index(5)
+            .with_input()
+            .with_blend_mode(BlendMode::Additive)
+            .with_clear()
+            .with_clear_color(1.0, 0.0, 0.0, 1.0);
+
+        assert_eq!(options.z_index, 5);
+        assert_eq!(options.receives_input, true);
+        assert_eq!(options.blend_mode, BlendMode::Additive);
+        assert_eq!(options.clear, true);
+        assert_eq!(options.clear_color.red, 1.0);
+        assert_eq!(options.clear_color.green, 0.0);
+        assert_eq!(options.clear_color.blue, 0.0);
+        assert_eq!(options.clear_color.alpha, 1.0);
+    }
+
+    #[test]
+    fn test_blend_mode_default() {
+        assert_eq!(BlendMode::default(), BlendMode::Alpha);
+    }
+
+    // test_todo!("Test LayerManager input handling with MobileTestContext")
+    // test_todo!("Test UILayer touch event processing with MobileTestContext")
+}

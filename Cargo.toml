@@ -40,13 +40,9 @@ name = "readme_example"
 path = "examples/readme_example.rs"
 
 [[example]]
-name = "simple_animation.rs"
+name = "simple_animation"
 path = "examples/simple_animation.rs"
 
 [[example]]
-name = "simple_shader.rs"
+name = "simple_shader"
 path = "examples/simple_shader.rs"
-
-[[example]]
-name = "ios_basic"
-path = "examples/ios_basic.rs"

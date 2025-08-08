@@ -109,7 +109,7 @@ impl InteractionSystem {
                 self.mouse_in_window = false;
                 events.extend(self.handle_mouse_leave());
                 // Also clear pressed state if any
-                if let Some(pressed_id) = self.pressed_element {
+                if let Some((pressed_id, _)) = self.pressed_element {
                     if let Some(state) = self.element_states.get_mut(&pressed_id) {
                         state.is_pressed = false;
                     }
@@ -337,4 +337,101 @@ impl From<i32> for ElementId {
     fn from(id: i32) -> Self {
         Self::new(id as u64)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layer::{InputEvent, MouseButton};
+    use glam::Vec2;
+
+    #[test]
+    fn test_touch_down_maps_to_mouse_down() {
+        let mut system = InteractionSystem::new();
+
+        // Simulate touch down
+        let touch_event = InputEvent::TouchDown {
+            position: Vec2::new(100.0, 200.0),
+            id: 1,
+        };
+
+        let events = system.handle_input(&touch_event);
+
+        // Since there's no element at this position, we shouldn't get interaction events
+        // but the system should update its internal state
+        assert_eq!(system.mouse_position, Vec2::new(100.0, 200.0));
+        assert!(system.mouse_in_window);
+    }
+
+    #[test]
+    fn test_touch_move_maps_to_mouse_move() {
+        let mut system = InteractionSystem::new();
+
+        // Simulate touch move
+        let touch_event = InputEvent::TouchMove {
+            position: Vec2::new(150.0, 250.0),
+            id: 1,
+        };
+
+        let events = system.handle_input(&touch_event);
+
+        // Check internal state updated
+        assert_eq!(system.mouse_position, Vec2::new(150.0, 250.0));
+        assert!(system.mouse_in_window);
+    }
+
+    #[test]
+    fn test_touch_up_maps_to_mouse_up() {
+        let mut system = InteractionSystem::new();
+
+        // Simulate touch up
+        let touch_event = InputEvent::TouchUp {
+            position: Vec2::new(200.0, 300.0),
+            id: 1,
+        };
+
+        let events = system.handle_input(&touch_event);
+
+        // Check internal state updated
+        assert_eq!(system.mouse_position, Vec2::new(200.0, 300.0));
+    }
+
+    #[test]
+    fn test_touch_cancel_clears_state() {
+        let mut system = InteractionSystem::new();
+
+        // Set up some state first
+        system.mouse_in_window = true;
+        system.mouse_position = Vec2::new(100.0, 100.0);
+
+        // Simulate touch cancel
+        let touch_event = InputEvent::TouchCancel { id: 1 };
+
+        let events = system.handle_input(&touch_event);
+
+        // Check that mouse_in_window is cleared
+        assert!(!system.mouse_in_window);
+    }
+
+    #[test]
+    fn test_element_id_creation() {
+        let id1 = ElementId::new(42);
+        let id2 = ElementId::from(42usize);
+        let id3 = ElementId::from(42i32);
+
+        assert_eq!(id1.0, 42);
+        assert_eq!(id2.0, 42);
+        assert_eq!(id3.0, 42);
+    }
+
+    #[test]
+    fn test_interaction_state_default() {
+        let state = InteractionState::default();
+        assert!(!state.is_hovered);
+        assert!(!state.is_pressed);
+    }
+
+    // test_todo!("Test touch events with actual elements using MobileTestContext")
+    // test_todo!("Test multi-touch handling with MobileTestContext")
+    // test_todo!("Test touch event to InteractionEvent conversion with hit testing")
 }
