@@ -1,14 +1,13 @@
 [package]
 name = "sol-ui"
-description = "An exploratory hybrid 2d/3d ui framework for macOS"
-version = "0.0.1"
-edition = "2024"
+description = "An exploratory hybrid 2d/3d ui framework for macOS and iOS"
+version = "0.1.0"
+edition = "2021"
 categories = ["graphics", "gui", "rendering"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/iamnbutler/sol-ui"
 
 [dependencies]
-cocoa = "0.26.1"
 core-foundation = "0.10.1"
 core-graphics = "0.25.0"
 glam = "0.30.4"
@@ -21,6 +20,12 @@ swash = "0.2.5"
 taffy = "0.8.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.26.1"
+
+[target.'cfg(target_os = "ios")'.dependencies]
+libc = "0.2"
 
 [[example]]
 name = "interactive_ui"

@@ -537,11 +537,19 @@ impl LayerManager {
 /// Input event placeholder
 #[derive(Debug, Clone)]
 pub enum InputEvent {
-    // TODO: Define input events
+    // Mouse events (desktop)
     MouseMove { position: Vec2 },
     MouseDown { position: Vec2, button: MouseButton },
     MouseUp { position: Vec2, button: MouseButton },
     MouseLeave,
+
+    // Touch events (mobile)
+    TouchDown { position: Vec2, id: usize },
+    TouchUp { position: Vec2, id: usize },
+    TouchMove { position: Vec2, id: usize },
+    TouchCancel { id: usize },
+
+    // Keyboard events (both platforms)
     KeyDown { key: Key },
     KeyUp { key: Key },
 }

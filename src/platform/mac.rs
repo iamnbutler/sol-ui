@@ -1,5 +1,5 @@
 mod menu;
-pub(crate) mod metal_renderer;
+pub mod metal_renderer;
 mod window;
 
 pub use menu::create_app_menu;
