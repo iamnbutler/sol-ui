@@ -342,7 +342,7 @@ impl From<i32> for ElementId {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::layer::{InputEvent, MouseButton};
+    use crate::layer::InputEvent;
     use glam::Vec2;
 
     #[test]
@@ -355,7 +355,7 @@ mod tests {
             id: 1,
         };
 
-        let events = system.handle_input(&touch_event);
+        let _events = system.handle_input(&touch_event);
 
         // Since there's no element at this position, we shouldn't get interaction events
         // but the system should update its internal state
@@ -373,7 +373,7 @@ mod tests {
             id: 1,
         };
 
-        let events = system.handle_input(&touch_event);
+        let _events = system.handle_input(&touch_event);
 
         // Check internal state updated
         assert_eq!(system.mouse_position, Vec2::new(150.0, 250.0));
@@ -390,7 +390,7 @@ mod tests {
             id: 1,
         };
 
-        let events = system.handle_input(&touch_event);
+        let _events = system.handle_input(&touch_event);
 
         // Check internal state updated
         assert_eq!(system.mouse_position, Vec2::new(200.0, 300.0));
@@ -407,7 +407,7 @@ mod tests {
         // Simulate touch cancel
         let touch_event = InputEvent::TouchCancel { id: 1 };
 
-        let events = system.handle_input(&touch_event);
+        let _events = system.handle_input(&touch_event);
 
         // Check that mouse_in_window is cleared
         assert!(!system.mouse_in_window);
