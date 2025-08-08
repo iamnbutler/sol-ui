@@ -623,10 +623,10 @@ impl MetalRenderer {
 
         // Calculate texture coordinates that map the expanded bounds correctly
         // We need to map so that the original rect bounds are at the correct position
-        let u0 = -shadow_expand_left / rect.size.x;
-        let v0 = -shadow_expand_top / rect.size.y;
-        let u1 = 1.0 + shadow_expand_right / rect.size.x;
-        let v1 = 1.0 + shadow_expand_bottom / rect.size.y;
+        let u0 = -shadow_expand_left / rect.size.width();
+        let v0 = -shadow_expand_top / rect.size.height();
+        let u1 = 1.0 + shadow_expand_right / rect.size.width();
+        let v1 = 1.0 + shadow_expand_bottom / rect.size.height();
 
         // Create vertices
         let vertices = [
@@ -665,10 +665,10 @@ impl MetalRenderer {
         // Create uniforms
         let uniforms = FrameUniforms {
             center: [
-                rect.pos.x + rect.size.x / 2.0,
-                rect.pos.y + rect.size.y / 2.0,
+                rect.pos.x() + rect.size.width() / 2.0,
+                rect.pos.y() + rect.size.height() / 2.0,
             ],
-            half_size: [rect.size.x / 2.0, rect.size.y / 2.0],
+            half_size: [rect.size.width() / 2.0, rect.size.height() / 2.0],
             radii: [
                 style.corner_radii.top_left,
                 style.corner_radii.top_right,

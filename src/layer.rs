@@ -353,7 +353,7 @@ where
             text_system,
             layout_engine: &self.layout_engine,
             scale_factor,
-            parent_offset: Vec2::ZERO,
+            parent_offset: WorldPoint::ZERO,
             hit_test_builder: Some(hit_test_builder.clone()),
         };
 

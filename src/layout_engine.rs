@@ -126,8 +126,8 @@ impl TaffyLayoutEngine {
 
 /// Measure function for elements that contain text
 fn measure_element(
-    _known_dimensions: Size<Option<f32>>,
-    available_space: Size<AvailableSpace>,
+    _known_dimensions: taffy::Size<Option<f32>>,
+    available_space: taffy::Size<AvailableSpace>,
     node_data: Option<&mut ElementData>,
     text_system: &mut crate::text_system::TextSystem,
     scale_factor: f32,
@@ -150,14 +150,14 @@ fn measure_element(
             let measured_size =
                 text_system.measure_text(content, &text_config, max_width, scale_factor);
 
-            Size {
+            taffy::Size {
                 width: measured_size.x,
                 height: measured_size.y,
             }
         } else {
-            Size::ZERO
+            taffy::Size::ZERO
         }
     } else {
-        Size::ZERO
+        taffy::Size::ZERO
     }
 }

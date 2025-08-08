@@ -19,7 +19,7 @@ pub struct PaintContext<'a> {
     pub(crate) text_system: &'a mut TextSystem,
     pub(crate) layout_engine: &'a TaffyLayoutEngine,
     pub(crate) scale_factor: f32,
-    pub(crate) parent_offset: Vec2,
+    pub(crate) parent_offset: WorldPoint,
     pub(crate) hit_test_builder: Option<Rc<RefCell<HitTestBuilder>>>,
 }
 
@@ -31,7 +31,7 @@ impl<'a> PaintContext<'a> {
         self.draw_list.add_rect(quad.bounds, quad.fill);
 
         // Paint borders if present
-        if quad.border_widths != Edges::zero()
+        if quad.border_widths != Edges::ZERO
             && quad.border_color != crate::color::colors::TRANSPARENT
         {
             // Top edge
@@ -39,7 +39,7 @@ impl<'a> PaintContext<'a> {
                 self.draw_list.add_rect(
                     Rect::from_pos_size(
                         quad.bounds.pos,
-                        Vec2::new(quad.bounds.size.x, quad.border_widths.top),
+                        Size::new(quad.bounds.size.width(), quad.border_widths.top),
                     ),
                     quad.border_color,
                 );
@@ -49,9 +49,11 @@ impl<'a> PaintContext<'a> {
             if quad.border_widths.bottom > 0.0 {
                 self.draw_list.add_rect(
                     Rect::from_pos_size(
-                        quad.bounds.pos
-                            + Vec2::new(0.0, quad.bounds.size.y - quad.border_widths.bottom),
-                        Vec2::new(quad.bounds.size.x, quad.border_widths.bottom),
+                        WorldPoint::new(
+                            quad.bounds.pos.x(),
+                            quad.bounds.pos.y() + quad.bounds.size.height() - quad.border_widths.bottom
+                        ),
+                        Size::new(quad.bounds.size.width(), quad.border_widths.bottom),
                     ),
                     quad.border_color,
                 );
@@ -62,7 +64,7 @@ impl<'a> PaintContext<'a> {
                 self.draw_list.add_rect(
                     Rect::from_pos_size(
                         quad.bounds.pos,
-                        Vec2::new(quad.border_widths.left, quad.bounds.size.y),
+                        Size::new(quad.border_widths.left, quad.bounds.size.height()),
                     ),
                     quad.border_color,
                 );
@@ -72,9 +74,11 @@ impl<'a> PaintContext<'a> {
             if quad.border_widths.right > 0.0 {
                 self.draw_list.add_rect(
                     Rect::from_pos_size(
-                        quad.bounds.pos
-                            + Vec2::new(quad.bounds.size.x - quad.border_widths.right, 0.0),
-                        Vec2::new(quad.border_widths.right, quad.bounds.size.y),
+                        WorldPoint::new(
+                            quad.bounds.pos.x() + quad.bounds.size.width() - quad.border_widths.right,
+                            quad.bounds.pos.y()
+                        ),
+                        Size::new(quad.border_widths.right, quad.bounds.size.height()),
                     ),
                     quad.border_color,
                 );
@@ -111,7 +115,7 @@ impl<'a> PaintContext<'a> {
     /// Get the computed bounds for a node
     pub fn get_bounds(&self, node_id: NodeId) -> Rect {
         let local_bounds = self.layout_engine.layout_bounds(node_id);
-        Rect::from_pos_size(self.parent_offset + local_bounds.pos, local_bounds.size)
+        Rect::from_pos_size(WorldPoint::from(self.parent_offset.as_vec3() + local_bounds.pos.as_vec3()), local_bounds.size)
     }
 
     /// Create a child paint context with updated offset
@@ -121,7 +125,7 @@ impl<'a> PaintContext<'a> {
             text_system: self.text_system,
             layout_engine: self.layout_engine,
             scale_factor: self.scale_factor,
-            parent_offset: self.parent_offset + offset,
+            parent_offset: WorldPoint::from(self.parent_offset.as_vec3() + Vec3::new(offset.x, offset.y, 0.0)),
             hit_test_builder: self.hit_test_builder.clone(),
         }
     }
@@ -156,8 +160,8 @@ impl PaintQuad {
         Self {
             bounds,
             fill: color,
-            corner_radii: Corners::zero(),
-            border_widths: Edges::zero(),
+            corner_radii: Corners::ZERO,
+            border_widths: Edges::ZERO,
             border_color: crate::color::colors::TRANSPARENT,
         }
     }
@@ -340,7 +344,7 @@ impl DrawList {
 
         // Check against viewport
         if let Some(viewport) = &self.viewport {
-            visibility *= rect.visibility_ratio_in(viewport);
+            visibility *= rect.visibility_ratio(viewport);
             if visibility == 0.0 {
                 return 0.0;
             }
@@ -348,7 +352,7 @@ impl DrawList {
 
         // Check against clip stack
         if let Some(clip) = self.clip_stack.last() {
-            visibility *= rect.visibility_ratio_in(clip);
+            visibility *= rect.visibility_ratio(clip);
         }
 
         visibility
@@ -391,7 +395,10 @@ impl DrawList {
         // In a real implementation, you'd want to measure the text properly
         let approx_width = text.len() as f32 * style.size * 0.6;
         let approx_height = style.size * 1.2;
-        let text_rect = Rect::from_pos_size(position, Vec2::new(approx_width, approx_height));
+        let text_rect = Rect::from_pos_size(
+            WorldPoint::new(position.x, position.y),
+            Size::new(approx_width, approx_height)
+        );
 
         // Skip if not visible (viewport culling)
         if !self.is_visible(&text_rect) {
