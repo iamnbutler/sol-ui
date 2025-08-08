@@ -86,6 +86,37 @@ impl InteractionSystem {
                 events.extend(self.handle_mouse_leave());
             }
 
+            // Map touch events to mouse events for compatibility
+            InputEvent::TouchDown { position, .. } => {
+                self.mouse_position = *position;
+                self.mouse_in_window = true;
+                events.extend(self.handle_mouse_down(*position, MouseButton::Left));
+            }
+
+            InputEvent::TouchMove { position, .. } => {
+                self.mouse_position = *position;
+                self.mouse_in_window = true;
+                events.extend(self.handle_mouse_move(*position));
+            }
+
+            InputEvent::TouchUp { position, .. } => {
+                self.mouse_position = *position;
+                events.extend(self.handle_mouse_up(*position, MouseButton::Left));
+            }
+
+            InputEvent::TouchCancel { .. } => {
+                // Treat touch cancel like mouse leave - clear any pressed states
+                self.mouse_in_window = false;
+                events.extend(self.handle_mouse_leave());
+                // Also clear pressed state if any
+                if let Some(pressed_id) = self.pressed_element {
+                    if let Some(state) = self.element_states.get_mut(&pressed_id) {
+                        state.is_pressed = false;
+                    }
+                    self.pressed_element = None;
+                }
+            }
+
             _ => {} // Other events not handled yet
         }
 
