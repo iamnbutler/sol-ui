@@ -540,10 +540,10 @@ impl MetalRenderer {
         // We need to convert to physical pixels for proper NDC calculation
         let physical_width = screen_size.0 * scale_factor;
         let physical_height = screen_size.1 * scale_factor;
-        let x1 = (rect.pos.x * scale_factor / physical_width) * 2.0 - 1.0;
-        let y1 = 1.0 - (rect.pos.y * scale_factor / physical_height) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x) * scale_factor / physical_width) * 2.0 - 1.0;
-        let y2 = 1.0 - ((rect.pos.y + rect.size.y) * scale_factor / physical_height) * 2.0;
+        let x1 = (rect.pos.x() * scale_factor / physical_width) * 2.0 - 1.0;
+        let y1 = 1.0 - (rect.pos.y() * scale_factor / physical_height) * 2.0;
+        let x2 = ((rect.pos.x() + rect.size.width()) * scale_factor / physical_width) * 2.0 - 1.0;
+        let y2 = 1.0 - ((rect.pos.y() + rect.size.height()) * scale_factor / physical_height) * 2.0;
 
         let color_array = [color.red, color.green, color.blue, color.alpha];
 
@@ -609,13 +609,13 @@ impl MetalRenderer {
         // Note: positions are in logical pixels, screen_size is in logical pixels
         let physical_width = screen_size.0 * scale_factor;
         let physical_height = screen_size.1 * scale_factor;
-        let x1 = ((rect.pos.x - shadow_expand_left) * scale_factor / physical_width) * 2.0 - 1.0;
-        let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) * scale_factor / physical_height) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) * scale_factor / physical_width)
+        let x1 = ((rect.pos.x() - shadow_expand_left) * scale_factor / physical_width) * 2.0 - 1.0;
+        let y1 = 1.0 - ((rect.pos.y() - shadow_expand_top) * scale_factor / physical_height) * 2.0;
+        let x2 = ((rect.pos.x() + rect.size.width() + shadow_expand_right) * scale_factor / physical_width)
             * 2.0
             - 1.0;
         let y2 = 1.0
-            - ((rect.pos.y + rect.size.y + shadow_expand_bottom) * scale_factor / physical_height)
+            - ((rect.pos.y() + rect.size.height() + shadow_expand_bottom) * scale_factor / physical_height)
                 * 2.0;
 
         // For frames, we use a dummy color since actual colors come from uniforms

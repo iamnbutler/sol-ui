@@ -4,13 +4,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     color::{Color, ColorExt},
-    geometry::{Corners, Edges, Rect},
+    geometry::{Corners, Edges, Rect, WorldPoint, Size},
     interaction::{ElementId, HitTestBuilder},
     layout_engine::TaffyLayoutEngine,
     style::{ElementStyle, Fill, TextStyle},
     text_system::TextSystem,
 };
-use glam::Vec2;
+use glam::{Vec2, Vec3};
 use taffy::NodeId;
 
 /// Context for the paint phase
@@ -428,7 +428,7 @@ impl DrawList {
                 Some(intersection) => intersection,
                 None => {
                     // Empty intersection, use zero-sized rect
-                    Rect::new(rect.pos.x, rect.pos.y, 0.0, 0.0)
+                    Rect::new(rect.pos.x(), rect.pos.y(), 0.0, 0.0)
                 }
             }
         } else {
@@ -513,8 +513,12 @@ impl DrawList {
         // Expand rect to account for shadow if present
         let expanded_rect = if let Some(shadow) = &style.shadow {
             let offset = shadow.offset.abs();
-            let expansion = offset + Vec2::splat(shadow.blur);
-            Rect::from_pos_size(rect.pos - expansion, rect.size + expansion * 2.0)
+            let blur = shadow.blur;
+            let expansion = Vec3::new(offset.x + blur, offset.y + blur, 0.0);
+            Rect::from_pos_size(
+                WorldPoint::from(rect.pos.as_vec3() - expansion),
+                Size::from(rect.size.as_vec3() + expansion * 2.0)
+            )
         } else {
             rect
         };

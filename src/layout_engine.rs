@@ -1,7 +1,7 @@
 //! Layout engine using Taffy for flexbox/grid layout
 
-use crate::geometry::Rect;
-use glam::Vec2;
+use crate::geometry::{Rect, WorldPoint, Size};
+
 use std::collections::{HashMap, HashSet};
 use taffy::prelude::*;
 use tracing::info_span;
@@ -83,7 +83,7 @@ impl TaffyLayoutEngine {
     pub fn compute_layout(
         &mut self,
         root: NodeId,
-        available_space: Size<AvailableSpace>,
+        available_space: taffy::Size<AvailableSpace>,
         text_system: &mut crate::text_system::TextSystem,
         scale_factor: f32,
     ) -> Result<(), taffy::TaffyError> {
@@ -105,11 +105,11 @@ impl TaffyLayoutEngine {
     }
 
     /// Get the computed layout bounds for a node
-    pub fn layout_bounds(&self, id: NodeId) -> Rect {
-        let layout = self.taffy.layout(id).expect("Failed to get layout");
+    pub fn layout_bounds(&self, node_id: taffy::NodeId) -> Rect {
+        let layout = self.taffy.layout(node_id).unwrap();
         Rect::from_pos_size(
-            Vec2::new(layout.location.x, layout.location.y),
-            Vec2::new(layout.size.width, layout.size.height),
+            WorldPoint::new(layout.location.x, layout.location.y),
+            Size::new(layout.size.width, layout.size.height),
         )
     }
 
@@ -131,7 +131,7 @@ fn measure_element(
     node_data: Option<&mut ElementData>,
     text_system: &mut crate::text_system::TextSystem,
     scale_factor: f32,
-) -> Size<f32> {
+) -> taffy::Size<f32> {
     if let Some(data) = node_data {
         if let Some((content, style)) = &data.text {
             let max_width = match available_space.width {

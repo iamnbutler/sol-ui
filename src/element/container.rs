@@ -1,7 +1,7 @@
 use crate::{
     color::Color,
     element::{Element, LayoutContext, PaintContext},
-    geometry::{Corners, Edges, Rect},
+    geometry::{Corners, Edges, Rect, WorldPoint},
     render::PaintQuad,
 };
 use taffy::prelude::*;
@@ -190,8 +190,8 @@ impl Element for Container {
             ctx.paint_quad(PaintQuad {
                 bounds,
                 fill: self.background.unwrap_or(crate::color::colors::TRANSPARENT),
-                corner_radii: Corners::all(self.corner_radius),
-                border_widths: Edges::all(self.border_width),
+                corner_radii: Corners::uniform(self.corner_radius),
+                border_widths: Edges::uniform(self.border_width),
                 border_color: self
                     .border_color
                     .unwrap_or(crate::color::colors::TRANSPARENT),
@@ -204,7 +204,7 @@ impl Element for Container {
             let child_layout_bounds = ctx.layout_engine.layout_bounds(child_node);
             // Convert to absolute bounds for painting
             let child_absolute_bounds = Rect::from_pos_size(
-                bounds.pos + child_layout_bounds.pos,
+                WorldPoint::from(bounds.pos.as_vec3() + child_layout_bounds.pos.as_vec3()),
                 child_layout_bounds.size,
             );
 

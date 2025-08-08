@@ -5,6 +5,7 @@ use cocoa::{
 use core_graphics::geometry::CGSize;
 
 use crate::layer::{InputEvent, MouseButton};
+use crate::geometry::ScreenPoint;
 use metal::MetalLayer;
 use objc::{
     class,
@@ -225,7 +226,7 @@ impl Window {
         let location = self.get_mouse_location(event);
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseMove {
-                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                position: ScreenPoint::new(location.0 as f32, location.1 as f32),
             });
         });
     }
@@ -243,7 +244,7 @@ impl Window {
 
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseDown {
-                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                position: ScreenPoint::new(location.0 as f32, location.1 as f32),
                 button,
             });
         });
@@ -262,7 +263,7 @@ impl Window {
 
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseUp {
-                position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                position: ScreenPoint::new(location.0 as f32, location.1 as f32),
                 button,
             });
         });

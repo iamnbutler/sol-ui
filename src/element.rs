@@ -12,8 +12,8 @@ use crate::{
     render::PaintContext,
     style::TextStyle,
     text_system::TextSystem,
+    geometry::Size,
 };
-use glam::Vec2;
 use taffy::prelude::*;
 
 /// Elements participate in a two-phase rendering process
@@ -69,7 +69,7 @@ impl<'a> LayoutContext<'a> {
     }
 
     /// Measure text (for use during layout)
-    pub fn measure_text(&mut self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Vec2 {
+    pub fn measure_text(&mut self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Size {
         let text_config = crate::text_system::TextConfig {
             font_stack: parley::FontStack::from("system-ui"),
             size: style.size,
@@ -78,7 +78,8 @@ impl<'a> LayoutContext<'a> {
             line_height: 1.2,
         };
 
-        self.text_system
-            .measure_text(text, &text_config, max_width, self.scale_factor)
+        let vec2_size = self.text_system
+            .measure_text(text, &text_config, max_width, self.scale_factor);
+        Size::new(vec2_size.x, vec2_size.y)
     }
 }

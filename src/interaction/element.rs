@@ -4,7 +4,7 @@ use super::ElementId;
 use crate::{
     color::Color,
     element::{Element, LayoutContext},
-    geometry::Rect,
+    geometry::{Rect, ScreenPoint, LocalPoint},
     interaction::{
         events::EventHandlers,
         registry::{get_element_state, register_element},
@@ -95,7 +95,7 @@ impl<E: Element> InteractiveElement<E> {
     /// Set the click handler
     pub fn on_click<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(crate::layer::MouseButton, ScreenPoint, LocalPoint) + 'static,
     {
         self.handlers.borrow_mut().on_click = Some(Box::new(handler));
         self
@@ -122,7 +122,7 @@ impl<E: Element> InteractiveElement<E> {
     /// Set the mouse move handler
     pub fn on_mouse_move<F>(self, handler: F) -> Self
     where
-        F: FnMut(glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(ScreenPoint, LocalPoint) + 'static,
     {
         self.handlers.borrow_mut().on_mouse_move = Some(Box::new(handler));
         self
@@ -131,7 +131,7 @@ impl<E: Element> InteractiveElement<E> {
     /// Set the mouse down handler
     pub fn on_mouse_down<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(crate::layer::MouseButton, ScreenPoint, LocalPoint) + 'static,
     {
         self.handlers.borrow_mut().on_mouse_down = Some(Box::new(handler));
         self
@@ -140,7 +140,7 @@ impl<E: Element> InteractiveElement<E> {
     /// Set the mouse up handler
     pub fn on_mouse_up<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(crate::layer::MouseButton, ScreenPoint, LocalPoint) + 'static,
     {
         self.handlers.borrow_mut().on_mouse_up = Some(Box::new(handler));
         self

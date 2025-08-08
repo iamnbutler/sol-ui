@@ -41,7 +41,7 @@ impl Element for Text {
         }
 
         ctx.paint_text(PaintText {
-            position: bounds.pos,
+            position: glam::Vec2::new(bounds.pos.x(), bounds.pos.y()),
             text: self.content.clone(),
             style: self.style.clone(),
         });

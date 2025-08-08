@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use crate::layer::InputEvent;
 use crate::platform::mac::metal_renderer::MetalRenderer;
+use crate::geometry::ScreenPoint;
 
 // Static class references
 static mut VIEW_CLASS: *const Class = ptr::null();
@@ -291,15 +292,15 @@ unsafe fn process_touches(touches: *mut Object, view: *mut Object, event_type: T
 
         let event = match event_type {
             TouchEventType::Begin => InputEvent::TouchDown {
-                position: glam::Vec2::new(location.x as f32, location.y as f32),
+                position: ScreenPoint::new(location.x as f32, location.y as f32),
                 id: touch_id,
             },
             TouchEventType::Move => InputEvent::TouchMove {
-                position: glam::Vec2::new(location.x as f32, location.y as f32),
+                position: ScreenPoint::new(location.x as f32, location.y as f32),
                 id: touch_id,
             },
             TouchEventType::End => InputEvent::TouchUp {
-                position: glam::Vec2::new(location.x as f32, location.y as f32),
+                position: ScreenPoint::new(location.x as f32, location.y as f32),
                 id: touch_id,
             },
             TouchEventType::Cancel => InputEvent::TouchCancel {

@@ -1,7 +1,7 @@
 //! Hit testing for interaction system
 
 use super::ElementId;
-use crate::geometry::Rect;
+use crate::geometry::{Rect, LocalPoint};
 
 /// Entry in the hit test list
 #[derive(Debug, Clone)]
@@ -40,7 +40,7 @@ pub struct HitTestResult {
     pub bounds: Rect,
 
     /// Position relative to the element's top-left corner
-    pub local_position: glam::Vec2,
+    pub local_position: LocalPoint,
 
     /// The element's z-index
     pub z_index: i32,

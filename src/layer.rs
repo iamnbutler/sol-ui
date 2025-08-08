@@ -9,7 +9,9 @@ use crate::{
     platform::mac::metal_renderer::MetalRenderer,
     render::{DrawList, PaintContext},
 };
+use crate::geometry::{ScreenPoint, WorldPoint, Size};
 use glam::Vec2;
+use taffy::prelude::*;
 use metal::CommandBufferRef;
 use std::any::Any;
 use tracing::{debug, info, info_span};
@@ -316,8 +318,8 @@ where
             .compute_layout(
                 root_node,
                 taffy::Size {
-                    width: taffy::AvailableSpace::Definite(size.x),
-                    height: taffy::AvailableSpace::Definite(size.y),
+                    width: AvailableSpace::Definite(size.x),
+                    height: AvailableSpace::Definite(size.y),
                 },
                 text_system,
                 scale_factor,
@@ -329,7 +331,7 @@ where
         // Phase 2: Paint
         let paint_start = std::time::Instant::now();
         let mut draw_list =
-            DrawList::with_viewport(crate::geometry::Rect::from_pos_size(Vec2::ZERO, size));
+            DrawList::with_viewport(crate::geometry::Rect::from_pos_size(WorldPoint::ZERO, Size::new(size.x, size.y)));
 
         // Clear and set the current element registry for this paint phase
         self.element_registry.borrow_mut().clear();
@@ -538,15 +540,15 @@ impl LayerManager {
 #[derive(Debug, Clone)]
 pub enum InputEvent {
     // Mouse events (desktop)
-    MouseMove { position: Vec2 },
-    MouseDown { position: Vec2, button: MouseButton },
-    MouseUp { position: Vec2, button: MouseButton },
+    MouseMove { position: ScreenPoint },
+    MouseDown { position: ScreenPoint, button: MouseButton },
+    MouseUp { position: ScreenPoint, button: MouseButton },
     MouseLeave,
 
     // Touch events (mobile)
-    TouchDown { position: Vec2, id: usize },
-    TouchUp { position: Vec2, id: usize },
-    TouchMove { position: Vec2, id: usize },
+    TouchDown { position: ScreenPoint, id: usize },
+    TouchUp { position: ScreenPoint, id: usize },
+    TouchMove { position: ScreenPoint, id: usize },
     TouchCancel { id: usize },
 
     // Keyboard events (both platforms)
@@ -574,31 +576,31 @@ pub enum Key {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use glam::Vec2;
+    use crate::geometry::ScreenPoint;
 
     #[test]
     fn test_input_event_creation() {
         // Test mouse events
         let mouse_move = InputEvent::MouseMove {
-            position: Vec2::new(10.0, 20.0),
+            position: ScreenPoint::new(10.0, 20.0),
         };
         match mouse_move {
             InputEvent::MouseMove { position } => {
-                assert_eq!(position.x, 10.0);
-                assert_eq!(position.y, 20.0);
+                assert_eq!(position.x(), 10.0);
+                assert_eq!(position.y(), 20.0);
             }
             _ => panic!("Wrong event type"),
         }
 
         // Test touch events
         let touch_down = InputEvent::TouchDown {
-            position: Vec2::new(30.0, 40.0),
+            position: ScreenPoint::new(30.0, 40.0),
             id: 1,
         };
         match touch_down {
             InputEvent::TouchDown { position, id } => {
-                assert_eq!(position.x, 30.0);
-                assert_eq!(position.y, 40.0);
+                assert_eq!(position.x(), 30.0);
+                assert_eq!(position.y(), 40.0);
                 assert_eq!(id, 1);
             }
             _ => panic!("Wrong event type"),

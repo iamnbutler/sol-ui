@@ -1,10 +1,9 @@
 //! Interaction system for handling mouse events with z-order based hit testing
 
 use crate::{
-    geometry::Point,
+    geometry::{ScreenPoint, LocalPoint},
     layer::{InputEvent, MouseButton},
 };
-use glam::Vec2;
 use std::collections::HashMap;
 
 pub mod element;
@@ -20,7 +19,7 @@ pub use registry::{ElementRegistry, get_element_state, register_element};
 /// Manages interaction state across the entire UI
 pub struct InteractionSystem {
     /// Current mouse position
-    mouse_position: Vec2,
+    mouse_position: ScreenPoint,
 
     /// Currently hovered element ID
     hovered_element: Option<ElementId>,
@@ -41,7 +40,7 @@ pub struct InteractionSystem {
 impl InteractionSystem {
     pub fn new() -> Self {
         Self {
-            mouse_position: Vec2::ZERO,
+            mouse_position: ScreenPoint::ZERO,
             hovered_element: None,
             pressed_element: None,
             element_states: HashMap::new(),
@@ -124,7 +123,7 @@ impl InteractionSystem {
     }
 
     /// Handle mouse move events
-    fn handle_mouse_move(&mut self, position: Vec2) -> Vec<InteractionEvent> {
+    fn handle_mouse_move(&mut self, position: ScreenPoint) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
         // Find what's under the mouse
@@ -171,7 +170,7 @@ impl InteractionSystem {
     }
 
     /// Handle mouse down events
-    fn handle_mouse_down(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
+    fn handle_mouse_down(&mut self, position: ScreenPoint, button: MouseButton) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
         // Find what's under the mouse
@@ -197,7 +196,7 @@ impl InteractionSystem {
     }
 
     /// Handle mouse up events
-    fn handle_mouse_up(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
+    fn handle_mouse_up(&mut self, position: ScreenPoint, button: MouseButton) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
         // Check if we have a pressed element
@@ -223,7 +222,7 @@ impl InteractionSystem {
                         .as_ref()
                         .filter(|h| h.element_id == pressed_id)
                         .map(|h| h.local_position)
-                        .unwrap_or(position),
+                        .unwrap_or(LocalPoint::ZERO),
                 });
 
                 // If mouse is still over the same element, it's a click
@@ -267,11 +266,16 @@ impl InteractionSystem {
     }
 
     /// Perform hit testing at the given position
-    fn hit_test(&self, position: Vec2) -> Option<HitTestResult> {
+    fn hit_test(&self, position: ScreenPoint) -> Option<HitTestResult> {
         // Hit test entries are sorted by z-order (highest first)
         for entry in &self.last_hit_test {
-            if entry.bounds.contains(Point::from(position)) {
-                let local_position = position - entry.bounds.pos;
+            // Convert screen position to world position for bounds check
+            let world_pos = crate::geometry::screen_to_world(position);
+            if entry.bounds.contains(world_pos) {
+                let local_position = LocalPoint::new(
+                    position.x() - entry.bounds.pos.x(),
+                    position.y() - entry.bounds.pos.y()
+                );
                 return Some(HitTestResult {
                     element_id: entry.element_id,
                     bounds: entry.bounds,
@@ -343,7 +347,7 @@ impl From<i32> for ElementId {
 mod tests {
     use super::*;
     use crate::layer::InputEvent;
-    use glam::Vec2;
+    use crate::geometry::ScreenPoint;
 
     #[test]
     fn test_touch_down_maps_to_mouse_down() {
@@ -351,7 +355,7 @@ mod tests {
 
         // Simulate touch down
         let touch_event = InputEvent::TouchDown {
-            position: Vec2::new(100.0, 200.0),
+            position: ScreenPoint::new(100.0, 200.0),
             id: 1,
         };
 
@@ -359,7 +363,7 @@ mod tests {
 
         // Since there's no element at this position, we shouldn't get interaction events
         // but the system should update its internal state
-        assert_eq!(system.mouse_position, Vec2::new(100.0, 200.0));
+        assert_eq!(system.mouse_position, ScreenPoint::new(100.0, 200.0));
         assert!(system.mouse_in_window);
     }
 
@@ -369,14 +373,14 @@ mod tests {
 
         // Simulate touch move
         let touch_event = InputEvent::TouchMove {
-            position: Vec2::new(150.0, 250.0),
+            position: ScreenPoint::new(150.0, 250.0),
             id: 1,
         };
 
         let _events = system.handle_input(&touch_event);
 
         // Check internal state updated
-        assert_eq!(system.mouse_position, Vec2::new(150.0, 250.0));
+        assert_eq!(system.mouse_position, ScreenPoint::new(150.0, 250.0));
         assert!(system.mouse_in_window);
     }
 
@@ -386,14 +390,14 @@ mod tests {
 
         // Simulate touch up
         let touch_event = InputEvent::TouchUp {
-            position: Vec2::new(200.0, 300.0),
+            position: ScreenPoint::new(200.0, 300.0),
             id: 1,
         };
 
         let _events = system.handle_input(&touch_event);
 
         // Check internal state updated
-        assert_eq!(system.mouse_position, Vec2::new(200.0, 300.0));
+        assert_eq!(system.mouse_position, ScreenPoint::new(200.0, 300.0));
     }
 
     #[test]
@@ -402,7 +406,7 @@ mod tests {
 
         // Set up some state first
         system.mouse_in_window = true;
-        system.mouse_position = Vec2::new(100.0, 100.0);
+        system.mouse_position = ScreenPoint::new(100.0, 100.0);
 
         // Simulate touch cancel
         let touch_event = InputEvent::TouchCancel { id: 1 };
