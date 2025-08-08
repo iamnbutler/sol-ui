@@ -1,14 +1,24 @@
 use crate::{
     layer::LayerManager,
-    platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
+    platform::Window,
     text_system::TextSystem,
 };
 use std::time::Instant;
 use tracing::{debug, info, info_span};
 
-use cocoa::base::{YES, id};
 use metal::{CommandQueue, Device};
+
+#[cfg(target_os = "macos")]
+use crate::platform::{create_app_menu, mac::metal_renderer::MetalRenderer};
+
+#[cfg(target_os = "macos")]
+use cocoa::base::{YES, id};
+
+#[cfg(target_os = "macos")]
 use objc::{class, msg_send, sel, sel_impl};
+
+#[cfg(target_os = "ios")]
+use crate::platform::mac::metal_renderer::MetalRenderer;
 
 use std::sync::Arc;
 
@@ -74,17 +84,27 @@ impl AppBuilder {
         let _build_span = info_span!("app_build").entered();
         let build_start = Instant::now();
 
-        // Initialize NSApplication
-        let start = Instant::now();
-        info!("Initializing NSApplication");
-        let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
-        let _: () = unsafe { msg_send![ns_app, setActivationPolicy: 0] }; // NSApplicationActivationPolicyRegular
-        info!("NSApplication initialized in {:?}", start.elapsed());
+        // Initialize platform-specific app setup
+        #[cfg(target_os = "macos")]
+        {
+            // Initialize NSApplication
+            let start = Instant::now();
+            info!("Initializing NSApplication");
+            let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
+            let _: () = unsafe { msg_send![ns_app, setActivationPolicy: 0] }; // NSApplicationActivationPolicyRegular
+            info!("NSApplication initialized in {:?}", start.elapsed());
 
-        // Create app menu
-        let start = Instant::now();
-        create_app_menu();
-        info!("App menu created in {:?}", start.elapsed());
+            // Create app menu
+            let start = Instant::now();
+            create_app_menu();
+            info!("App menu created in {:?}", start.elapsed());
+        }
+
+        #[cfg(target_os = "ios")]
+        {
+            info!("iOS app initialization");
+            // iOS doesn't need NSApplication setup
+        }
 
         // Create Metal device and command queue
         let start = Instant::now();
@@ -99,6 +119,9 @@ impl AppBuilder {
         // Create window
         let start = Instant::now();
         info!("Creating window: {}x{}", self.width, self.height);
+        #[cfg(target_os = "macos")]
+        let window = Window::new(self.width, self.height, &self.title, &device);
+        #[cfg(target_os = "ios")]
         let window = Window::new(self.width, self.height, &self.title, &device);
         info!("Window created in {:?}", start.elapsed());
 
@@ -122,10 +145,14 @@ impl AppBuilder {
         let text_system = TextSystem::new(&device).expect("Failed to create text system");
         info!("Text system created in {:?}", start.elapsed());
 
-        // Activate app and bring to front
-        let start = Instant::now();
-        let _: () = unsafe { msg_send![ns_app, activateIgnoringOtherApps: YES] };
-        info!("App activated in {:?}", start.elapsed());
+        // Activate app and bring to front (macOS only)
+        #[cfg(target_os = "macos")]
+        {
+            let start = Instant::now();
+            let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
+            let _: () = unsafe { msg_send![ns_app, activateIgnoringOtherApps: YES] };
+            info!("App activated in {:?}", start.elapsed());
+        }
 
         info!("Total app build time: {:?}", build_start.elapsed());
 

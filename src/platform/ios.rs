@@ -43,7 +43,7 @@ pub struct Window {
 
 impl Window {
     /// Create a new iOS window with Metal rendering support
-    pub fn new(title: &str, width: f64, height: f64) -> Self {
+    pub fn new(width: f64, height: f64, title: &str, device: &metal::Device) -> Arc<Self> {
         unsafe {
             // Ensure classes are registered
             ensure_classes_registered();
@@ -69,9 +69,8 @@ impl Window {
             // Add view to window
             let _: () = msg_send![ui_window, addSubview:metal_view];
 
-            // Set up Metal
-            let device = Device::system_default()
-                .expect("Metal is required but not available on this device");
+            // Set up Metal using provided device
+            let device = device.clone();
             let command_queue = device.new_command_queue();
 
             // Get the CAMetalLayer from our view
@@ -93,7 +92,7 @@ impl Window {
             let _: () = msg_send![layer, setDrawableSize:drawable_size];
 
             // Create renderer
-            let renderer = MetalRenderer::new(&device);
+            let renderer = MetalRenderer::new(device.clone());
 
             // Make window visible
             let _: () = msg_send![ui_window, makeKeyAndVisible];
@@ -102,7 +101,7 @@ impl Window {
             let white_color: *mut Object = msg_send![class!(UIColor), whiteColor];
             let _: () = msg_send![ui_window, setBackgroundColor:white_color];
 
-            Window {
+            Arc::new(Window {
                 ui_window,
                 metal_view,
                 metal_layer,
@@ -110,7 +109,7 @@ impl Window {
                 command_queue,
                 renderer,
                 size: window_rect.size,
-            }
+            })
         }
     }
 
@@ -154,6 +153,70 @@ impl Window {
             pending.clear();
             result
         })
+    }
+
+    /// Get pending input events (compatibility method)
+    pub fn get_pending_input_events(&self) -> Vec<InputEvent> {
+        PENDING_EVENTS.with(|events| {
+            let mut pending = events.borrow_mut();
+            let result = pending.clone();
+            pending.clear();
+            result
+        })
+    }
+
+    /// Handle events (blocking)
+    pub fn handle_events(&self) -> bool {
+        self.handle_events_internal(true)
+    }
+
+    /// Handle events (non-blocking)
+    pub fn handle_events_non_blocking(&self) -> bool {
+        self.handle_events_internal(false)
+    }
+
+    /// Internal event handling implementation
+    fn handle_events_internal(&self, blocking: bool) -> bool {
+        unsafe {
+            let app: *mut Object = msg_send![class!(UIApplication), sharedApplication];
+
+            // Create autorelease pool
+            let pool: *mut Object = msg_send![class!(NSAutoreleasePool), new];
+
+            // Process events with or without blocking
+            let until_date = if blocking {
+                msg_send![class!(NSDate), distantFuture]
+            } else {
+                ptr::null_mut::<Object>()
+            };
+
+            let event: *mut Object = msg_send![app,
+                nextEventMatchingMask:0xFFFFFFFF
+                untilDate:until_date
+                inMode:NSString_from_str("NSDefaultRunLoopMode")
+                dequeue:YES
+            ];
+
+            if event != ptr::null_mut() {
+                let _: () = msg_send![app, sendEvent:event];
+            }
+
+            // Release pool
+            let _: () = msg_send![pool, release];
+
+            true // iOS apps typically don't quit the same way as desktop apps
+        }
+    }
+
+    /// Get window size (compatibility method)
+    pub fn get_size(&self) -> (f32, f32) {
+        let (width, height) = self.size();
+        (width as f32, height as f32)
+    }
+
+    /// Get metal layer (compatibility method)
+    pub fn get_metal_layer(&self) -> &MetalLayer {
+        &self.metal_layer
     }
 
     /// Run the main event loop (iOS-specific)
