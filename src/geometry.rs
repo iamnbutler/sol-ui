@@ -177,6 +177,294 @@ mod tests {
         assert_eq!(contracted.pos, Vec2::new(20.0, 20.0));
         assert_eq!(contracted.size, Vec2::new(80.0, 80.0));
     }
+
+    #[test]
+    fn test_point_creation() {
+        let point = Point::new(15.0, 25.0);
+        assert_eq!(point.x, 15.0);
+        assert_eq!(point.y, 25.0);
+    }
+
+    #[test]
+    fn test_point_from_vec2() {
+        let vec = Vec2::new(30.0, 40.0);
+        let point = Point::from(vec);
+        assert_eq!(point.x, 30.0);
+        assert_eq!(point.y, 40.0);
+    }
+
+    #[test]
+    fn test_vec2_from_point() {
+        let point = Point::new(50.0, 60.0);
+        let vec = Vec2::from(point);
+        assert_eq!(vec.x, 50.0);
+        assert_eq!(vec.y, 60.0);
+    }
+
+    #[test]
+    fn test_rect_from_pos_size() {
+        let pos = Vec2::new(10.0, 20.0);
+        let size = Vec2::new(30.0, 40.0);
+        let rect = Rect::from_pos_size(pos, size);
+        
+        assert_eq!(rect.pos, pos);
+        assert_eq!(rect.size, size);
+    }
+
+    #[test]
+    fn test_rect_min_max() {
+        let rect = Rect::new(10.0, 15.0, 20.0, 25.0);
+        
+        assert_eq!(rect.min(), Vec2::new(10.0, 15.0));
+        assert_eq!(rect.max(), Vec2::new(30.0, 40.0));
+    }
+
+    #[test]
+    fn test_rect_area() {
+        let rect = Rect::new(0.0, 0.0, 10.0, 20.0);
+        assert_eq!(rect.area(), 200.0);
+        
+        let zero_rect = Rect::new(0.0, 0.0, 0.0, 10.0);
+        assert_eq!(zero_rect.area(), 0.0);
+    }
+
+    #[test]
+    fn test_rect_is_contained_in() {
+        let outer = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let inner = Rect::new(10.0, 10.0, 50.0, 50.0);
+        let overlapping = Rect::new(50.0, 50.0, 100.0, 100.0);
+        let outside = Rect::new(150.0, 150.0, 20.0, 20.0);
+
+        assert!(inner.is_contained_in(&outer));
+        assert!(!overlapping.is_contained_in(&outer));
+        assert!(!outside.is_contained_in(&outer));
+        
+        // A rect should be contained in itself
+        assert!(outer.is_contained_in(&outer));
+    }
+
+    #[test]
+    fn test_rect_is_partially_visible_in() {
+        let viewport = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let fully_visible = Rect::new(10.0, 10.0, 50.0, 50.0);
+        let partially_visible = Rect::new(80.0, 80.0, 50.0, 50.0);
+        let not_visible = Rect::new(150.0, 150.0, 20.0, 20.0);
+
+        assert!(fully_visible.is_partially_visible_in(&viewport));
+        assert!(partially_visible.is_partially_visible_in(&viewport));
+        assert!(!not_visible.is_partially_visible_in(&viewport));
+    }
+
+    #[test]
+    fn test_rect_visibility_ratio_edge_cases() {
+        let viewport = Rect::new(0.0, 0.0, 100.0, 100.0);
+        
+        // Fully contained rect
+        let inner = Rect::new(25.0, 25.0, 50.0, 50.0);
+        assert_eq!(inner.visibility_ratio_in(&viewport), 1.0);
+        
+        // Not visible rect
+        let outside = Rect::new(200.0, 200.0, 50.0, 50.0);
+        assert_eq!(outside.visibility_ratio_in(&viewport), 0.0);
+        
+        // Zero-area rect
+        let zero_area = Rect::new(50.0, 50.0, 0.0, 0.0);
+        assert_eq!(zero_area.visibility_ratio_in(&viewport), 0.0);
+    }
+
+    #[test]
+    fn test_rect_expand_by() {
+        let rect = Rect::new(10.0, 15.0, 20.0, 30.0);
+        let expansion = Vec2::new(5.0, 8.0);
+        
+        let expanded = rect.expand_by(expansion);
+        
+        // Position should move by -expansion
+        assert_eq!(expanded.pos, Vec2::new(5.0, 7.0));
+        // Size should increase by 2 * expansion
+        assert_eq!(expanded.size, Vec2::new(30.0, 46.0));
+    }
+
+    #[test]
+    fn test_rect_contract_edge_cases() {
+        let rect = Rect::new(10.0, 10.0, 20.0, 30.0);
+        
+        // Contract by small amount
+        let contracted_small = rect.contract(2.0);
+        assert_eq!(contracted_small.pos, Vec2::new(12.0, 12.0));
+        assert_eq!(contracted_small.size, Vec2::new(16.0, 26.0));
+        
+        // Contract by amount larger than half the dimensions
+        let contracted_large = rect.contract(15.0);
+        assert_eq!(contracted_large.pos, Vec2::new(25.0, 25.0));
+        assert_eq!(contracted_large.size, Vec2::ZERO); // Should clamp to zero
+    }
+
+    #[test]
+    fn test_corners_all() {
+        let corners = Corners::all(5.0);
+        assert_eq!(corners.top_left, 5.0);
+        assert_eq!(corners.top_right, 5.0);
+        assert_eq!(corners.bottom_right, 5.0);
+        assert_eq!(corners.bottom_left, 5.0);
+    }
+
+    #[test]
+    fn test_corners_zero() {
+        let corners = Corners::zero();
+        assert_eq!(corners.top_left, 0.0);
+        assert_eq!(corners.top_right, 0.0);
+        assert_eq!(corners.bottom_right, 0.0);
+        assert_eq!(corners.bottom_left, 0.0);
+    }
+
+    #[test]
+    fn test_corners_default() {
+        let corners = Corners::default();
+        assert_eq!(corners, Corners::zero());
+    }
+
+    #[test]
+    fn test_edges_all() {
+        let edges = Edges::all(10.0);
+        assert_eq!(edges.top, 10.0);
+        assert_eq!(edges.right, 10.0);
+        assert_eq!(edges.bottom, 10.0);
+        assert_eq!(edges.left, 10.0);
+    }
+
+    #[test]
+    fn test_edges_zero() {
+        let edges = Edges::zero();
+        assert_eq!(edges.top, 0.0);
+        assert_eq!(edges.right, 0.0);
+        assert_eq!(edges.bottom, 0.0);
+        assert_eq!(edges.left, 0.0);
+    }
+
+    #[test]
+    fn test_edges_xy() {
+        let edges = Edges::xy(5.0, 8.0);
+        assert_eq!(edges.top, 8.0);
+        assert_eq!(edges.right, 5.0);
+        assert_eq!(edges.bottom, 8.0);
+        assert_eq!(edges.left, 5.0);
+    }
+
+    #[test]
+    fn test_edges_default() {
+        let edges = Edges::default();
+        assert_eq!(edges, Edges::zero());
+    }
+
+    #[test]
+    fn test_edges_horizontal() {
+        let edges = Edges {
+            top: 10.0,
+            right: 5.0,
+            bottom: 15.0,
+            left: 8.0,
+        };
+        assert_eq!(edges.horizontal(), 13.0); // 5.0 + 8.0
+    }
+
+    #[test]
+    fn test_edges_vertical() {
+        let edges = Edges {
+            top: 10.0,
+            right: 5.0,
+            bottom: 15.0,
+            left: 8.0,
+        };
+        assert_eq!(edges.vertical(), 25.0); // 10.0 + 15.0
+    }
+
+    #[test]
+    fn test_edges_size() {
+        let edges = Edges {
+            top: 2.0,
+            right: 3.0,
+            bottom: 4.0,
+            left: 5.0,
+        };
+        let size = edges.size();
+        assert_eq!(size.x, 8.0); // 3.0 + 5.0
+        assert_eq!(size.y, 6.0); // 2.0 + 4.0
+    }
+
+    #[test]
+    fn test_rect_contains_boundary_cases() {
+        let rect = Rect::new(10.0, 20.0, 30.0, 40.0);
+        
+        // Test exact boundaries
+        assert!(rect.contains(Point::new(10.0, 20.0))); // top-left corner
+        assert!(rect.contains(Point::new(40.0, 60.0))); // bottom-right corner
+        assert!(rect.contains(Point::new(10.0, 60.0))); // bottom-left corner
+        assert!(rect.contains(Point::new(40.0, 20.0))); // top-right corner
+        
+        // Test just outside boundaries
+        assert!(!rect.contains(Point::new(9.9, 30.0)));  // just left
+        assert!(!rect.contains(Point::new(40.1, 30.0))); // just right
+        assert!(!rect.contains(Point::new(25.0, 19.9))); // just above
+        assert!(!rect.contains(Point::new(25.0, 60.1))); // just below
+    }
+
+    #[test]
+    fn test_rect_intersect_edge_cases() {
+        let rect = Rect::new(0.0, 0.0, 10.0, 10.0);
+        
+        // Touching but not overlapping (should be None)
+        let touching_right = Rect::new(10.0, 0.0, 10.0, 10.0);
+        assert!(rect.intersect(&touching_right).is_none());
+        
+        let touching_bottom = Rect::new(0.0, 10.0, 10.0, 10.0);
+        assert!(rect.intersect(&touching_bottom).is_none());
+        
+        // Identical rectangles
+        let identical = Rect::new(0.0, 0.0, 10.0, 10.0);
+        let intersection = rect.intersect(&identical).unwrap();
+        assert_eq!(intersection, rect);
+    }
+
+    #[test]
+    fn test_point_equality() {
+        let p1 = Point::new(1.0, 2.0);
+        let p2 = Point::new(1.0, 2.0);
+        let p3 = Point::new(1.0, 3.0);
+        
+        assert_eq!(p1, p2);
+        assert_ne!(p1, p3);
+    }
+
+    #[test]
+    fn test_rect_equality() {
+        let r1 = Rect::new(1.0, 2.0, 3.0, 4.0);
+        let r2 = Rect::new(1.0, 2.0, 3.0, 4.0);
+        let r3 = Rect::new(1.0, 2.0, 3.0, 5.0);
+        
+        assert_eq!(r1, r2);
+        assert_ne!(r1, r3);
+    }
+
+    #[test]
+    fn test_corners_equality() {
+        let c1 = Corners::all(5.0);
+        let c2 = Corners::all(5.0);
+        let c3 = Corners::all(6.0);
+        
+        assert_eq!(c1, c2);
+        assert_ne!(c1, c3);
+    }
+
+    #[test]
+    fn test_edges_equality() {
+        let e1 = Edges::xy(3.0, 4.0);
+        let e2 = Edges::xy(3.0, 4.0);
+        let e3 = Edges::xy(3.0, 5.0);
+        
+        assert_eq!(e1, e2);
+        assert_ne!(e1, e3);
+    }
 }
 
 /// Corner radii for rounded rectangles
