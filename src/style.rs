@@ -1,8 +1,8 @@
 use glam::Vec2;
 
 use crate::color::{
-    Color,
     colors::{BLACK, WHITE},
+    Color,
 };
 
 /// Text styling information
@@ -165,5 +165,232 @@ impl ElementStyle {
             color,
         });
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::colors::{BLUE, GREEN, RED};
+
+    #[test]
+    fn test_text_style_default() {
+        let style = TextStyle::default();
+        assert_eq!(style.size, 16.0);
+        assert_eq!(style.color, WHITE);
+    }
+
+    #[test]
+    fn test_corner_radii_uniform() {
+        let radii = CornerRadii::uniform(5.0);
+        assert_eq!(radii.top_left, 5.0);
+        assert_eq!(radii.top_right, 5.0);
+        assert_eq!(radii.bottom_right, 5.0);
+        assert_eq!(radii.bottom_left, 5.0);
+    }
+
+    #[test]
+    fn test_corner_radii_new() {
+        let radii = CornerRadii::new(1.0, 2.0, 3.0, 4.0);
+        assert_eq!(radii.top_left, 1.0);
+        assert_eq!(radii.top_right, 2.0);
+        assert_eq!(radii.bottom_right, 3.0);
+        assert_eq!(radii.bottom_left, 4.0);
+    }
+
+    #[test]
+    fn test_shadow_properties() {
+        let shadow = Shadow {
+            offset: Vec2::new(2.0, 3.0),
+            blur: 5.0,
+            color: RED,
+        };
+
+        assert_eq!(shadow.offset.x, 2.0);
+        assert_eq!(shadow.offset.y, 3.0);
+        assert_eq!(shadow.blur, 5.0);
+        assert_eq!(shadow.color, RED);
+    }
+
+    #[test]
+    fn test_fill_solid() {
+        let fill = Fill::Solid(BLUE);
+        match fill {
+            Fill::Solid(color) => assert_eq!(color, BLUE),
+            _ => panic!("Expected solid fill"),
+        }
+    }
+
+    #[test]
+    fn test_fill_linear_gradient() {
+        let fill = Fill::LinearGradient {
+            start: RED,
+            end: BLUE,
+            angle: std::f32::consts::PI / 4.0,
+        };
+
+        match fill {
+            Fill::LinearGradient { start, end, angle } => {
+                assert_eq!(start, RED);
+                assert_eq!(end, BLUE);
+                assert_eq!(angle, std::f32::consts::PI / 4.0);
+            }
+            _ => panic!("Expected linear gradient fill"),
+        }
+    }
+
+    #[test]
+    fn test_fill_radial_gradient() {
+        let fill = Fill::RadialGradient {
+            center: WHITE,
+            edge: BLACK,
+        };
+
+        match fill {
+            Fill::RadialGradient { center, edge } => {
+                assert_eq!(center, WHITE);
+                assert_eq!(edge, BLACK);
+            }
+            _ => panic!("Expected radial gradient fill"),
+        }
+    }
+
+    #[test]
+    fn test_element_style_default() {
+        let style = ElementStyle::default();
+
+        assert_eq!(style.fill, Fill::Solid(WHITE));
+        assert_eq!(style.border_width, 0.0);
+        assert_eq!(style.border_color, BLACK);
+        assert_eq!(style.corner_radii, CornerRadii::uniform(0.0));
+        assert!(style.shadow.is_none());
+    }
+
+    #[test]
+    fn test_element_style_new() {
+        let style = ElementStyle::new();
+        assert_eq!(style, ElementStyle::default());
+    }
+
+    #[test]
+    fn test_element_style_with_background() {
+        let style = ElementStyle::new().with_background(RED);
+
+        assert_eq!(style.fill, Fill::Solid(RED));
+        assert_eq!(style.border_width, 0.0); // Other properties unchanged
+    }
+
+    #[test]
+    fn test_element_style_with_linear_gradient() {
+        let style = ElementStyle::new().with_linear_gradient(RED, BLUE, std::f32::consts::PI / 2.0);
+
+        match style.fill {
+            Fill::LinearGradient { start, end, angle } => {
+                assert_eq!(start, RED);
+                assert_eq!(end, BLUE);
+                assert_eq!(angle, std::f32::consts::PI / 2.0);
+            }
+            _ => panic!("Expected linear gradient"),
+        }
+    }
+
+    #[test]
+    fn test_element_style_with_radial_gradient() {
+        let style = ElementStyle::new().with_radial_gradient(WHITE, GREEN);
+
+        match style.fill {
+            Fill::RadialGradient { center, edge } => {
+                assert_eq!(center, WHITE);
+                assert_eq!(edge, GREEN);
+            }
+            _ => panic!("Expected radial gradient"),
+        }
+    }
+
+    #[test]
+    fn test_element_style_with_border() {
+        let style = ElementStyle::new().with_border(2.5, RED);
+
+        assert_eq!(style.border_width, 2.5);
+        assert_eq!(style.border_color, RED);
+    }
+
+    #[test]
+    fn test_element_style_with_corner_radius() {
+        let style = ElementStyle::new().with_corner_radius(10.0);
+
+        assert_eq!(style.corner_radii, CornerRadii::uniform(10.0));
+    }
+
+    #[test]
+    fn test_element_style_with_corner_radii() {
+        let radii = CornerRadii::new(1.0, 2.0, 3.0, 4.0);
+        let style = ElementStyle::new().with_corner_radii(radii);
+
+        assert_eq!(style.corner_radii, radii);
+    }
+
+    #[test]
+    fn test_element_style_with_shadow() {
+        let offset = Vec2::new(3.0, 4.0);
+        let style = ElementStyle::new().with_shadow(offset, 2.5, RED);
+
+        assert!(style.shadow.is_some());
+        let shadow = style.shadow.unwrap();
+        assert_eq!(shadow.offset, offset);
+        assert_eq!(shadow.blur, 2.5);
+        assert_eq!(shadow.color, RED);
+    }
+
+    #[test]
+    fn test_element_style_chaining() {
+        let style = ElementStyle::new()
+            .with_background(BLUE)
+            .with_border(1.5, RED)
+            .with_corner_radius(8.0)
+            .with_shadow(Vec2::new(2.0, 2.0), 4.0, BLACK);
+
+        assert_eq!(style.fill, Fill::Solid(BLUE));
+        assert_eq!(style.border_width, 1.5);
+        assert_eq!(style.border_color, RED);
+        assert_eq!(style.corner_radii, CornerRadii::uniform(8.0));
+
+        assert!(style.shadow.is_some());
+        let shadow = style.shadow.unwrap();
+        assert_eq!(shadow.offset, Vec2::new(2.0, 2.0));
+        assert_eq!(shadow.blur, 4.0);
+        assert_eq!(shadow.color, BLACK);
+    }
+
+    #[test]
+    fn test_fill_clone() {
+        let original = Fill::Solid(RED);
+        let cloned = original.clone();
+        assert_eq!(original, cloned);
+    }
+
+    #[test]
+    fn test_fill_debug() {
+        let fill = Fill::Solid(RED);
+        let debug_string = format!("{:?}", fill);
+        assert!(debug_string.contains("Solid"));
+    }
+
+    #[test]
+    fn test_corner_radii_copy() {
+        let original = CornerRadii::uniform(5.0);
+        let copied = original;
+        assert_eq!(original, copied);
+    }
+
+    #[test]
+    fn test_shadow_copy() {
+        let original = Shadow {
+            offset: Vec2::new(1.0, 2.0),
+            blur: 3.0,
+            color: BLUE,
+        };
+        let copied = original;
+        assert_eq!(original, copied);
     }
 }
