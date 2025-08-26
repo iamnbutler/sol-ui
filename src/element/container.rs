@@ -212,3 +212,281 @@ impl Element for Container {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        color::colors::*,
+        style::TextStyle,
+    };
+    use taffy::prelude::*;
+
+    #[test]
+    fn test_container_creation() {
+        let container = container();
+        assert_eq!(container.style.display, Display::Block);
+        assert_eq!(container.children.len(), 0);
+        assert_eq!(container.border_width, 0.0);
+        assert_eq!(container.corner_radius, 0.0);
+        assert!(container.background.is_none());
+        assert!(container.border_color.is_none());
+    }
+
+    #[test]
+    fn test_container_new() {
+        let container = Container::new();
+        assert_eq!(container.style.display, Display::Block);
+        assert_eq!(container.children.len(), 0);
+        assert_eq!(container.border_width, 0.0);
+        assert_eq!(container.corner_radius, 0.0);
+        assert!(container.background.is_none());
+        assert!(container.border_color.is_none());
+    }
+
+    #[test]
+    fn test_row_creation() {
+        let row_container = row();
+        assert_eq!(row_container.style.display, Display::Flex);
+        assert_eq!(row_container.style.flex_direction, FlexDirection::Row);
+    }
+
+    #[test]
+    fn test_column_creation() {
+        let col_container = column();
+        assert_eq!(col_container.style.display, Display::Flex);
+        assert_eq!(col_container.style.flex_direction, FlexDirection::Column);
+    }
+
+    #[test]
+    fn test_background_setting() {
+        let container = Container::new().background(RED);
+        assert_eq!(container.background, Some(RED));
+    }
+
+    #[test]
+    fn test_border_setting() {
+        let container = Container::new().border(BLUE, 2.0);
+        assert_eq!(container.border_color, Some(BLUE));
+        assert_eq!(container.border_width, 2.0);
+    }
+
+    #[test]
+    fn test_corner_radius_setting() {
+        let container = Container::new().corner_radius(8.0);
+        assert_eq!(container.corner_radius, 8.0);
+    }
+
+    #[test]
+    fn test_flex_setting() {
+        let container = Container::new().flex();
+        assert_eq!(container.style.display, Display::Flex);
+    }
+
+    #[test]
+    fn test_flex_col_setting() {
+        let container = Container::new().flex_col();
+        assert_eq!(container.style.display, Display::Flex);
+        assert_eq!(container.style.flex_direction, FlexDirection::Column);
+    }
+
+    #[test]
+    fn test_flex_row_setting() {
+        let container = Container::new().flex_row();
+        assert_eq!(container.style.display, Display::Flex);
+        assert_eq!(container.style.flex_direction, FlexDirection::Row);
+    }
+
+    #[test]
+    fn test_gap_setting() {
+        let container = Container::new().gap(10.0);
+        assert_eq!(container.style.gap.width, LengthPercentage::length(10.0));
+        assert_eq!(container.style.gap.height, LengthPercentage::length(10.0));
+    }
+
+    #[test]
+    fn test_padding_setting() {
+        let container = Container::new().padding(15.0);
+        assert_eq!(container.style.padding.left, LengthPercentage::length(15.0));
+        assert_eq!(container.style.padding.right, LengthPercentage::length(15.0));
+        assert_eq!(container.style.padding.top, LengthPercentage::length(15.0));
+        assert_eq!(container.style.padding.bottom, LengthPercentage::length(15.0));
+    }
+
+    #[test]
+    fn test_margin_setting() {
+        let container = Container::new().margin(20.0);
+        assert_eq!(container.style.margin.left, LengthPercentageAuto::length(20.0));
+        assert_eq!(container.style.margin.right, LengthPercentageAuto::length(20.0));
+        assert_eq!(container.style.margin.top, LengthPercentageAuto::length(20.0));
+        assert_eq!(container.style.margin.bottom, LengthPercentageAuto::length(20.0));
+    }
+
+    #[test]
+    fn test_width_setting() {
+        let container = Container::new().width(100.0);
+        assert_eq!(container.style.size.width, Dimension::length(100.0));
+    }
+
+    #[test]
+    fn test_height_setting() {
+        let container = Container::new().height(200.0);
+        assert_eq!(container.style.size.height, Dimension::length(200.0));
+    }
+
+    #[test]
+    fn test_size_setting() {
+        let container = Container::new().size(150.0, 300.0);
+        assert_eq!(container.style.size.width, Dimension::length(150.0));
+        assert_eq!(container.style.size.height, Dimension::length(300.0));
+    }
+
+    #[test]
+    fn test_width_full() {
+        let container = Container::new().width_full();
+        assert_eq!(container.style.size.width, Dimension::percent(1.0));
+    }
+
+    #[test]
+    fn test_height_full() {
+        let container = Container::new().height_full();
+        assert_eq!(container.style.size.height, Dimension::percent(1.0));
+    }
+
+    #[test]
+    fn test_justify_center() {
+        let container = Container::new().justify_center();
+        assert_eq!(container.style.justify_content, Some(JustifyContent::Center));
+    }
+
+    #[test]
+    fn test_items_center() {
+        let container = Container::new().items_center();
+        assert_eq!(container.style.align_items, Some(AlignItems::Center));
+    }
+
+    #[test]
+    fn test_method_chaining() {
+        let container = Container::new()
+            .flex_col()
+            .background(GREEN)
+            .border(BLACK, 1.0)
+            .corner_radius(5.0)
+            .padding(10.0)
+            .margin(5.0)
+            .width(200.0)
+            .height(100.0)
+            .justify_center()
+            .items_center();
+
+        assert_eq!(container.style.display, Display::Flex);
+        assert_eq!(container.style.flex_direction, FlexDirection::Column);
+        assert_eq!(container.background, Some(GREEN));
+        assert_eq!(container.border_color, Some(BLACK));
+        assert_eq!(container.border_width, 1.0);
+        assert_eq!(container.corner_radius, 5.0);
+        assert_eq!(container.style.padding.left, LengthPercentage::length(10.0));
+        assert_eq!(container.style.margin.left, LengthPercentageAuto::length(5.0));
+        assert_eq!(container.style.size.width, Dimension::length(200.0));
+        assert_eq!(container.style.size.height, Dimension::length(100.0));
+        assert_eq!(container.style.justify_content, Some(JustifyContent::Center));
+        assert_eq!(container.style.align_items, Some(AlignItems::Center));
+    }
+
+    #[test]
+    fn test_container_with_child() {
+        let child_container = Container::new().background(BLUE);
+        let parent_container = Container::new().child(child_container);
+        
+        assert_eq!(parent_container.children.len(), 1);
+    }
+
+    #[test]
+    fn test_container_with_multiple_children() {
+        let child1 = Container::new().background(RED);
+        let child2 = Container::new().background(GREEN);
+        let child3 = Container::new().background(BLUE);
+        
+        let parent = Container::new()
+            .child(child1)
+            .child(child2)
+            .child(child3);
+        
+        assert_eq!(parent.children.len(), 3);
+    }
+
+    #[test]
+    fn test_complex_layout_configuration() {
+        let container = row()
+            .gap(20.0)
+            .padding(15.0)
+            .justify_center()
+            .items_center()
+            .background(GRAY_200)
+            .border(GRAY_600, 2.0)
+            .corner_radius(10.0)
+            .width_full()
+            .height(80.0);
+
+        assert_eq!(container.style.display, Display::Flex);
+        assert_eq!(container.style.flex_direction, FlexDirection::Row);
+        assert_eq!(container.style.gap.width, LengthPercentage::length(20.0));
+        assert_eq!(container.style.padding.top, LengthPercentage::length(15.0));
+        assert_eq!(container.style.justify_content, Some(JustifyContent::Center));
+        assert_eq!(container.style.align_items, Some(AlignItems::Center));
+        assert_eq!(container.background, Some(GRAY_200));
+        assert_eq!(container.border_color, Some(GRAY_600));
+        assert_eq!(container.border_width, 2.0);
+        assert_eq!(container.corner_radius, 10.0);
+        assert_eq!(container.style.size.width, Dimension::percent(1.0));
+        assert_eq!(container.style.size.height, Dimension::length(80.0));
+    }
+
+    #[test]
+    fn test_nested_container_structure() {
+        let inner = Container::new()
+            .background(WHITE)
+            .padding(5.0);
+            
+        let middle = Container::new()
+            .background(GRAY_300)
+            .padding(10.0)
+            .child(inner);
+            
+        let outer = Container::new()
+            .background(GRAY_700)
+            .padding(20.0)
+            .child(middle);
+        
+        assert_eq!(outer.children.len(), 1);
+        assert_eq!(outer.background, Some(GRAY_700));
+        assert_eq!(outer.style.padding.left, LengthPercentage::length(20.0));
+    }
+
+    // Test default values with different container creation methods
+    #[test]
+    fn test_container_creation_methods_equivalence() {
+        let container1 = container();
+        let container2 = Container::new();
+        
+        // Both should have the same default values
+        assert_eq!(container1.style.display, container2.style.display);
+        assert_eq!(container1.children.len(), container2.children.len());
+        assert_eq!(container1.border_width, container2.border_width);
+        assert_eq!(container1.corner_radius, container2.corner_radius);
+        assert_eq!(container1.background, container2.background);
+        assert_eq!(container1.border_color, container2.border_color);
+    }
+
+    #[test]
+    fn test_row_vs_column_differences() {
+        let row_container = row();
+        let col_container = column();
+        
+        // Both should be flex containers but with different directions
+        assert_eq!(row_container.style.display, Display::Flex);
+        assert_eq!(col_container.style.display, Display::Flex);
+        assert_eq!(row_container.style.flex_direction, FlexDirection::Row);
+        assert_eq!(col_container.style.flex_direction, FlexDirection::Column);
+    }
+}
