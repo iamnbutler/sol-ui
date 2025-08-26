@@ -1,0 +1,36 @@
+name: 'Coverage Steps'
+description: 'Build project, run tests, and generate coverage report'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Install coverage tools
+      run: |
+        cargo install cargo-tarpaulin
+      shell: bash
+
+    - name: Build project
+      run: cargo build --release
+      shell: bash
+
+    - name: Run tests
+      run: cargo test
+      shell: bash
+
+    - name: Generate coverage report
+      run: |
+        cargo tarpaulin --out Html --output-dir coverage/
+        cargo tarpaulin --out Xml --output-dir coverage/
+      shell: bash
+
+    - name: Upload coverage report as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
