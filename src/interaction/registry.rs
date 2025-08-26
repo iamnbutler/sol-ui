@@ -156,3 +156,324 @@ pub fn get_element_state(id: ElementId) -> Option<InteractionState> {
             .and_then(|registry| registry.borrow().get_state(id).cloned())
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layer::MouseButton;
+    use glam::Vec2;
+    use std::sync::{Arc, Mutex};
+
+    #[test]
+    fn test_element_registry_creation() {
+        let registry = ElementRegistry::new();
+        assert_eq!(registry.len(), 0);
+        assert!(registry.is_empty());
+
+        let default_registry = ElementRegistry::default();
+        assert_eq!(default_registry.len(), 0);
+        assert!(default_registry.is_empty());
+    }
+
+    #[test]
+    fn test_element_registration() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        assert!(!registry.is_registered(id));
+        
+        registry.register(id, handlers.clone());
+        
+        assert!(registry.is_registered(id));
+        assert_eq!(registry.len(), 1);
+        assert!(!registry.is_empty());
+        
+        // Check initial state is created
+        let state = registry.get_state(id);
+        assert!(state.is_some());
+        assert!(!state.unwrap().is_hovered);
+        assert!(!state.unwrap().is_pressed);
+    }
+
+    #[test]
+    fn test_element_unregistration() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id, handlers);
+        assert!(registry.is_registered(id));
+        assert_eq!(registry.len(), 1);
+
+        registry.unregister(id);
+        assert!(!registry.is_registered(id));
+        assert_eq!(registry.len(), 0);
+        assert!(registry.is_empty());
+        assert!(registry.get_state(id).is_none());
+    }
+
+    #[test]
+    fn test_state_updates() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id, handlers);
+
+        // Update state
+        let mut new_state = InteractionState::new();
+        new_state.is_hovered = true;
+        new_state.is_pressed = true;
+        
+        registry.update_state(id, new_state);
+
+        let state = registry.get_state(id).unwrap();
+        assert!(state.is_hovered);
+        assert!(state.is_pressed);
+    }
+
+    #[test]
+    fn test_state_update_nonexistent_element() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(999);
+
+        // Should not panic when updating non-existent element
+        let mut state = InteractionState::new();
+        state.is_hovered = true;
+        registry.update_state(id, state);
+
+        // Still should not exist
+        assert!(!registry.is_registered(id));
+        assert!(registry.get_state(id).is_none());
+    }
+
+    #[test]
+    fn test_event_dispatch_success() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let call_count = Arc::new(Mutex::new(0));
+        let call_count_clone = call_count.clone();
+
+        let handlers = Rc::new(RefCell::new(
+            EventHandlers::new().on_mouse_enter(move || {
+                *call_count_clone.lock().unwrap() += 1;
+            })
+        ));
+
+        registry.register(id, handlers);
+
+        let event = InteractionEvent::MouseEnter { element_id: id };
+        let result = registry.dispatch_event(&event);
+
+        assert!(result);
+        assert_eq!(*call_count.lock().unwrap(), 1);
+
+        // Check state was updated
+        let state = registry.get_state(id).unwrap();
+        assert!(state.is_hovered);
+    }
+
+    #[test]
+    fn test_event_dispatch_nonexistent_element() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(999);
+
+        let event = InteractionEvent::MouseEnter { element_id: id };
+        let result = registry.dispatch_event(&event);
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_event_dispatch_state_changes() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id, handlers);
+
+        // Test mouse enter
+        let enter_event = InteractionEvent::MouseEnter { element_id: id };
+        registry.dispatch_event(&enter_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(state.is_hovered);
+        assert!(!state.is_pressed);
+
+        // Test mouse down
+        let down_event = InteractionEvent::MouseDown {
+            element_id: id,
+            button: MouseButton::Left,
+            position: Vec2::ZERO,
+            local_position: Vec2::ZERO,
+        };
+        registry.dispatch_event(&down_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(state.is_hovered);
+        assert!(state.is_pressed);
+
+        // Test mouse up
+        let up_event = InteractionEvent::MouseUp {
+            element_id: id,
+            button: MouseButton::Left,
+            position: Vec2::ZERO,
+            local_position: Vec2::ZERO,
+        };
+        registry.dispatch_event(&up_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(state.is_hovered);
+        assert!(!state.is_pressed);
+
+        // Test mouse leave
+        let leave_event = InteractionEvent::MouseLeave { element_id: id };
+        registry.dispatch_event(&leave_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(!state.is_hovered);
+        assert!(!state.is_pressed);
+    }
+
+    #[test]
+    fn test_registry_clear() {
+        let mut registry = ElementRegistry::new();
+        let id1 = ElementId::from(1);
+        let id2 = ElementId::from(2);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id1, handlers.clone());
+        registry.register(id2, handlers.clone());
+
+        assert_eq!(registry.len(), 2);
+        assert!(registry.is_registered(id1));
+        assert!(registry.is_registered(id2));
+
+        registry.clear();
+
+        assert_eq!(registry.len(), 0);
+        assert!(registry.is_empty());
+        assert!(!registry.is_registered(id1));
+        assert!(!registry.is_registered(id2));
+        assert!(registry.get_state(id1).is_none());
+        assert!(registry.get_state(id2).is_none());
+    }
+
+    #[test]
+    fn test_multiple_elements() {
+        let mut registry = ElementRegistry::new();
+        let id1 = ElementId::from(1);
+        let id2 = ElementId::from(2);
+        let id3 = ElementId::from(3);
+
+        let handlers1 = Rc::new(RefCell::new(EventHandlers::new()));
+        let handlers2 = Rc::new(RefCell::new(EventHandlers::new()));
+        let handlers3 = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id1, handlers1);
+        registry.register(id2, handlers2);
+        registry.register(id3, handlers3);
+
+        assert_eq!(registry.len(), 3);
+        assert!(registry.is_registered(id1));
+        assert!(registry.is_registered(id2));
+        assert!(registry.is_registered(id3));
+
+        // Test unregistering middle element
+        registry.unregister(id2);
+        assert_eq!(registry.len(), 2);
+        assert!(registry.is_registered(id1));
+        assert!(!registry.is_registered(id2));
+        assert!(registry.is_registered(id3));
+    }
+
+    #[test]
+    fn test_event_dispatch_click_no_state_change() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id, handlers);
+
+        let click_event = InteractionEvent::Click {
+            element_id: id,
+            button: MouseButton::Left,
+            position: Vec2::ZERO,
+            local_position: Vec2::ZERO,
+        };
+
+        // Click events should not change state
+        registry.dispatch_event(&click_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(!state.is_hovered);
+        assert!(!state.is_pressed);
+    }
+
+    #[test]
+    fn test_event_dispatch_mouse_move_no_state_change() {
+        let mut registry = ElementRegistry::new();
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        registry.register(id, handlers);
+
+        let move_event = InteractionEvent::MouseMove {
+            element_id: id,
+            position: Vec2::new(100.0, 200.0),
+            local_position: Vec2::new(50.0, 100.0),
+        };
+
+        // Mouse move events should not change state
+        registry.dispatch_event(&move_event);
+        let state = registry.get_state(id).unwrap();
+        assert!(!state.is_hovered);
+        assert!(!state.is_pressed);
+    }
+
+    #[test]
+    fn test_thread_local_registry_functions() {
+        // Clear any existing registry
+        clear_current_registry();
+
+        // Test get_element_state with no registry
+        assert!(get_element_state(ElementId::from(1)).is_none());
+
+        // Create and set a registry
+        let registry = Rc::new(RefCell::new(ElementRegistry::new()));
+        let id = ElementId::from(42);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        // Register element directly
+        registry.borrow_mut().register(id, handlers.clone());
+        
+        // Set as current
+        set_current_registry(registry.clone());
+
+        // Test register_element function
+        let id2 = ElementId::from(99);
+        let handlers2 = Rc::new(RefCell::new(EventHandlers::new()));
+        register_element(id2, handlers2);
+
+        // Verify both elements are registered
+        assert!(registry.borrow().is_registered(id));
+        assert!(registry.borrow().is_registered(id2));
+
+        // Test get_element_state function
+        let state = get_element_state(id);
+        assert!(state.is_some());
+        assert!(!state.unwrap().is_hovered);
+        assert!(!state.unwrap().is_pressed);
+
+        // Clear registry
+        clear_current_registry();
+        assert!(get_element_state(id).is_none());
+    }
+
+    #[test]
+    fn test_register_element_no_current_registry() {
+        clear_current_registry();
+
+        let id = ElementId::from(1);
+        let handlers = Rc::new(RefCell::new(EventHandlers::new()));
+
+        // Should not panic when no current registry
+        register_element(id, handlers);
+    }
+}
