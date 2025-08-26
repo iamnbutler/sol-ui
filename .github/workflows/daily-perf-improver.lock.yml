@@ -2,13 +2,12 @@
 # To update this file, edit the corresponding .md file and run:
 #   gh aw compile
 #
-# Effective stop-time: 2025-08-28 16:49:31
+# Effective stop-time: 2025-08-28 19:17:25
 
 name: "Daily Perf Improver"
 on:
   schedule:
   - cron: 0 2 * * 1-5
-  stop-after: +48h
   workflow_dispatch: null
 
 permissions: {}
@@ -101,7 +100,7 @@ jobs:
           WORKFLOW_NAME="Daily Perf Improver"
           
           # Check stop-time limit
-          STOP_TIME="2025-08-28 16:49:31"
+          STOP_TIME="2025-08-28 19:17:25"
           echo "Checking stop-time limit: $STOP_TIME"
           
           # Convert stop time to epoch seconds
