@@ -76,3 +76,184 @@ impl ColorExt for Color {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use super::colors::*;
+
+    #[test]
+    fn test_color_ext_rgb() {
+        let color = Color::rgb(0.5, 0.7, 0.9);
+        assert_eq!(color.red, 0.5);
+        assert_eq!(color.green, 0.7);
+        assert_eq!(color.blue, 0.9);
+        assert_eq!(color.alpha, 1.0);
+    }
+
+    #[test]
+    fn test_color_ext_rgba() {
+        let color = Color::rgba(0.1, 0.2, 0.3, 0.5);
+        assert_eq!(color.red, 0.1);
+        assert_eq!(color.green, 0.2);
+        assert_eq!(color.blue, 0.3);
+        assert_eq!(color.alpha, 0.5);
+    }
+
+    #[test]
+    fn test_color_ext_with_alpha() {
+        let base_color = Color::rgb(0.6, 0.7, 0.8);
+        let modified_color = base_color.with_alpha(0.3);
+        
+        assert_eq!(modified_color.red, 0.6);
+        assert_eq!(modified_color.green, 0.7);
+        assert_eq!(modified_color.blue, 0.8);
+        assert_eq!(modified_color.alpha, 0.3);
+    }
+
+    #[test]
+    fn test_color_ext_as_u8_arr() {
+        let color = Color::rgba(1.0, 0.5, 0.0, 0.75);
+        let u8_arr = color.as_u8_arr();
+        
+        assert_eq!(u8_arr[0], 255); // Red: 1.0 * 255
+        assert_eq!(u8_arr[1], 127); // Green: 0.5 * 255 (rounded)
+        assert_eq!(u8_arr[2], 0);   // Blue: 0.0 * 255
+        assert_eq!(u8_arr[3], 191); // Alpha: 0.75 * 255 (rounded)
+    }
+
+    #[test]
+    fn test_color_ext_as_u8_arr_edge_cases() {
+        // Test minimum values
+        let black_transparent = Color::rgba(0.0, 0.0, 0.0, 0.0);
+        let black_u8 = black_transparent.as_u8_arr();
+        assert_eq!(black_u8, [0, 0, 0, 0]);
+
+        // Test maximum values
+        let white_opaque = Color::rgba(1.0, 1.0, 1.0, 1.0);
+        let white_u8 = white_opaque.as_u8_arr();
+        assert_eq!(white_u8, [255, 255, 255, 255]);
+    }
+
+    #[test]
+    fn test_basic_color_constants() {
+        assert_eq!(WHITE.red, 1.0);
+        assert_eq!(WHITE.green, 1.0);
+        assert_eq!(WHITE.blue, 1.0);
+        assert_eq!(WHITE.alpha, 1.0);
+
+        assert_eq!(BLACK.red, 0.0);
+        assert_eq!(BLACK.green, 0.0);
+        assert_eq!(BLACK.blue, 0.0);
+        assert_eq!(BLACK.alpha, 1.0);
+
+        assert_eq!(TRANSPARENT.red, 0.0);
+        assert_eq!(TRANSPARENT.green, 0.0);
+        assert_eq!(TRANSPARENT.blue, 0.0);
+        assert_eq!(TRANSPARENT.alpha, 0.0);
+    }
+
+    #[test]
+    fn test_primary_color_constants() {
+        // Red
+        assert_eq!(RED.red, 1.0);
+        assert_eq!(RED.green, 0.0);
+        assert_eq!(RED.blue, 0.0);
+        assert_eq!(RED.alpha, 1.0);
+
+        // Green
+        assert_eq!(GREEN.red, 0.0);
+        assert_eq!(GREEN.green, 1.0);
+        assert_eq!(GREEN.blue, 0.0);
+        assert_eq!(GREEN.alpha, 1.0);
+
+        // Blue
+        assert_eq!(BLUE.red, 0.0);
+        assert_eq!(BLUE.green, 0.0);
+        assert_eq!(BLUE.blue, 1.0);
+        assert_eq!(BLUE.alpha, 1.0);
+    }
+
+    #[test]
+    fn test_gray_scale_progression() {
+        // Test that gray values are in descending order
+        assert!(GRAY_100.red > GRAY_200.red);
+        assert!(GRAY_200.red > GRAY_300.red);
+        assert!(GRAY_300.red > GRAY_400.red);
+        assert!(GRAY_400.red > GRAY_500.red);
+        assert!(GRAY_500.red > GRAY_600.red);
+        assert!(GRAY_600.red > GRAY_700.red);
+        assert!(GRAY_700.red > GRAY_800.red);
+        assert!(GRAY_800.red > GRAY_900.red);
+
+        // Test that gray colors have equal RGB components
+        assert_eq!(GRAY_500.red, GRAY_500.green);
+        assert_eq!(GRAY_500.green, GRAY_500.blue);
+        assert_eq!(GRAY_500.alpha, 1.0);
+    }
+
+    #[test]
+    fn test_color_scale_consistency() {
+        // Test blue scale progression (should get darker from 400 to 600)
+        assert!(BLUE_400.blue > BLUE_500.blue);
+        assert!(BLUE_500.blue > BLUE_600.blue);
+
+        // Test red scale progression
+        assert!(RED_400.red > RED_500.red);
+        assert!(RED_500.red > RED_600.red);
+
+        // Test green scale progression
+        assert!(GREEN_400.green > GREEN_500.green);
+        assert!(GREEN_500.green > GREEN_600.green);
+
+        // Test purple scale progression
+        assert!(PURPLE_400.blue > PURPLE_500.blue);
+        assert!(PURPLE_500.blue > PURPLE_600.blue);
+    }
+
+    #[test]
+    fn test_all_colors_have_full_alpha() {
+        // All predefined colors should have full alpha except TRANSPARENT
+        assert_eq!(WHITE.alpha, 1.0);
+        assert_eq!(BLACK.alpha, 1.0);
+        assert_eq!(RED.alpha, 1.0);
+        assert_eq!(GREEN.alpha, 1.0);
+        assert_eq!(BLUE.alpha, 1.0);
+        assert_eq!(GRAY_500.alpha, 1.0);
+        assert_eq!(BLUE_500.alpha, 1.0);
+        assert_eq!(RED_500.alpha, 1.0);
+        assert_eq!(GREEN_500.alpha, 1.0);
+        assert_eq!(PURPLE_500.alpha, 1.0);
+        assert_eq!(TRANSPARENT.alpha, 0.0);
+    }
+
+    #[test]
+    fn test_color_range_validation() {
+        // All color components should be in valid range [0.0, 1.0]
+        let test_colors = [
+            WHITE, BLACK, RED, GREEN, BLUE, TRANSPARENT,
+            GRAY_100, GRAY_500, GRAY_900,
+            BLUE_400, BLUE_500, BLUE_600,
+            RED_400, RED_500, RED_600,
+            GREEN_400, GREEN_500, GREEN_600,
+            PURPLE_400, PURPLE_500, PURPLE_600,
+        ];
+
+        for color in &test_colors {
+            assert!(color.red >= 0.0 && color.red <= 1.0, "Red component out of range: {}", color.red);
+            assert!(color.green >= 0.0 && color.green <= 1.0, "Green component out of range: {}", color.green);
+            assert!(color.blue >= 0.0 && color.blue <= 1.0, "Blue component out of range: {}", color.blue);
+            assert!(color.alpha >= 0.0 && color.alpha <= 1.0, "Alpha component out of range: {}", color.alpha);
+        }
+    }
+
+    #[test]
+    fn test_color_ext_chaining() {
+        // Test that methods can be chained effectively
+        let color = Color::rgb(0.2, 0.4, 0.6).with_alpha(0.8);
+        assert_eq!(color.red, 0.2);
+        assert_eq!(color.green, 0.4);
+        assert_eq!(color.blue, 0.6);
+        assert_eq!(color.alpha, 0.8);
+    }
+}
