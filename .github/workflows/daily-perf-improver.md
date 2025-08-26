@@ -37,9 +37,9 @@ tools:
       NotebookEdit:
       WebFetch:
       WebSearch:
-      # Configure bash build commands here, or enabled the agentics/shared/build-tools.md file at the end of this file and edit there
-      Bash: [":*"]
-      #Bash: ["gh pr create:*", "git commit:*", "git push:*", "git checkout:*", "git branch:*", "git add:*", "gh auth status", "gh repo view", "gh pr view:*", "gh pr list:*", "gh issue list:*", "gh issue view:*", "gh issue comment:*", "gh api *"]
+      # Configure bash build commands here, or in .github/workflows/agentics/daily-perf-improver.config.md
+      #Bash: [":*"]
+      Bash: ["gh pr create:*", "git commit:*", "git push:*", "git checkout:*", "git branch:*", "git add:*", "gh auth status", "gh repo view", "gh issue comment:*"]
 
 steps:
   - name: Checkout repository
@@ -69,7 +69,7 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 1. Performance research (if not done before).
 
-   1a. Check if an open issue with title "${{ github.workflow }}: Research and Plan" exists. If it does, read the issue and its comments, paying particular attention to comment from repository maintainers, then continue to step 2. If not, follow the steps below to create it:
+   1a. Check if an open issue with title "${{ github.workflow }}: Research and Plan" exists. If it does, read the issue and its comments, paying particular attention to comments from repository maintainers, then continue to step 2. If not, follow the steps below to create it:
 
    1b. Do some deep research into performance matters in this repo.
      - How is performance testing is done in the repo?
@@ -205,6 +205,8 @@ Your name is ${{ github.workflow }}. Your job is to act as an agentic coder for 
 
 @include agentics/shared/gh-extra-tools.md
 
-<!-- You can whitelist tools in the agentics/shared/build-tools.md file, and include it here. -->
-<!-- This should be done with care, as tools may  -->
-<!-- include agentics/shared/build-tools.md -->
+<!-- You can whitelist tools in .github/workflows/build-tools.md file -->
+@include? agentics/build-tools.md
+
+<!-- You can customize prompting and tools in .github/workflows/agentics/daily-perf-improver.config -->
+@include? agentics/daily-perf-improver.config.md
