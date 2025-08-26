@@ -307,3 +307,423 @@ impl From<i32> for ElementId {
         Self::new(id as u64)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layer::{InputEvent, MouseButton};
+    use glam::Vec2;
+
+    #[test]
+    fn test_element_id_creation() {
+        let id1 = ElementId::new(42);
+        let id2 = ElementId::from(42u64);
+        let id3 = ElementId::from(42usize);
+        let id4 = ElementId::from(42i32);
+
+        assert_eq!(id1, id2);
+        assert_eq!(id2, id3);
+        assert_eq!(id3, id4);
+        assert_eq!(id1.0, 42);
+    }
+
+    #[test]
+    fn test_element_id_auto() {
+        let id1 = ElementId::auto();
+        let id2 = ElementId::auto();
+        let id3 = ElementId::default();
+
+        // Auto-generated IDs should be different
+        assert_ne!(id1, id2);
+        assert_ne!(id2, id3);
+        
+        // Auto IDs should start high to avoid conflicts
+        assert!(id1.0 >= 1_000_000);
+        assert!(id2.0 >= 1_000_000);
+        assert!(id3.0 >= 1_000_000);
+    }
+
+    #[test]
+    fn test_element_id_hash_and_eq() {
+        use std::collections::HashMap;
+
+        let id1 = ElementId::from(100);
+        let id2 = ElementId::from(100);
+        let id3 = ElementId::from(200);
+
+        assert_eq!(id1, id2);
+        assert_ne!(id1, id3);
+
+        // Test HashMap usage
+        let mut map = HashMap::new();
+        map.insert(id1, "first");
+        map.insert(id3, "second");
+        
+        assert_eq!(map.get(&id2), Some(&"first"));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn test_interaction_system_creation() {
+        let system = InteractionSystem::new();
+        
+        assert_eq!(system.mouse_position, Vec2::ZERO);
+        assert_eq!(system.hovered_element, None);
+        assert_eq!(system.pressed_element, None);
+        assert_eq!(system.element_states.len(), 0);
+        assert_eq!(system.last_hit_test.len(), 0);
+        assert!(!system.mouse_in_window);
+    }
+
+    #[test]
+    fn test_interaction_system_hit_test_update() {
+        let mut system = InteractionSystem::new();
+        let entries = vec![
+            HitTestEntry {
+                element_id: ElementId::from(1),
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            },
+            HitTestEntry {
+                element_id: ElementId::from(2),
+                bounds: crate::geometry::Rect::new(50.0, 50.0, 100.0, 100.0),
+                z_index: 2,
+                layer: 0,
+            }
+        ];
+
+        system.update_hit_test(entries.clone());
+        assert_eq!(system.last_hit_test, entries);
+    }
+
+    #[test]
+    fn test_interaction_system_mouse_move_input() {
+        let mut system = InteractionSystem::new();
+        let position = Vec2::new(10.0, 20.0);
+
+        let event = InputEvent::MouseMove { position };
+        let events = system.handle_input(&event);
+
+        assert_eq!(system.mouse_position, position);
+        assert!(system.mouse_in_window);
+        // With no hit test entries, no interaction events should be generated
+        assert_eq!(events.len(), 0);
+    }
+
+    #[test]
+    fn test_interaction_system_mouse_move_with_hit_test() {
+        let mut system = InteractionSystem::new();
+        let element_id = ElementId::from(1);
+        let position = Vec2::new(50.0, 50.0);
+
+        // Set up hit test entry
+        let entries = vec![
+            HitTestEntry {
+                element_id,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        // Move mouse over the element
+        let event = InputEvent::MouseMove { position };
+        let events = system.handle_input(&event);
+
+        assert_eq!(events.len(), 2); // MouseEnter + MouseMove
+        
+        match &events[0] {
+            InteractionEvent::MouseEnter { element_id: id } => assert_eq!(*id, element_id),
+            _ => panic!("Expected MouseEnter event"),
+        }
+
+        match &events[1] {
+            InteractionEvent::MouseMove { element_id: id, position: pos, local_position } => {
+                assert_eq!(*id, element_id);
+                assert_eq!(*pos, position);
+                assert_eq!(*local_position, position);
+            }
+            _ => panic!("Expected MouseMove event"),
+        }
+
+        assert_eq!(system.hovered_element, Some(element_id));
+    }
+
+    #[test]
+    fn test_interaction_system_mouse_down_up() {
+        let mut system = InteractionSystem::new();
+        let element_id = ElementId::from(1);
+        let position = Vec2::new(50.0, 50.0);
+        let button = MouseButton::Left;
+
+        // Set up hit test entry
+        let entries = vec![
+            HitTestEntry {
+                element_id,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        // Mouse down
+        let down_event = InputEvent::MouseDown { position, button };
+        let events = system.handle_input(&down_event);
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            InteractionEvent::MouseDown { element_id: id, button: btn, .. } => {
+                assert_eq!(*id, element_id);
+                assert_eq!(*btn, button);
+            }
+            _ => panic!("Expected MouseDown event"),
+        }
+
+        assert_eq!(system.pressed_element, Some((element_id, button)));
+
+        // Mouse up
+        let up_event = InputEvent::MouseUp { position, button };
+        let events = system.handle_input(&up_event);
+
+        assert_eq!(events.len(), 2); // MouseUp + Click
+        
+        match &events[0] {
+            InteractionEvent::MouseUp { element_id: id, button: btn, .. } => {
+                assert_eq!(*id, element_id);
+                assert_eq!(*btn, button);
+            }
+            _ => panic!("Expected MouseUp event"),
+        }
+
+        match &events[1] {
+            InteractionEvent::Click { element_id: id, button: btn, .. } => {
+                assert_eq!(*id, element_id);
+                assert_eq!(*btn, button);
+            }
+            _ => panic!("Expected Click event"),
+        }
+
+        assert_eq!(system.pressed_element, None);
+    }
+
+    #[test]
+    fn test_interaction_system_mouse_down_up_different_elements() {
+        let mut system = InteractionSystem::new();
+        let element_id1 = ElementId::from(1);
+        let element_id2 = ElementId::from(2);
+        let position1 = Vec2::new(25.0, 25.0);
+        let position2 = Vec2::new(75.0, 75.0);
+        let button = MouseButton::Left;
+
+        // Set up hit test entries
+        let entries = vec![
+            HitTestEntry {
+                element_id: element_id1,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 50.0, 50.0),
+                z_index: 1,
+                layer: 0,
+            },
+            HitTestEntry {
+                element_id: element_id2,
+                bounds: crate::geometry::Rect::new(50.0, 50.0, 50.0, 50.0),
+                z_index: 2,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        // Mouse down on first element
+        let down_event = InputEvent::MouseDown { position: position1, button };
+        let events = system.handle_input(&down_event);
+        assert_eq!(events.len(), 1);
+        assert_eq!(system.pressed_element, Some((element_id1, button)));
+
+        // Mouse up on second element
+        let up_event = InputEvent::MouseUp { position: position2, button };
+        let events = system.handle_input(&up_event);
+
+        // Should get MouseUp but no Click (different elements)
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            InteractionEvent::MouseUp { element_id: id, .. } => {
+                assert_eq!(*id, element_id1); // MouseUp goes to pressed element
+            }
+            _ => panic!("Expected MouseUp event"),
+        }
+
+        assert_eq!(system.pressed_element, None);
+    }
+
+    #[test]
+    fn test_interaction_system_mouse_leave_window() {
+        let mut system = InteractionSystem::new();
+        let element_id = ElementId::from(1);
+        let position = Vec2::new(50.0, 50.0);
+
+        // Set up element and hover it
+        let entries = vec![
+            HitTestEntry {
+                element_id,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        // Hover element
+        system.handle_input(&InputEvent::MouseMove { position });
+        assert_eq!(system.hovered_element, Some(element_id));
+        assert!(system.mouse_in_window);
+
+        // Mouse leave window
+        let leave_event = InputEvent::MouseLeave;
+        let events = system.handle_input(&leave_event);
+
+        assert_eq!(events.len(), 1);
+        match &events[0] {
+            InteractionEvent::MouseLeave { element_id: id } => {
+                assert_eq!(*id, element_id);
+            }
+            _ => panic!("Expected MouseLeave event"),
+        }
+
+        assert_eq!(system.hovered_element, None);
+        assert!(!system.mouse_in_window);
+    }
+
+    #[test]
+    fn test_interaction_system_get_state() {
+        let mut system = InteractionSystem::new();
+        let element_id = ElementId::from(1);
+
+        // Initially no state
+        assert!(system.get_state(element_id).is_none());
+
+        // Create state by interacting
+        let entries = vec![
+            HitTestEntry {
+                element_id,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        let position = Vec2::new(50.0, 50.0);
+        system.handle_input(&InputEvent::MouseMove { position });
+
+        // Now should have state
+        let state = system.get_state(element_id);
+        assert!(state.is_some());
+        assert!(state.unwrap().is_hovered);
+        assert!(!state.unwrap().is_pressed);
+    }
+
+    #[test]
+    fn test_interaction_system_clear() {
+        let mut system = InteractionSystem::new();
+        let element_id = ElementId::from(1);
+
+        // Set up some state
+        let entries = vec![
+            HitTestEntry {
+                element_id,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 100.0, 100.0),
+                z_index: 1,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        let position = Vec2::new(50.0, 50.0);
+        system.handle_input(&InputEvent::MouseMove { position });
+        system.handle_input(&InputEvent::MouseDown { position, button: MouseButton::Left });
+
+        // Verify state exists
+        assert_eq!(system.hovered_element, Some(element_id));
+        assert_eq!(system.pressed_element, Some((element_id, MouseButton::Left)));
+        assert!(!system.element_states.is_empty());
+        assert!(!system.last_hit_test.is_empty());
+
+        // Clear
+        system.clear();
+
+        // Verify everything is cleared
+        assert_eq!(system.hovered_element, None);
+        assert_eq!(system.pressed_element, None);
+        assert!(system.element_states.is_empty());
+        assert!(system.last_hit_test.is_empty());
+    }
+
+    #[test]
+    fn test_interaction_system_other_input_events() {
+        let mut system = InteractionSystem::new();
+
+        // Test that other events don't cause panics or unexpected behavior
+        let other_events = vec![
+            InputEvent::KeyDown { key_code: 65 },
+            InputEvent::KeyUp { key_code: 65 },
+            InputEvent::WindowResize { width: 800, height: 600 },
+        ];
+
+        for event in other_events {
+            let events = system.handle_input(&event);
+            assert_eq!(events.len(), 0); // Should not generate interaction events
+        }
+    }
+
+    #[test]
+    fn test_interaction_system_hover_state_transitions() {
+        let mut system = InteractionSystem::new();
+        let element_id1 = ElementId::from(1);
+        let element_id2 = ElementId::from(2);
+
+        let entries = vec![
+            HitTestEntry {
+                element_id: element_id1,
+                bounds: crate::geometry::Rect::new(0.0, 0.0, 50.0, 50.0),
+                z_index: 1,
+                layer: 0,
+            },
+            HitTestEntry {
+                element_id: element_id2,
+                bounds: crate::geometry::Rect::new(50.0, 0.0, 50.0, 50.0),
+                z_index: 2,
+                layer: 0,
+            }
+        ];
+        system.update_hit_test(entries);
+
+        // Hover first element
+        let events = system.handle_input(&InputEvent::MouseMove { position: Vec2::new(25.0, 25.0) });
+        assert_eq!(events.len(), 2); // MouseEnter + MouseMove
+        assert_eq!(system.hovered_element, Some(element_id1));
+
+        // Move to second element
+        let events = system.handle_input(&InputEvent::MouseMove { position: Vec2::new(75.0, 25.0) });
+        assert_eq!(events.len(), 3); // MouseLeave + MouseEnter + MouseMove
+        
+        match &events[0] {
+            InteractionEvent::MouseLeave { element_id } => assert_eq!(*element_id, element_id1),
+            _ => panic!("Expected MouseLeave for first element"),
+        }
+
+        match &events[1] {
+            InteractionEvent::MouseEnter { element_id } => assert_eq!(*element_id, element_id2),
+            _ => panic!("Expected MouseEnter for second element"),
+        }
+
+        assert_eq!(system.hovered_element, Some(element_id2));
+
+        // Verify state changes
+        let state1 = system.get_state(element_id1).unwrap();
+        let state2 = system.get_state(element_id2).unwrap();
+        assert!(!state1.is_hovered);
+        assert!(state2.is_hovered);
+    }
+}
