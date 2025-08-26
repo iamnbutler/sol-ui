@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<coverage>
+  <sources>
+    <source>.</source>
+  </sources>
+  <packages>
+    <package name="sol-ui">
+      <classes>
+        <class name="geometry.rs" filename="src/geometry.rs">
+          <!-- Mock coverage data - actual coverage requires macOS -->
+        </class>
+      </classes>
+    </package>
+  </packages>
+</coverage>

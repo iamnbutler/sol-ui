@@ -1,0 +1,94 @@
+name: 'Coverage Steps'
+description: 'Build project, run tests, and generate coverage report'
+runs:
+  using: 'composite'
+  steps:
+    - name: Check platform compatibility
+      run: |
+        echo "This project requires macOS to build due to Metal/CoreGraphics dependencies"
+        echo "Since we're running on ${{ runner.os }}, we'll create a mock coverage report"
+        echo "indicating that actual coverage requires macOS environment"
+      shell: bash
+
+    - name: Install Rust (if on macOS)
+      if: runner.os == 'macOS'
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        profile: minimal
+        override: true
+
+    - name: Install coverage tools (if on macOS)
+      if: runner.os == 'macOS'
+      run: cargo install cargo-tarpaulin
+      shell: bash
+
+    - name: Build project (if on macOS)
+      if: runner.os == 'macOS'
+      run: cargo build --release
+      shell: bash
+
+    - name: Run tests (if on macOS)
+      if: runner.os == 'macOS'
+      run: cargo test
+      shell: bash
+
+    - name: Generate coverage report (if on macOS)
+      if: runner.os == 'macOS'
+      run: |
+        cargo tarpaulin --out Html --output-dir coverage/
+        cargo tarpaulin --out Xml --output-dir coverage/
+      shell: bash
+
+    - name: Create mock coverage report (if not on macOS)
+      if: runner.os != 'macOS'
+      run: |
+        mkdir -p coverage
+        cat > coverage/index.html << 'EOF'
+        <html>
+        <head><title>Coverage Report - macOS Required</title></head>
+        <body>
+        <h1>Sol UI Test Coverage</h1>
+        <p><strong>Note:</strong> This project requires macOS to build and generate actual coverage reports.</p>
+        <p>Current platform: ${{ runner.os }}</p>
+        <p>To generate real coverage:</p>
+        <ol>
+        <li>Run on macOS environment</li>
+        <li>Install coverage tools: <code>cargo install cargo-tarpaulin</code></li>
+        <li>Generate coverage: <code>cargo tarpaulin --out Html --output-dir coverage/</code></li>
+        </ol>
+        <h2>Current Test Status</h2>
+        <p>Based on analysis from issue #11:</p>
+        <ul>
+        <li>Total Test Files: 1 (src/geometry.rs)</li>
+        <li>Total Tests: 4 test functions</li>
+        <li>Coverage Areas: Only geometric primitive operations</li>
+        </ul>
+        </body>
+        </html>
+        EOF
+        
+        cat > coverage/cobertura.xml << 'EOF'
+        <?xml version="1.0" encoding="UTF-8"?>
+        <coverage>
+          <sources>
+            <source>.</source>
+          </sources>
+          <packages>
+            <package name="sol-ui">
+              <classes>
+                <class name="geometry.rs" filename="src/geometry.rs">
+                  <!-- Mock coverage data - actual coverage requires macOS -->
+                </class>
+              </classes>
+            </package>
+          </packages>
+        </coverage>
+        EOF
+      shell: bash
+
+    - name: Upload coverage report as artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage/
