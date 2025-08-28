@@ -1,0 +1,85 @@
+name: 'Daily Performance Improver Build Steps'
+description: 'Sets up the build environment and dependencies for performance testing sol-ui'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Rust toolchain
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+        components: rustfmt, clippy
+        cache: true
+    
+    - name: Install system dependencies (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "macOS detected - Metal framework should be available"
+        # Verify Metal framework is available
+        ls -la /System/Library/Frameworks/Metal.framework/ || echo "Warning: Metal framework not found"
+    
+    - name: Install system dependencies (Linux - for cross-platform development)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        echo "Linux detected - Note: This is a macOS-specific project using Metal"
+        echo "Build may not succeed due to Metal dependency"
+    
+    - name: Cache cargo dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+    
+    - name: Build project in debug mode
+      shell: bash
+      run: |
+        echo "Building sol-ui in debug mode..."
+        cargo build
+    
+    - name: Build project in release mode
+      shell: bash
+      run: |
+        echo "Building sol-ui in release mode for performance testing..."
+        cargo build --release
+    
+    - name: Build all examples
+      shell: bash
+      run: |
+        echo "Building all examples..."
+        cargo build --examples --release
+    
+    - name: Verify tracing support
+      shell: bash
+      run: |
+        echo "Verifying tracing dependencies are available..."
+        cargo check --features tracing
+    
+    - name: Install performance profiling tools (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "Performance tools are available via Xcode command line tools"
+        which xcrun || echo "Warning: Xcode command line tools not available"
+    
+    - name: Setup environment for performance testing
+      shell: bash
+      run: |
+        echo "Setting up environment variables for performance testing..."
+        echo "RUST_LOG=sol=trace,info" >> $GITHUB_ENV
+        echo "Performance environment ready"
+        echo "Available examples:"
+        ls -la target/release/examples/ || echo "No examples built yet"
+    
+    - name: Validate build outputs
+      shell: bash
+      run: |
+        echo "Validating build outputs..."
+        ls -la target/release/libsol_ui* || echo "Library not found"
+        ls -la target/release/examples/ || echo "Examples not found"
+        echo "Build validation complete"
