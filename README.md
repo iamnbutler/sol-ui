@@ -1,4 +1,4 @@
-# Sol UI
+# Hello World
 
 A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
