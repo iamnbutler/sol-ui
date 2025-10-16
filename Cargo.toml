@@ -41,3 +41,7 @@ path = "examples/simple_animation.rs"
 [[example]]
 name = "simple_shader.rs"
 path = "examples/simple_shader.rs"
+
+[[example]]
+name = "glow_shader"
+path = "examples/glow_shader.rs"
