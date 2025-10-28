@@ -548,3 +548,706 @@ impl Default for DrawList {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::color::colors::{WHITE, BLACK, RED, BLUE, TRANSPARENT};
+    use crate::style::{Fill, Shadow, ElementStyle};
+
+    // === PaintQuad Tests ===
+
+    #[test]
+    fn test_paint_quad_filled() {
+        let bounds = Rect::new(10.0, 20.0, 100.0, 50.0);
+        let color = RED;
+        
+        let quad = PaintQuad::filled(bounds, color);
+        
+        assert_eq!(quad.bounds, bounds);
+        assert_eq!(quad.fill, color);
+        assert_eq!(quad.corner_radii, Corners::zero());
+        assert_eq!(quad.border_widths, Edges::zero());
+        assert_eq!(quad.border_color, TRANSPARENT);
+    }
+
+    #[test]
+    fn test_paint_quad_creation() {
+        let bounds = Rect::new(0.0, 0.0, 200.0, 100.0);
+        let corner_radii = Corners::uniform(10.0);
+        let border_widths = Edges::uniform(2.0);
+        
+        let quad = PaintQuad {
+            bounds,
+            corner_radii,
+            fill: BLUE,
+            border_widths,
+            border_color: BLACK,
+        };
+        
+        assert_eq!(quad.bounds, bounds);
+        assert_eq!(quad.corner_radii, corner_radii);
+        assert_eq!(quad.fill, BLUE);
+        assert_eq!(quad.border_widths, border_widths);
+        assert_eq!(quad.border_color, BLACK);
+    }
+
+    #[test]
+    fn test_paint_quad_clone() {
+        let original = PaintQuad::filled(Rect::new(5.0, 5.0, 50.0, 50.0), WHITE);
+        let cloned = original.clone();
+        
+        assert_eq!(original.bounds, cloned.bounds);
+        assert_eq!(original.fill, cloned.fill);
+        assert_eq!(original.corner_radii, cloned.corner_radii);
+    }
+
+    // === PaintText Tests ===
+
+    #[test]
+    fn test_paint_text_creation() {
+        let position = Vec2::new(100.0, 200.0);
+        let text = "Hello World".to_string();
+        let style = TextStyle::default();
+        
+        let paint_text = PaintText {
+            position,
+            text: text.clone(),
+            style: style.clone(),
+        };
+        
+        assert_eq!(paint_text.position, position);
+        assert_eq!(paint_text.text, text);
+        assert_eq!(paint_text.style, style);
+    }
+
+    #[test]
+    fn test_paint_text_with_styled_text() {
+        let position = Vec2::new(50.0, 100.0);
+        let text = "Styled Text".to_string();
+        let style = TextStyle {
+            size: 24.0,
+            color: RED,
+        };
+        
+        let paint_text = PaintText {
+            position,
+            text: text.clone(),
+            style: style.clone(),
+        };
+        
+        assert_eq!(paint_text.text, text);
+        assert_eq!(paint_text.style.size, 24.0);
+        assert_eq!(paint_text.style.color, RED);
+    }
+
+    // === PaintShadow Tests ===
+
+    #[test]
+    fn test_paint_shadow_creation() {
+        let bounds = Rect::new(10.0, 10.0, 100.0, 50.0);
+        let corner_radii = Corners::uniform(5.0);
+        let color = Color::rgba(0.0, 0.0, 0.0, 0.5);
+        let blur_radius = 10.0;
+        let offset = Vec2::new(2.0, 2.0);
+        
+        let shadow = PaintShadow {
+            bounds,
+            corner_radii,
+            color,
+            blur_radius,
+            offset,
+        };
+        
+        assert_eq!(shadow.bounds, bounds);
+        assert_eq!(shadow.corner_radii, corner_radii);
+        assert_eq!(shadow.color, color);
+        assert_eq!(shadow.blur_radius, blur_radius);
+        assert_eq!(shadow.offset, offset);
+    }
+
+    // === PaintImage Tests ===
+
+    #[test]
+    fn test_paint_image_creation() {
+        let bounds = Rect::new(0.0, 0.0, 200.0, 150.0);
+        let source = "path/to/image.png".to_string();
+        let corner_radii = Corners::uniform(8.0);
+        
+        let image = PaintImage {
+            bounds,
+            source: source.clone(),
+            corner_radii,
+        };
+        
+        assert_eq!(image.bounds, bounds);
+        assert_eq!(image.source, source);
+        assert_eq!(image.corner_radii, corner_radii);
+    }
+
+    // === DrawCommand Tests ===
+
+    #[test]
+    fn test_draw_command_rect() {
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        let color = BLUE;
+        
+        let command = DrawCommand::Rect { rect, color };
+        
+        match command {
+            DrawCommand::Rect { rect: r, color: c } => {
+                assert_eq!(r, rect);
+                assert_eq!(c, color);
+            }
+            _ => panic!("Expected Rect command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_command_text() {
+        let position = Vec2::new(50.0, 100.0);
+        let text = "Test Text".to_string();
+        let style = TextStyle::default();
+        
+        let command = DrawCommand::Text {
+            position,
+            text: text.clone(),
+            style: style.clone(),
+        };
+        
+        match command {
+            DrawCommand::Text { position: p, text: t, style: s } => {
+                assert_eq!(p, position);
+                assert_eq!(t, text);
+                assert_eq!(s, style);
+            }
+            _ => panic!("Expected Text command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_command_frame() {
+        let rect = Rect::new(5.0, 5.0, 90.0, 40.0);
+        let style = ElementStyle::default();
+        
+        let command = DrawCommand::Frame { rect, style: style.clone() };
+        
+        match command {
+            DrawCommand::Frame { rect: r, style: s } => {
+                assert_eq!(r, rect);
+                assert_eq!(s, style);
+            }
+            _ => panic!("Expected Frame command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_command_push_pop_clip() {
+        let clip_rect = Rect::new(0.0, 0.0, 100.0, 100.0);
+        
+        let push_command = DrawCommand::PushClip { rect: clip_rect };
+        let pop_command = DrawCommand::PopClip;
+        
+        match push_command {
+            DrawCommand::PushClip { rect } => assert_eq!(rect, clip_rect),
+            _ => panic!("Expected PushClip command"),
+        }
+        
+        match pop_command {
+            DrawCommand::PopClip => {},
+            _ => panic!("Expected PopClip command"),
+        }
+    }
+
+    // === CullingStats Tests ===
+
+    #[test]
+    fn test_culling_stats_default() {
+        let stats = CullingStats::default();
+        
+        assert_eq!(stats.culled_count, 0);
+        assert_eq!(stats.rendered_count, 0);
+        assert_eq!(stats.total_count(), 0);
+        assert_eq!(stats.culling_percentage(), 0.0);
+    }
+
+    #[test]
+    fn test_culling_stats_calculations() {
+        let mut stats = CullingStats {
+            culled_count: 30,
+            rendered_count: 70,
+        };
+        
+        assert_eq!(stats.total_count(), 100);
+        assert_eq!(stats.culling_percentage(), 30.0);
+        
+        stats.reset();
+        assert_eq!(stats.culled_count, 0);
+        assert_eq!(stats.rendered_count, 0);
+        assert_eq!(stats.total_count(), 0);
+    }
+
+    #[test]
+    fn test_culling_stats_edge_cases() {
+        // Test 100% culling
+        let stats = CullingStats {
+            culled_count: 50,
+            rendered_count: 0,
+        };
+        assert_eq!(stats.culling_percentage(), 100.0);
+        
+        // Test 0% culling
+        let stats = CullingStats {
+            culled_count: 0,
+            rendered_count: 25,
+        };
+        assert_eq!(stats.culling_percentage(), 0.0);
+        
+        // Test partial culling
+        let stats = CullingStats {
+            culled_count: 25,
+            rendered_count: 75,
+        };
+        assert_eq!(stats.culling_percentage(), 25.0);
+    }
+
+    // === DrawListPos Tests ===
+
+    #[test]
+    fn test_draw_list_pos() {
+        let pos = DrawListPos(42);
+        assert_eq!(pos.index(), 42);
+        
+        let copied_pos = pos;
+        assert_eq!(copied_pos.index(), 42);
+    }
+
+    // === DrawList Tests ===
+
+    #[test]
+    fn test_draw_list_new() {
+        let draw_list = DrawList::new();
+        
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.commands().len(), 0);
+        assert_eq!(draw_list.viewport(), &None);
+        assert_eq!(draw_list.culling_stats().total_count(), 0);
+        assert!(!draw_list.is_debug_culling());
+    }
+
+    #[test]
+    fn test_draw_list_with_viewport() {
+        let viewport = Rect::new(0.0, 0.0, 800.0, 600.0);
+        let draw_list = DrawList::with_viewport(viewport);
+        
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.viewport(), &Some(viewport));
+    }
+
+    #[test]
+    fn test_draw_list_default() {
+        let draw_list = DrawList::default();
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.viewport(), &None);
+    }
+
+    #[test]
+    fn test_draw_list_viewport_management() {
+        let mut draw_list = DrawList::new();
+        let viewport = Rect::new(0.0, 0.0, 1024.0, 768.0);
+        
+        draw_list.set_viewport(Some(viewport));
+        assert_eq!(draw_list.viewport(), &Some(viewport));
+        
+        draw_list.set_viewport(None);
+        assert_eq!(draw_list.viewport(), &None);
+    }
+
+    #[test]
+    fn test_draw_list_debug_culling() {
+        let mut draw_list = DrawList::new();
+        
+        assert!(!draw_list.is_debug_culling());
+        
+        draw_list.set_debug_culling(true);
+        assert!(draw_list.is_debug_culling());
+        
+        draw_list.set_debug_culling(false);
+        assert!(!draw_list.is_debug_culling());
+    }
+
+    #[test]
+    fn test_draw_list_add_rect() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        let color = RED;
+        
+        draw_list.add_rect(rect, color);
+        
+        assert!(!draw_list.is_empty());
+        assert_eq!(draw_list.commands().len(), 1);
+        assert_eq!(draw_list.culling_stats().rendered_count, 1);
+        
+        match &draw_list.commands()[0] {
+            DrawCommand::Rect { rect: r, color: c } => {
+                assert_eq!(*r, rect);
+                assert_eq!(*c, color);
+            }
+            _ => panic!("Expected Rect command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_add_transparent_rect() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        let transparent_color = Color::rgba(1.0, 0.0, 0.0, 0.0);
+        
+        draw_list.add_rect(rect, transparent_color);
+        
+        // Should not add transparent rectangles
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.culling_stats().rendered_count, 0);
+    }
+
+    #[test]
+    fn test_draw_list_add_text() {
+        let mut draw_list = DrawList::new();
+        let position = Vec2::new(100.0, 200.0);
+        let text = "Hello World";
+        let style = TextStyle::default();
+        
+        draw_list.add_text(position, text, style.clone());
+        
+        assert!(!draw_list.is_empty());
+        assert_eq!(draw_list.commands().len(), 1);
+        assert_eq!(draw_list.culling_stats().rendered_count, 1);
+        
+        match &draw_list.commands()[0] {
+            DrawCommand::Text { position: p, text: t, style: s } => {
+                assert_eq!(*p, position);
+                assert_eq!(t, text);
+                assert_eq!(*s, style);
+            }
+            _ => panic!("Expected Text command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_add_empty_text() {
+        let mut draw_list = DrawList::new();
+        let position = Vec2::new(100.0, 200.0);
+        let empty_text = "";
+        let style = TextStyle::default();
+        
+        draw_list.add_text(position, empty_text, style);
+        
+        // Should not add empty text
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.culling_stats().rendered_count, 0);
+    }
+
+    #[test]
+    fn test_draw_list_clip_management() {
+        let mut draw_list = DrawList::new();
+        let clip_rect = Rect::new(0.0, 0.0, 100.0, 100.0);
+        
+        assert_eq!(draw_list.current_clip(), None);
+        
+        draw_list.push_clip(clip_rect);
+        assert_eq!(draw_list.current_clip(), Some(&clip_rect));
+        assert_eq!(draw_list.commands().len(), 1);
+        
+        draw_list.pop_clip();
+        assert_eq!(draw_list.current_clip(), None);
+        assert_eq!(draw_list.commands().len(), 2);
+        
+        // Test commands
+        match &draw_list.commands()[0] {
+            DrawCommand::PushClip { rect } => assert_eq!(*rect, clip_rect),
+            _ => panic!("Expected PushClip command"),
+        }
+        
+        match &draw_list.commands()[1] {
+            DrawCommand::PopClip => {},
+            _ => panic!("Expected PopClip command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_nested_clips() {
+        let mut draw_list = DrawList::new();
+        let outer_clip = Rect::new(0.0, 0.0, 200.0, 200.0);
+        let inner_clip = Rect::new(50.0, 50.0, 100.0, 100.0);
+        let expected_intersection = Rect::new(50.0, 50.0, 100.0, 100.0);
+        
+        draw_list.push_clip(outer_clip);
+        draw_list.push_clip(inner_clip);
+        
+        // The current clip should be the intersection
+        assert_eq!(draw_list.current_clip(), Some(&expected_intersection));
+        
+        draw_list.pop_clip();
+        assert_eq!(draw_list.current_clip(), Some(&outer_clip));
+        
+        draw_list.pop_clip();
+        assert_eq!(draw_list.current_clip(), None);
+    }
+
+    #[test]
+    fn test_draw_list_non_intersecting_clips() {
+        let mut draw_list = DrawList::new();
+        let first_clip = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let non_intersecting_clip = Rect::new(200.0, 200.0, 100.0, 100.0);
+        
+        draw_list.push_clip(first_clip);
+        draw_list.push_clip(non_intersecting_clip);
+        
+        // Should result in zero-sized clip
+        let current_clip = draw_list.current_clip().unwrap();
+        assert_eq!(current_clip.size, Vec2::ZERO);
+    }
+
+    #[test]
+    fn test_draw_list_pop_clip_empty_stack() {
+        let mut draw_list = DrawList::new();
+        
+        // Popping from empty stack should do nothing
+        draw_list.pop_clip();
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.current_clip(), None);
+    }
+
+    #[test]
+    fn test_draw_list_clear() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(10.0, 20.0, 100.0, 50.0);
+        
+        draw_list.add_rect(rect, RED);
+        draw_list.push_clip(rect);
+        
+        assert!(!draw_list.is_empty());
+        assert!(draw_list.current_clip().is_some());
+        assert!(draw_list.culling_stats().total_count() > 0);
+        
+        draw_list.clear();
+        
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.current_clip(), None);
+        assert_eq!(draw_list.culling_stats().total_count(), 0);
+    }
+
+    #[test]
+    fn test_draw_list_current_pos() {
+        let mut draw_list = DrawList::new();
+        
+        let pos1 = draw_list.current_pos();
+        assert_eq!(pos1.index(), 0);
+        
+        draw_list.add_rect(Rect::new(0.0, 0.0, 10.0, 10.0), RED);
+        let pos2 = draw_list.current_pos();
+        assert_eq!(pos2.index(), 1);
+        
+        draw_list.add_text(Vec2::ZERO, "test", TextStyle::default());
+        let pos3 = draw_list.current_pos();
+        assert_eq!(pos3.index(), 2);
+    }
+
+    #[test]
+    fn test_draw_list_insert_rect_at() {
+        let mut draw_list = DrawList::new();
+        
+        // Add some commands first
+        draw_list.add_rect(Rect::new(0.0, 0.0, 10.0, 10.0), RED);
+        draw_list.add_rect(Rect::new(20.0, 20.0, 10.0, 10.0), BLUE);
+        
+        let pos = DrawListPos(1); // Insert at position 1
+        let insert_rect = Rect::new(10.0, 10.0, 5.0, 5.0);
+        
+        draw_list.insert_rect_at(pos, insert_rect, WHITE);
+        
+        assert_eq!(draw_list.commands().len(), 3);
+        
+        // Check that the rectangle was inserted at the correct position
+        match &draw_list.commands()[1] {
+            DrawCommand::Rect { rect, color } => {
+                assert_eq!(*rect, insert_rect);
+                assert_eq!(*color, WHITE);
+            }
+            _ => panic!("Expected Rect command at position 1"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_insert_transparent_rect() {
+        let mut draw_list = DrawList::new();
+        
+        draw_list.add_rect(Rect::new(0.0, 0.0, 10.0, 10.0), RED);
+        
+        let pos = DrawListPos(0);
+        let transparent_color = Color::rgba(1.0, 0.0, 0.0, 0.0);
+        
+        draw_list.insert_rect_at(pos, Rect::new(5.0, 5.0, 10.0, 10.0), transparent_color);
+        
+        // Should not insert transparent rectangles
+        assert_eq!(draw_list.commands().len(), 1);
+    }
+
+    #[test]
+    fn test_draw_list_viewport_culling() {
+        let viewport = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let mut draw_list = DrawList::with_viewport(viewport);
+        
+        // Rectangle within viewport - should be added
+        let visible_rect = Rect::new(25.0, 25.0, 50.0, 50.0);
+        draw_list.add_rect(visible_rect, RED);
+        
+        // Rectangle outside viewport - should be culled
+        let invisible_rect = Rect::new(200.0, 200.0, 50.0, 50.0);
+        draw_list.add_rect(invisible_rect, BLUE);
+        
+        assert_eq!(draw_list.commands().len(), 1);
+        assert_eq!(draw_list.culling_stats().rendered_count, 1);
+        assert_eq!(draw_list.culling_stats().culled_count, 1);
+        assert_eq!(draw_list.culling_stats().culling_percentage(), 50.0);
+    }
+
+    #[test]
+    fn test_draw_list_debug_culling_mode() {
+        let viewport = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let mut draw_list = DrawList::with_viewport(viewport);
+        draw_list.set_debug_culling(true);
+        
+        // Rectangle outside viewport with debug mode
+        let invisible_rect = Rect::new(200.0, 200.0, 50.0, 50.0);
+        draw_list.add_rect(invisible_rect, BLUE);
+        
+        // Should still add the command for debug visualization
+        assert_eq!(draw_list.commands().len(), 1);
+        assert_eq!(draw_list.culling_stats().culled_count, 1);
+        
+        // Check that debug color was applied
+        match &draw_list.commands()[0] {
+            DrawCommand::Rect { rect, color } => {
+                assert_eq!(*rect, invisible_rect);
+                assert_eq!(color.red, 1.0);
+                assert_eq!(color.alpha, 0.2);
+            }
+            _ => panic!("Expected debug Rect command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_add_frame() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(10.0, 10.0, 100.0, 50.0);
+        let style = ElementStyle {
+            fill: Fill::Solid(RED),
+            border_width: 2.0,
+            border_color: BLACK,
+            ..ElementStyle::default()
+        };
+        
+        draw_list.add_frame(rect, style.clone());
+        
+        assert!(!draw_list.is_empty());
+        assert_eq!(draw_list.commands().len(), 1);
+        assert_eq!(draw_list.culling_stats().rendered_count, 1);
+        
+        match &draw_list.commands()[0] {
+            DrawCommand::Frame { rect: r, style: s } => {
+                assert_eq!(*r, rect);
+                assert_eq!(*s, style);
+            }
+            _ => panic!("Expected Frame command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_add_frame_fully_transparent() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(10.0, 10.0, 100.0, 50.0);
+        let style = ElementStyle {
+            fill: Fill::Solid(TRANSPARENT),
+            border_width: 0.0,
+            border_color: TRANSPARENT,
+            shadow: None,
+            ..ElementStyle::default()
+        };
+        
+        draw_list.add_frame(rect, style);
+        
+        // Should not add fully transparent frames
+        assert!(draw_list.is_empty());
+        assert_eq!(draw_list.culling_stats().rendered_count, 0);
+    }
+
+    #[test]
+    fn test_draw_list_add_frame_with_shadow() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(50.0, 50.0, 100.0, 50.0);
+        let shadow = Shadow {
+            color: Color::rgba(0.0, 0.0, 0.0, 0.5),
+            blur: 5.0,
+            offset: Vec2::new(2.0, 2.0),
+        };
+        let style = ElementStyle {
+            fill: Fill::Solid(WHITE),
+            shadow: Some(shadow),
+            ..ElementStyle::default()
+        };
+        
+        draw_list.add_frame(rect, style.clone());
+        
+        assert!(!draw_list.is_empty());
+        assert_eq!(draw_list.commands().len(), 1);
+        
+        match &draw_list.commands()[0] {
+            DrawCommand::Frame { rect: r, style: s } => {
+                assert_eq!(*r, rect);
+                assert_eq!(*s, style);
+            }
+            _ => panic!("Expected Frame command"),
+        }
+    }
+
+    #[test]
+    fn test_draw_list_commands_access() {
+        let mut draw_list = DrawList::new();
+        let rect = Rect::new(0.0, 0.0, 50.0, 50.0);
+        
+        draw_list.add_rect(rect, RED);
+        
+        // Test immutable access
+        let commands = draw_list.commands();
+        assert_eq!(commands.len(), 1);
+        
+        // Test mutable access
+        let commands_mut = draw_list.commands_mut();
+        commands_mut.push(DrawCommand::Rect { rect, color: BLUE });
+        
+        assert_eq!(draw_list.commands().len(), 2);
+    }
+
+    // === Integration Tests ===
+
+    #[test]
+    fn test_draw_list_complex_scenario() {
+        let mut draw_list = DrawList::new();
+        
+        // Add background
+        draw_list.add_rect(Rect::new(0.0, 0.0, 800.0, 600.0), WHITE);
+        
+        // Add clipped content
+        draw_list.push_clip(Rect::new(100.0, 100.0, 600.0, 400.0));
+        draw_list.add_rect(Rect::new(50.0, 50.0, 100.0, 100.0), RED); // Partially clipped
+        draw_list.add_text(Vec2::new(200.0, 250.0), "Hello World", TextStyle::default());
+        draw_list.pop_clip();
+        
+        // Add footer
+        draw_list.add_rect(Rect::new(0.0, 550.0, 800.0, 50.0), BLACK);
+        
+        assert_eq!(draw_list.commands().len(), 6); // Background, PushClip, Rect, Text, PopClip, Footer
+        assert_eq!(draw_list.culling_stats().rendered_count, 4); // Actual content rendered
+    }
+}
