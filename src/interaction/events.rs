@@ -219,3 +219,279 @@ impl Default for EventHandlers {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::layer::MouseButton;
+    use glam::Vec2;
+
+    #[test]
+    fn test_interaction_event_creation() {
+        let element_id = ElementId::from(123);
+        let position = Vec2::new(10.0, 20.0);
+        let local_position = Vec2::new(5.0, 15.0);
+        let button = MouseButton::Left;
+
+        let mouse_enter = InteractionEvent::MouseEnter { element_id };
+        let mouse_leave = InteractionEvent::MouseLeave { element_id };
+        let mouse_move = InteractionEvent::MouseMove {
+            element_id,
+            position,
+            local_position,
+        };
+        let mouse_down = InteractionEvent::MouseDown {
+            element_id,
+            button,
+            position,
+            local_position,
+        };
+        let mouse_up = InteractionEvent::MouseUp {
+            element_id,
+            button,
+            position,
+            local_position,
+        };
+        let click = InteractionEvent::Click {
+            element_id,
+            button,
+            position,
+            local_position,
+        };
+
+        // Test that events can be created and matched
+        match mouse_enter {
+            InteractionEvent::MouseEnter { element_id } => assert_eq!(element_id, ElementId::from(123)),
+            _ => panic!("Wrong event type"),
+        }
+
+        match mouse_move {
+            InteractionEvent::MouseMove { element_id, position, local_position } => {
+                assert_eq!(element_id, ElementId::from(123));
+                assert_eq!(position, Vec2::new(10.0, 20.0));
+                assert_eq!(local_position, Vec2::new(5.0, 15.0));
+            }
+            _ => panic!("Wrong event type"),
+        }
+
+        match click {
+            InteractionEvent::Click { element_id, button, .. } => {
+                assert_eq!(element_id, ElementId::from(123));
+                assert_eq!(button, MouseButton::Left);
+            }
+            _ => panic!("Wrong event type"),
+        }
+    }
+
+    #[test]
+    fn test_interaction_state_creation() {
+        let state = InteractionState::new();
+        assert!(!state.is_hovered);
+        assert!(!state.is_pressed);
+
+        let default_state = InteractionState::default();
+        assert!(!default_state.is_hovered);
+        assert!(!default_state.is_pressed);
+    }
+
+    #[test]
+    fn test_interaction_state_modification() {
+        let mut state = InteractionState::new();
+        
+        state.is_hovered = true;
+        assert!(state.is_hovered);
+        assert!(!state.is_pressed);
+
+        state.is_pressed = true;
+        assert!(state.is_hovered);
+        assert!(state.is_pressed);
+
+        state.is_hovered = false;
+        assert!(!state.is_hovered);
+        assert!(state.is_pressed);
+    }
+
+    #[test]
+    fn test_event_handlers_creation() {
+        let handlers = EventHandlers::new();
+        assert!(handlers.on_mouse_enter.is_none());
+        assert!(handlers.on_mouse_leave.is_none());
+        assert!(handlers.on_mouse_move.is_none());
+        assert!(handlers.on_mouse_down.is_none());
+        assert!(handlers.on_mouse_up.is_none());
+        assert!(handlers.on_click.is_none());
+
+        let default_handlers = EventHandlers::default();
+        assert!(default_handlers.on_mouse_enter.is_none());
+    }
+
+    #[test]
+    fn test_event_handlers_builder_pattern() {
+        let mut handlers = EventHandlers::new()
+            .on_mouse_enter(|| {})
+            .on_mouse_leave(|| {})
+            .on_mouse_move(|_, _| {})
+            .on_mouse_down(|_, _, _| {})
+            .on_mouse_up(|_, _, _| {})
+            .on_click(|_, _, _| {});
+
+        assert!(handlers.on_mouse_enter.is_some());
+        assert!(handlers.on_mouse_leave.is_some());
+        assert!(handlers.on_mouse_move.is_some());
+        assert!(handlers.on_mouse_down.is_some());
+        assert!(handlers.on_mouse_up.is_some());
+        assert!(handlers.on_click.is_some());
+    }
+
+    #[test]
+    fn test_event_handlers_execution() {
+        use std::sync::{Arc, Mutex};
+
+        let call_count = Arc::new(Mutex::new(0));
+        let call_count_clone = call_count.clone();
+
+        let mut handlers = EventHandlers::new()
+            .on_mouse_enter(move || {
+                *call_count_clone.lock().unwrap() += 1;
+            });
+
+        let event = InteractionEvent::MouseEnter { element_id: ElementId::from(1) };
+        handlers.handle_event(&event);
+
+        assert_eq!(*call_count.lock().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_event_handlers_mouse_move() {
+        use std::sync::{Arc, Mutex};
+
+        let positions = Arc::new(Mutex::new(Vec::new()));
+        let positions_clone = positions.clone();
+
+        let mut handlers = EventHandlers::new()
+            .on_mouse_move(move |pos, local_pos| {
+                positions_clone.lock().unwrap().push((pos, local_pos));
+            });
+
+        let event = InteractionEvent::MouseMove {
+            element_id: ElementId::from(1),
+            position: Vec2::new(100.0, 200.0),
+            local_position: Vec2::new(50.0, 100.0),
+        };
+
+        handlers.handle_event(&event);
+
+        let captured_positions = positions.lock().unwrap();
+        assert_eq!(captured_positions.len(), 1);
+        assert_eq!(captured_positions[0], (Vec2::new(100.0, 200.0), Vec2::new(50.0, 100.0)));
+    }
+
+    #[test]
+    fn test_event_handlers_click() {
+        use std::sync::{Arc, Mutex};
+
+        let clicks = Arc::new(Mutex::new(Vec::new()));
+        let clicks_clone = clicks.clone();
+
+        let mut handlers = EventHandlers::new()
+            .on_click(move |button, pos, local_pos| {
+                clicks_clone.lock().unwrap().push((button, pos, local_pos));
+            });
+
+        let event = InteractionEvent::Click {
+            element_id: ElementId::from(1),
+            button: MouseButton::Right,
+            position: Vec2::new(75.0, 125.0),
+            local_position: Vec2::new(25.0, 75.0),
+        };
+
+        handlers.handle_event(&event);
+
+        let captured_clicks = clicks.lock().unwrap();
+        assert_eq!(captured_clicks.len(), 1);
+        assert_eq!(captured_clicks[0], (MouseButton::Right, Vec2::new(75.0, 125.0), Vec2::new(25.0, 75.0)));
+    }
+
+    #[test]
+    fn test_event_handlers_no_handler_set() {
+        let mut handlers = EventHandlers::new();
+        
+        // Should not panic when no handlers are set
+        let event = InteractionEvent::MouseEnter { element_id: ElementId::from(1) };
+        handlers.handle_event(&event);
+
+        let event = InteractionEvent::Click {
+            element_id: ElementId::from(1),
+            button: MouseButton::Left,
+            position: Vec2::ZERO,
+            local_position: Vec2::ZERO,
+        };
+        handlers.handle_event(&event);
+    }
+
+    #[test]
+    fn test_interaction_event_clone() {
+        let event = InteractionEvent::MouseMove {
+            element_id: ElementId::from(42),
+            position: Vec2::new(10.0, 20.0),
+            local_position: Vec2::new(5.0, 15.0),
+        };
+
+        let cloned = event.clone();
+        
+        match (event, cloned) {
+            (InteractionEvent::MouseMove { element_id: id1, position: pos1, .. },
+             InteractionEvent::MouseMove { element_id: id2, position: pos2, .. }) => {
+                assert_eq!(id1, id2);
+                assert_eq!(pos1, pos2);
+            }
+            _ => panic!("Clone failed"),
+        }
+    }
+
+    #[test]
+    fn test_interaction_state_clone() {
+        let mut state = InteractionState::new();
+        state.is_hovered = true;
+        state.is_pressed = false;
+
+        let cloned = state.clone();
+        assert_eq!(state.is_hovered, cloned.is_hovered);
+        assert_eq!(state.is_pressed, cloned.is_pressed);
+    }
+
+    #[test]
+    fn test_event_handlers_partial_setup() {
+        use std::sync::{Arc, Mutex};
+
+        let enter_count = Arc::new(Mutex::new(0));
+        let leave_count = Arc::new(Mutex::new(0));
+        
+        let enter_clone = enter_count.clone();
+        let leave_clone = leave_count.clone();
+
+        let mut handlers = EventHandlers::new()
+            .on_mouse_enter(move || { *enter_clone.lock().unwrap() += 1; })
+            .on_mouse_leave(move || { *leave_clone.lock().unwrap() += 1; });
+        
+        // Test enter event
+        handlers.handle_event(&InteractionEvent::MouseEnter { element_id: ElementId::from(1) });
+        assert_eq!(*enter_count.lock().unwrap(), 1);
+        assert_eq!(*leave_count.lock().unwrap(), 0);
+
+        // Test leave event
+        handlers.handle_event(&InteractionEvent::MouseLeave { element_id: ElementId::from(1) });
+        assert_eq!(*enter_count.lock().unwrap(), 1);
+        assert_eq!(*leave_count.lock().unwrap(), 1);
+
+        // Test unhandled event (should not panic)
+        handlers.handle_event(&InteractionEvent::Click {
+            element_id: ElementId::from(1),
+            button: MouseButton::Left,
+            position: Vec2::ZERO,
+            local_position: Vec2::ZERO,
+        });
+        assert_eq!(*enter_count.lock().unwrap(), 1);
+        assert_eq!(*leave_count.lock().unwrap(), 1);
+    }
+}
