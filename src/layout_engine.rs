@@ -161,3 +161,239 @@ fn measure_element(
         Size::ZERO
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::style::TextStyle;
+    use crate::color::Color;
+
+    // Mock text system for testing
+    struct MockTextSystem;
+    
+    impl MockTextSystem {
+        fn measure_text(&mut self, text: &str, _config: &crate::text_system::TextConfig, _max_width: Option<f32>, _scale_factor: f32) -> Vec2 {
+            // Simple text measurement: each character is 8 pixels wide, height is size
+            let char_count = text.len();
+            Vec2::new(char_count as f32 * 8.0, 16.0)
+        }
+    }
+
+    #[test]
+    fn test_taffy_layout_engine_creation() {
+        let engine = TaffyLayoutEngine::new();
+        assert_eq!(engine.computed_layouts.len(), 0);
+        assert_eq!(engine.absolute_layout_bounds.len(), 0);
+    }
+
+    #[test]
+    fn test_clear_layout_data() {
+        let mut engine = TaffyLayoutEngine::new();
+        
+        // Create some nodes to populate internal state
+        let style = Style::default();
+        let _node1 = engine.request_layout(style.clone(), &[]);
+        let _node2 = engine.request_layout(style, &[]);
+        
+        // Clear should remove all data
+        engine.clear();
+        assert_eq!(engine.computed_layouts.len(), 0);
+        assert_eq!(engine.absolute_layout_bounds.len(), 0);
+    }
+
+    #[test]
+    fn test_request_layout_leaf_node() {
+        let mut engine = TaffyLayoutEngine::new();
+        let style = Style::default();
+        
+        let node = engine.request_layout(style, &[]);
+        assert!(node.into_inner() >= 0); // Valid node ID
+    }
+
+    #[test]
+    fn test_request_layout_with_children() {
+        let mut engine = TaffyLayoutEngine::new();
+        let style = Style::default();
+        
+        // Create child nodes first
+        let child1 = engine.request_layout(style.clone(), &[]);
+        let child2 = engine.request_layout(style.clone(), &[]);
+        
+        // Create parent with children
+        let parent = engine.request_layout(style, &[child1, child2]);
+        assert!(parent.into_inner() >= 0); // Valid node ID
+    }
+
+    #[test]
+    fn test_request_layout_with_data() {
+        let mut engine = TaffyLayoutEngine::new();
+        let style = Style::default();
+        
+        let data = ElementData {
+            text: Some(("Hello".to_string(), TextStyle::default())),
+            background: Some(Color::rgba(1.0, 0.0, 0.0, 1.0)),
+        };
+        
+        let node = engine.request_layout_with_data(style, data, &[]);
+        assert!(node.into_inner() >= 0); // Valid node ID
+    }
+
+    #[test]
+    fn test_request_layout_with_data_and_children() {
+        let mut engine = TaffyLayoutEngine::new();
+        let style = Style::default();
+        
+        // Create child node
+        let child = engine.request_layout(style.clone(), &[]);
+        
+        let data = ElementData {
+            text: Some(("Hello".to_string(), TextStyle::default())),
+            background: None,
+        };
+        
+        let parent = engine.request_layout_with_data(style, data, &[child]);
+        assert!(parent.into_inner() >= 0); // Valid node ID
+    }
+
+    #[test]
+    fn test_element_data_default() {
+        let data = ElementData::default();
+        assert!(data.text.is_none());
+        assert!(data.background.is_none());
+    }
+
+    #[test]
+    fn test_element_data_with_text() {
+        let text_style = TextStyle::default();
+        let data = ElementData {
+            text: Some(("Test text".to_string(), text_style.clone())),
+            background: None,
+        };
+        
+        assert!(data.text.is_some());
+        if let Some((content, style)) = &data.text {
+            assert_eq!(content, "Test text");
+            assert_eq!(*style, text_style);
+        }
+    }
+
+    #[test]
+    fn test_element_data_with_background() {
+        let color = Color::rgba(0.5, 0.5, 0.5, 0.8);
+        let data = ElementData {
+            text: None,
+            background: Some(color),
+        };
+        
+        assert!(data.background.is_some());
+        assert_eq!(data.background.unwrap(), color);
+    }
+
+    #[test]
+    fn test_element_data_clone() {
+        let original = ElementData {
+            text: Some(("Clone test".to_string(), TextStyle::default())),
+            background: Some(Color::rgba(0.2, 0.4, 0.6, 1.0)),
+        };
+        
+        let cloned = original.clone();
+        assert_eq!(original.text, cloned.text);
+        assert_eq!(original.background, cloned.background);
+    }
+
+    #[test]
+    fn test_measure_element_no_data() {
+        let mut mock_text_system = MockTextSystem;
+        let result = measure_element(
+            Size::NONE,
+            Size { width: AvailableSpace::Definite(100.0), height: AvailableSpace::Definite(50.0) },
+            None,
+            &mut mock_text_system,
+            1.0,
+        );
+        
+        assert_eq!(result, Size::ZERO);
+    }
+
+    #[test]
+    fn test_measure_element_with_text() {
+        let mut mock_text_system = MockTextSystem;
+        let mut data = ElementData {
+            text: Some(("Hello".to_string(), TextStyle::default())),
+            background: None,
+        };
+        
+        let result = measure_element(
+            Size::NONE,
+            Size { width: AvailableSpace::Definite(100.0), height: AvailableSpace::Definite(50.0) },
+            Some(&mut data),
+            &mut mock_text_system,
+            1.0,
+        );
+        
+        // Should return measured size based on mock text system (5 chars * 8 pixels = 40, height = 16)
+        assert_eq!(result.width, 40.0);
+        assert_eq!(result.height, 16.0);
+    }
+
+    #[test]
+    fn test_measure_element_no_text_data() {
+        let mut mock_text_system = MockTextSystem;
+        let mut data = ElementData {
+            text: None,
+            background: Some(Color::rgba(1.0, 0.0, 0.0, 1.0)),
+        };
+        
+        let result = measure_element(
+            Size::NONE,
+            Size { width: AvailableSpace::Definite(100.0), height: AvailableSpace::Definite(50.0) },
+            Some(&mut data),
+            &mut mock_text_system,
+            1.0,
+        );
+        
+        assert_eq!(result, Size::ZERO);
+    }
+
+    #[test]
+    fn test_measure_element_with_max_width() {
+        let mut mock_text_system = MockTextSystem;
+        let mut data = ElementData {
+            text: Some(("Long text content".to_string(), TextStyle::default())),
+            background: None,
+        };
+        
+        let result = measure_element(
+            Size::NONE,
+            Size { width: AvailableSpace::Definite(50.0), height: AvailableSpace::MaxContent },
+            Some(&mut data),
+            &mut mock_text_system,
+            2.0, // Different scale factor
+        );
+        
+        // Should still use mock measurement (17 chars * 8 = 136 pixels wide)
+        assert_eq!(result.width, 136.0);
+        assert_eq!(result.height, 16.0);
+    }
+
+    #[test]
+    fn test_measure_element_min_content_width() {
+        let mut mock_text_system = MockTextSystem;
+        let mut data = ElementData {
+            text: Some(("Test".to_string(), TextStyle::default())),
+            background: None,
+        };
+        
+        let result = measure_element(
+            Size::NONE,
+            Size { width: AvailableSpace::MinContent, height: AvailableSpace::MinContent },
+            Some(&mut data),
+            &mut mock_text_system,
+            1.0,
+        );
+        
+        // Should still return measured size (4 chars * 8 = 32)
+        assert_eq!(result.width, 32.0);
+        assert_eq!(result.height, 16.0);
+    }
+}
