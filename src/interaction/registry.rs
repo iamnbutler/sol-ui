@@ -82,6 +82,10 @@ impl ElementRegistry {
                 // Shortcut events aren't dispatched to specific elements
                 return true;
             }
+            InteractionEvent::DragDrop(_) => {
+                // Drag and drop events aren't dispatched to specific elements
+                return true;
+            }
         };
 
         // Update states based on event type
