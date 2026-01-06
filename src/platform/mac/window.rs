@@ -13,7 +13,7 @@ use objc::{
     runtime::{BOOL, Class, Object, Sel},
     sel, sel_impl,
 };
-use std::{cell::RefCell, ffi::c_void, ptr, sync::Arc};
+use std::{cell::RefCell, ffi::c_void, marker::PhantomData, ptr, sync::Arc};
 
 unsafe fn ns_string(string: &str) -> id {
     let str: id = unsafe { NSString::alloc(nil).init_str(string) };
@@ -51,6 +51,9 @@ pub struct Window {
     ns_window: *mut Object,
     ns_view: *mut Object,
     metal_layer: MetalLayer,
+    /// Marker to ensure Window is !Send and !Sync
+    /// Cocoa objects must only be accessed from the main thread
+    _not_send_sync: PhantomData<*const ()>,
 }
 
 impl Window {
@@ -133,6 +136,7 @@ impl Window {
             ns_window,
             ns_view,
             metal_layer: layer,
+            _not_send_sync: PhantomData,
         })
     }
 
@@ -411,6 +415,16 @@ impl Window {
     #[allow(dead_code)]
     pub fn current_modifiers(&self) -> Modifiers {
         CURRENT_MODIFIERS.with(|m| *m.borrow())
+    }
+}
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        unsafe {
+            // Close the window, which releases it and its content view
+            // NSWindow's close method releases the window when releasedWhenClosed is YES (default)
+            let _: () = msg_send![self.ns_window, close];
+        }
     }
 }
 
