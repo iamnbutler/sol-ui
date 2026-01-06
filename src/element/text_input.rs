@@ -514,11 +514,11 @@ impl Element for TextInput {
 
         // Measure text for cursor positioning
         let text_config = crate::text_system::TextConfig {
-            font_stack: parley::FontStack::from("system-ui"),
+            font_stack: parley::FontStack::from(self.text_style.font_family),
             size: self.text_style.size,
-            weight: parley::FontWeight::NORMAL,
+            weight: self.text_style.weight,
             color: self.text_style.color.clone(),
-            line_height: 1.2,
+            line_height: self.text_style.line_height,
         };
 
         // Paint selection highlight if present

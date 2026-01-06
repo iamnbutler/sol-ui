@@ -4,16 +4,24 @@ use crate::color::{
     Color,
     colors::{BLACK, WHITE},
 };
-use crate::geometry::Corners;
+
+// Re-export FontWeight for public API
+pub use parley::FontWeight;
 
 /// Text styling information
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
+    /// Font size in logical pixels
     pub size: f32,
+    /// Text color
     pub color: Color,
-    /// Line height multiplier (1.0 = tight, 1.2 = normal, 1.5 = loose)
+    /// Font family name (e.g., "system-ui", "Helvetica", "monospace")
+    /// Must be a static string literal for use with parley's FontStack
+    pub font_family: &'static str,
+    /// Font weight (e.g., FontWeight::NORMAL, FontWeight::BOLD)
+    pub weight: FontWeight,
+    /// Line height multiplier (1.0 = same as font size)
     pub line_height: f32,
-    // TODO: Add font family, weight, etc.
 }
 
 impl Default for TextStyle {
@@ -21,6 +29,8 @@ impl Default for TextStyle {
         Self {
             size: 16.0,
             color: WHITE,
+            font_family: "system-ui",
+            weight: FontWeight::NORMAL,
             line_height: 1.2,
         }
     }
@@ -44,10 +54,53 @@ impl TextStyle {
         self
     }
 
+    /// Set the font family (must be a static string)
+    pub fn with_font_family(mut self, family: &'static str) -> Self {
+        self.font_family = family;
+        self
+    }
+
+    /// Set the font weight
+    pub fn with_weight(mut self, weight: FontWeight) -> Self {
+        self.weight = weight;
+        self
+    }
+
     /// Set the line height multiplier
     pub fn line_height(mut self, line_height: f32) -> Self {
         self.line_height = line_height;
         self
+    }
+}
+
+/// Corner radii for a frame (top-left, top-right, bottom-right, bottom-left)
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CornerRadii {
+    pub top_left: f32,
+    pub top_right: f32,
+    pub bottom_right: f32,
+    pub bottom_left: f32,
+}
+
+impl CornerRadii {
+    /// Create uniform corner radii
+    pub fn uniform(radius: f32) -> Self {
+        Self {
+            top_left: radius,
+            top_right: radius,
+            bottom_right: radius,
+            bottom_left: radius,
+        }
+    }
+
+    /// Create corner radii with different values for each corner
+    pub fn new(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
     }
 }
 
@@ -95,7 +148,7 @@ pub struct ElementStyle {
     /// Border color
     pub border_color: Color,
     /// Corner radii
-    pub corner_radii: Corners,
+    pub corner_radii: CornerRadii,
     /// Optional shadow
     pub shadow: Option<Shadow>,
 }
@@ -106,7 +159,7 @@ impl Default for ElementStyle {
             fill: Fill::Solid(WHITE),
             border_width: 0.0,
             border_color: BLACK,
-            corner_radii: Corners::all(0.0),
+            corner_radii: CornerRadii::uniform(0.0),
             shadow: None,
         }
     }
@@ -145,12 +198,12 @@ impl ElementStyle {
 
     /// Set uniform corner radius
     pub fn with_corner_radius(mut self, radius: f32) -> Self {
-        self.corner_radii = Corners::all(radius);
+        self.corner_radii = CornerRadii::uniform(radius);
         self
     }
 
     /// Set individual corner radii
-    pub fn with_corner_radii(mut self, radii: Corners) -> Self {
+    pub fn with_corner_radii(mut self, radii: CornerRadii) -> Self {
         self.corner_radii = radii;
         self
     }
