@@ -7,11 +7,16 @@ use crate::{
 use glam::Vec2;
 use std::collections::HashMap;
 
+pub mod drag_drop;
 pub mod element;
 pub mod events;
 pub mod hit_test;
 pub mod registry;
 
+pub use drag_drop::{
+    DragConfig, DragData, DragDropEvent, DragState, DropResult, DropZone, DropZoneRegistry,
+    Draggable, DropTarget, DRAG_THRESHOLD,
+};
 pub use element::{Interactable, InteractiveElement};
 pub use events::{EventHandlers, InteractionEvent, InteractionState};
 pub use hit_test::{HitTestBuilder, HitTestEntry, HitTestResult};
