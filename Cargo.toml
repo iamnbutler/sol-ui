@@ -60,3 +60,7 @@ path = "examples/keyboard_input.rs"
 [[example]]
 name = "async_tasks"
 path = "examples/async_tasks.rs"
+
+[[example]]
+name = "persistence_demo"
+path = "examples/persistence_demo.rs"
