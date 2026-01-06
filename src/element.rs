@@ -3,12 +3,14 @@
 mod button;
 mod checkbox;
 mod container;
+mod modal;
 mod scroll;
 mod text;
 
 pub use button::{Button, button};
 pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
 pub use container::{Container, column, container, row};
+pub use modal::{ConfirmDialog, Modal, confirm_dialog, modal};
 pub use scroll::{ScrollContainer, ScrollState, scroll};
 pub use text::{Text, text};
 
