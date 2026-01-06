@@ -42,6 +42,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 32.0,
+                                    ..Default::default()
                                 },
                             ))
                             .child(text(
@@ -49,6 +50,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 16.0,
+                                    ..Default::default()
                                 },
                             ))
                             .child(
@@ -80,6 +82,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 24.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -87,6 +90,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_600,
                                                     size: 14.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -94,6 +98,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_600,
                                                     size: 14.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(

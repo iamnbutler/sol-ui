@@ -102,6 +102,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 28.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Explanation
@@ -110,6 +111,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 14.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Counter display
@@ -127,6 +129,7 @@ fn main() {
                                                 colors::RED_600
                                             },
                                             size: 64.0,
+                                            ..Default::default()
                                         },
                                     )),
                             )
@@ -136,6 +139,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_700,
                                     size: 16.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Button row
@@ -216,6 +220,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_500,
                                     size: 12.0,
+                                    ..Default::default()
                                 },
                             )),
                     ) as Box<dyn Element>
