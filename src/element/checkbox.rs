@@ -64,6 +64,10 @@ pub struct Checkbox {
 
 impl Checkbox {
     /// Create a new checkbox with the given checked state
+    ///
+    /// Note: For stable interaction, call `.with_key()` to set a unique identifier,
+    /// or use `.label()` which automatically generates a stable ID from the label text.
+    #[allow(deprecated)]
     pub fn new(checked: bool) -> Self {
         Self {
             checked,
@@ -82,6 +86,7 @@ impl Checkbox {
             corner_radius: 4.0,
             check_color: colors::WHITE,
             on_change: None,
+            // Use auto() for now, will be overridden when label() or with_key() is called
             element_id: ElementId::auto(),
             node_id: None,
             label_element: None,
@@ -96,8 +101,23 @@ impl Checkbox {
     }
 
     /// Set an optional label
+    ///
+    /// This also generates a stable element ID from the label text,
+    /// ensuring consistent click handling across frames.
     pub fn label(mut self, label: impl Into<String>) -> Self {
-        self.label = Some(label.into());
+        let label = label.into();
+        // Generate stable ID from label for consistent identity across frames
+        self.element_id = ElementId::stable(format!("checkbox:{}", label));
+        self.label = Some(label);
+        self
+    }
+
+    /// Set a unique key for this checkbox.
+    ///
+    /// Use this to ensure stable element identity across frames when
+    /// the label might not be unique (e.g., multiple checkboxes with same label).
+    pub fn with_key(mut self, key: impl AsRef<str>) -> Self {
+        self.element_id = ElementId::stable(format!("checkbox:{}", key.as_ref()));
         self
     }
 

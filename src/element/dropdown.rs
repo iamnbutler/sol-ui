@@ -193,6 +193,10 @@ pub struct Dropdown<T: ToString + Clone + 'static> {
 
 impl<T: ToString + Clone + 'static> Dropdown<T> {
     /// Create a new dropdown with simple value options
+    ///
+    /// Note: For stable interaction, call `.placeholder()` or `.with_key()` to set
+    /// a unique identifier that persists across frames.
+    #[allow(deprecated)]
     pub fn new(options: Vec<T>) -> Self {
         let options: Vec<DropdownOption<T>> =
             options.into_iter().map(DropdownOption::new).collect();
@@ -200,6 +204,7 @@ impl<T: ToString + Clone + 'static> Dropdown<T> {
         Self {
             options,
             placeholder: "Select...".into(),
+            // These will be overridden when placeholder() or with_key() is called
             element_id: ElementId::auto(),
             options_element_id: ElementId::auto(),
             handlers: Rc::new(RefCell::new(EventHandlers::new())),
@@ -246,14 +251,32 @@ impl<T: ToString + Clone + 'static> Dropdown<T> {
     }
 
     /// Set the placeholder text
+    ///
+    /// This also generates stable element IDs from the placeholder text,
+    /// ensuring consistent click handling across frames.
     pub fn placeholder(mut self, text: impl Into<String>) -> Self {
-        self.placeholder = text.into();
+        let text = text.into();
+        // Generate stable IDs from placeholder for consistent identity across frames
+        self.element_id = ElementId::stable(format!("dropdown:{}", text));
+        self.options_element_id = ElementId::stable(format!("dropdown-options:{}", text));
+        self.placeholder = text;
         self
     }
 
     /// Set a stable element ID
     pub fn with_id(mut self, id: impl Into<ElementId>) -> Self {
         self.element_id = id.into();
+        self
+    }
+
+    /// Set a unique key for this dropdown.
+    ///
+    /// Use this to ensure stable element identity across frames when
+    /// the placeholder might not be unique (e.g., multiple dropdowns with same placeholder).
+    pub fn with_key(mut self, key: impl AsRef<str>) -> Self {
+        let key = key.as_ref();
+        self.element_id = ElementId::stable(format!("dropdown:{}", key));
+        self.options_element_id = ElementId::stable(format!("dropdown-options:{}", key));
         self
     }
 
