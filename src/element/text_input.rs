@@ -373,22 +373,29 @@ impl TextInput {
         self
     }
 
-    /// Set horizontal padding
+    /// Set uniform padding (all sides)
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding_h = padding;
+        self.padding_v = padding;
+        self
+    }
+
+    /// Set horizontal and vertical padding separately
+    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.padding_h = horizontal;
+        self.padding_v = vertical;
+        self
+    }
+
+    /// Set horizontal padding only
     pub fn padding_h(mut self, padding: f32) -> Self {
         self.padding_h = padding;
         self
     }
 
-    /// Set vertical padding
+    /// Set vertical padding only
     pub fn padding_v(mut self, padding: f32) -> Self {
         self.padding_v = padding;
-        self
-    }
-
-    /// Set both paddings
-    pub fn padding(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.padding_h = horizontal;
-        self.padding_v = vertical;
         self
     }
 
