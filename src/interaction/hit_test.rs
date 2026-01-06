@@ -63,11 +63,21 @@ pub struct HitTestBuilder {
 }
 
 impl HitTestBuilder {
+    /// Create a new HitTestBuilder with specified layer index and z-base
     pub fn new(layer_index: usize, z_base: i32) -> Self {
         Self {
             entries: Vec::new(),
             current_z_base: z_base,
             layer_index,
+        }
+    }
+
+    /// Create a new HitTestBuilder with defaults (for testing)
+    pub fn default_for_testing() -> Self {
+        Self {
+            entries: Vec::new(),
+            current_z_base: 0,
+            layer_index: 0,
         }
     }
 
@@ -114,6 +124,16 @@ impl HitTestBuilder {
                 .then_with(|| b.layer_index.cmp(&a.layer_index))
         });
         self.entries.clone()
+    }
+
+    /// Get a reference to the current entries (for testing)
+    pub fn entries(&self) -> &[HitTestEntry] {
+        &self.entries
+    }
+
+    /// Clear all entries
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 }
 

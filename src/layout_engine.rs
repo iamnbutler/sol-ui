@@ -122,6 +122,12 @@ impl TaffyLayoutEngine {
     pub fn children(&self, id: NodeId) -> Result<Vec<NodeId>, taffy::TaffyError> {
         self.taffy.children(id)
     }
+
+    /// Get mutable access to the underlying taffy tree (for testing)
+    #[cfg(any(test, feature = "testing"))]
+    pub fn taffy_mut(&mut self) -> &mut TaffyTree<ElementData> {
+        &mut self.taffy
+    }
 }
 
 /// Measure function for elements that contain text

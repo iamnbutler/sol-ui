@@ -57,3 +57,12 @@ path = "examples/keyboard_input.rs"
 [[example]]
 name = "async_tasks"
 path = "examples/async_tasks.rs"
+
+[features]
+# Enable testing utilities for use in other crates
+testing = []
+
+[dev-dependencies]
+# Testing utilities
+pretty_assertions = "1.4"
+insta = { version = "1.41", features = ["yaml"] }
