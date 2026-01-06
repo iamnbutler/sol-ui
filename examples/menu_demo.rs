@@ -1,7 +1,7 @@
 use sol_ui::{
     app::app,
     color::colors,
-    element::{container, text},
+    element::{styled_text, container},
     layer::LayerOptions,
     platform::{KeyboardShortcut, Menu, MenuBar, MenuItem},
     style::TextStyle,
@@ -140,33 +140,37 @@ fn main() {
                         .items_center()
                         .justify_center()
                         .gap(20.0)
-                        .child(text(
+                        .child(styled_text(
                             "Menu Demo",
                             TextStyle {
                                 color: colors::WHITE,
                                 size: 28.0,
-                            },
+                            ..Default::default()
+                        },
                         ))
-                        .child(text(
+                        .child(styled_text(
                             "Try the menu bar above!",
                             TextStyle {
                                 color: colors::GRAY_400,
                                 size: 16.0,
-                            },
+                            ..Default::default()
+                        },
                         ))
-                        .child(text(
+                        .child(styled_text(
                             "Menu actions will print to console",
                             TextStyle {
                                 color: colors::GRAY_500,
                                 size: 14.0,
-                            },
+                            ..Default::default()
+                        },
                         ))
-                        .child(text(
+                        .child(styled_text(
                             "Use Cmd+N, Cmd+O, Cmd+S to trigger actions",
                             TextStyle {
                                 color: colors::GRAY_500,
                                 size: 14.0,
-                            },
+                            ..Default::default()
+                        },
                         )),
                 )
             });

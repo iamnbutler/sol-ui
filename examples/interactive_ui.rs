@@ -3,7 +3,7 @@
 use sol_ui::{
     app::app,
     color::{ColorExt, colors},
-    element::{column, container, row, text},
+    element::{styled_text, column, container, row},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
     style::TextStyle,
@@ -43,30 +43,21 @@ fn main() {
                             .justify_center()
                             .gap(20.0)
                             .child(
-                                text(
+                                styled_text(
                                     "Interactive UI Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 32.0,
-                                    },
+                                    TextStyle { color: colors::BLACK, size: 32.0, ..Default::default() },
                                 )
                             )
                             .child(
-                                text(
+                                styled_text(
                                     format!("Click count: {}", count),
-                                    TextStyle {
-                                        color: colors::GRAY_700,
-                                        size: 20.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_700, size: 20.0, ..Default::default() },
                                 )
                             )
                             .child(
-                                text(
+                                styled_text(
                                     format!("Hover count: {}", hover),
-                                    TextStyle {
-                                        color: colors::GRAY_600,
-                                        size: 16.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_600, size: 16.0, ..Default::default() },
                                 )
                             )
                             .child(
@@ -83,12 +74,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Increment",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -126,12 +114,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Decrement",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -169,12 +154,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Reset",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -197,12 +179,9 @@ fn main() {
                                 column()
                                     .gap(10.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Z-Order Demo (overlapping elements)",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -221,12 +200,9 @@ fn main() {
                                                     .items_center()
                                                     .justify_center()
                                                     .child(
-                                                        text(
+                                                        styled_text(
                                                             "Bottom Layer",
-                                                            TextStyle {
-                                                                color: colors::WHITE,
-                                                                size: 14.0,
-                                                            },
+                                                            TextStyle { color: colors::WHITE, size: 14.0, ..Default::default() },
                                                         )
                                                     )
                                                     .interactive()
@@ -249,12 +225,9 @@ fn main() {
                                                     .items_center()
                                                     .justify_center()
                                                     .child(
-                                                        text(
+                                                        styled_text(
                                                             "Top Layer",
-                                                            TextStyle {
-                                                                color: colors::WHITE,
-                                                                size: 14.0,
-                                                            },
+                                                            TextStyle { color: colors::WHITE, size: 14.0, ..Default::default() },
                                                         )
                                                     )
                                                     .interactive()
@@ -278,12 +251,9 @@ fn main() {
                                     .items_center()
                                     .justify_center()
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Disabled Button",
-                                            TextStyle {
-                                                color: colors::GRAY_500,
-                                                size: 16.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_500, size: 16.0, ..Default::default() },
                                         )
                                     )
                                     .interactive()

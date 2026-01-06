@@ -10,7 +10,7 @@
 use sol_ui::{
     app::app,
     color::colors,
-    element::{checkbox, column, container, row, text, CheckboxInteractable},
+    element::{styled_text, checkbox, column, container, row, CheckboxInteractable},
     layer::LayerOptions,
     style::TextStyle,
 };
@@ -60,12 +60,9 @@ fn main() {
                             .padding(40.0)
                             .gap(30.0)
                             .child(
-                                text(
+                                styled_text(
                                     "Checkbox Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 28.0,
-                                    },
+                                    TextStyle { color: colors::BLACK, size: 28.0, ..Default::default() },
                                 )
                             )
                             // Basic checkboxes section
@@ -73,12 +70,9 @@ fn main() {
                                 column()
                                     .gap(12.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Basic Checkboxes",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -117,12 +111,9 @@ fn main() {
                                 column()
                                     .gap(12.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Settings",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -153,12 +144,9 @@ fn main() {
                                 column()
                                     .gap(12.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Disabled States",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -181,12 +169,9 @@ fn main() {
                                 column()
                                     .gap(12.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             "Size Variations",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -197,10 +182,7 @@ fn main() {
                                                 checkbox(true)
                                                     .size(14.0)
                                                     .label("Small")
-                                                    .label_style(TextStyle {
-                                                        color: colors::BLACK,
-                                                        size: 12.0,
-                                                    })
+                                                    .label_style(TextStyle { color: colors::BLACK, size: 12.0, ..Default::default() })
                                                     .with_id(8)
                                                     .interactive_checkbox()
                                             )
@@ -215,10 +197,7 @@ fn main() {
                                                 checkbox(true)
                                                     .size(28.0)
                                                     .label("Large")
-                                                    .label_style(TextStyle {
-                                                        color: colors::BLACK,
-                                                        size: 18.0,
-                                                    })
+                                                    .label_style(TextStyle { color: colors::BLACK, size: 18.0, ..Default::default() })
                                                     .with_id(10)
                                                     .interactive_checkbox()
                                             )
@@ -231,15 +210,12 @@ fn main() {
                                     .padding(16.0)
                                     .corner_radius(8.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             format!(
                                                 "Current state: Option1={}, Option2={}, Option3={}, Notifications={}, DarkMode={}",
                                                 opt1, opt2, opt3, notif, dark
                                             ),
-                                            TextStyle {
-                                                color: colors::GRAY_600,
-                                                size: 14.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_600, size: 14.0, ..Default::default() },
                                         )
                                     )
                             )

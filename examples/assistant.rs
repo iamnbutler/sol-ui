@@ -2,7 +2,6 @@ use sol_ui::{
     app::app,
     element::{row, text},
     layer::{LayerManager, LayerOptions},
-    style::TextStyle,
 };
 
 fn main() {
@@ -40,7 +39,7 @@ let ui_layer_options: LayerOptions = LayerOptions::default()
             layer_manager.add_ui_layer(10, ui_layer_options, move || {
                 Box::new(
                     row().child(
-                        row().child(text("assistant", TextStyle::default()))
+                        row().child(text("assistant"))
                     ))
           });
         })

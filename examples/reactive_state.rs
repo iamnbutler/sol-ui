@@ -12,7 +12,7 @@
 use sol_ui::{
     app::app,
     color::colors,
-    element::{button, container, row, text, Element},
+    element::{styled_text, button, container, row, Element},
     entity::{new_entity, observe, update_entity, Entity},
     layer::LayerOptions,
     style::TextStyle,
@@ -97,19 +97,21 @@ fn main() {
                             .justify_center()
                             .gap(24.0)
                             // Title
-                            .child(text(
+                            .child(styled_text(
                                 "Reactive State Demo",
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 28.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Explanation
-                            .child(text(
+                            .child(styled_text(
                                 "Uses observe() + update_entity() for automatic re-renders",
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 14.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Counter display
@@ -118,7 +120,7 @@ fn main() {
                                     .background(colors::WHITE)
                                     .padding(32.0)
                                     .corner_radius(12.0)
-                                    .child(text(
+                                    .child(styled_text(
                                         count.to_string(),
                                         TextStyle {
                                             color: if count >= 0 {
@@ -127,15 +129,17 @@ fn main() {
                                                 colors::RED_600
                                             },
                                             size: 64.0,
+                                            ..Default::default()
                                         },
                                     )),
                             )
                             // Status text (derived value)
-                            .child(text(
+                            .child(styled_text(
                                 status_text,
                                 TextStyle {
                                     color: colors::GRAY_700,
                                     size: 16.0,
+                                    ..Default::default()
                                 },
                             ))
                             // Button row
@@ -211,11 +215,12 @@ fn main() {
                                     }),
                             )
                             // Total clicks display
-                            .child(text(
+                            .child(styled_text(
                                 format!("Total button clicks: {}", total),
                                 TextStyle {
                                     color: colors::GRAY_500,
                                     size: 12.0,
+                                    ..Default::default()
                                 },
                             )),
                     ) as Box<dyn Element>

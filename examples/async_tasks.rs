@@ -9,7 +9,7 @@
 use sol_ui::{
     app::app,
     color::{ColorExt, colors},
-    element::{column, container, row, text},
+    element::{styled_text, column, container, row},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
     style::TextStyle,
@@ -83,22 +83,16 @@ fn main() {
                             .gap(20.0)
                             // Title
                             .child(
-                                text(
+                                styled_text(
                                     "Async Task Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 32.0,
-                                    },
+                                    TextStyle { color: colors::BLACK, size: 32.0, ..Default::default() },
                                 )
                             )
                             // Description
                             .child(
-                                text(
+                                styled_text(
                                     "Background tasks run without blocking the UI",
-                                    TextStyle {
-                                        color: colors::GRAY_600,
-                                        size: 16.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_600, size: 16.0, ..Default::default() },
                                 )
                             )
                             // Stats row
@@ -109,21 +103,15 @@ fn main() {
                                         column()
                                             .items_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     format!("{}", tasks),
-                                                    TextStyle {
-                                                        color: colors::BLUE_600,
-                                                        size: 36.0,
-                                                    },
+                                                    TextStyle { color: colors::BLUE_600, size: 36.0, ..Default::default() },
                                                 )
                                             )
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Spawned",
-                                                    TextStyle {
-                                                        color: colors::GRAY_500,
-                                                        size: 14.0,
-                                                    },
+                                                    TextStyle { color: colors::GRAY_500, size: 14.0, ..Default::default() },
                                                 )
                                             )
                                     )
@@ -131,21 +119,15 @@ fn main() {
                                         column()
                                             .items_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     format!("{}", completed),
-                                                    TextStyle {
-                                                        color: colors::GREEN_600,
-                                                        size: 36.0,
-                                                    },
+                                                    TextStyle { color: colors::GREEN_600, size: 36.0, ..Default::default() },
                                                 )
                                             )
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Completed",
-                                                    TextStyle {
-                                                        color: colors::GRAY_500,
-                                                        size: 14.0,
-                                                    },
+                                                    TextStyle { color: colors::GRAY_500, size: 14.0, ..Default::default() },
                                                 )
                                             )
                                     )
@@ -161,23 +143,17 @@ fn main() {
                                     .items_center()
                                     .justify_center()
                                     .child(
-                                        text(
+                                        styled_text(
                                             status_text,
-                                            TextStyle {
-                                                color: status_color,
-                                                size: 16.0,
-                                            },
+                                            TextStyle { color: status_color, size: 16.0, ..Default::default() },
                                         )
                                     )
                             )
                             // Last result
                             .child(
-                                text(
+                                styled_text(
                                     format!("Last result: {}", last),
-                                    TextStyle {
-                                        color: colors::GRAY_700,
-                                        size: 14.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_700, size: 14.0, ..Default::default() },
                                 )
                             )
                             // Buttons
@@ -195,12 +171,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Long Task (2s)",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 14.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 14.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -251,12 +224,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Quick (100ms)",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 14.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 14.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -306,12 +276,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Spawn 10 Tasks",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 14.0,
-                                                    },
+                                                    TextStyle { color: colors::WHITE, size: 14.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -355,12 +322,9 @@ fn main() {
                             )
                             // Help text
                             .child(
-                                text(
+                                styled_text(
                                     "UI remains responsive - try clicking during long tasks!",
-                                    TextStyle {
-                                        color: colors::GRAY_500,
-                                        size: 14.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_500, size: 14.0, ..Default::default() },
                                 )
                             )
                     )

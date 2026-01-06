@@ -9,7 +9,7 @@
 use sol_ui::{
     app::app,
     color::{ColorExt, colors},
-    element::{column, container, text},
+    element::{styled_text, column, container},
     interaction::Interactable,
     layer::{Key, LayerOptions, MouseButton},
     style::TextStyle,
@@ -53,21 +53,15 @@ fn main() {
                             .justify_center()
                             .gap(20.0)
                             .child(
-                                text(
+                                styled_text(
                                     "Keyboard Input Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 32.0,
-                                    },
+                                    TextStyle { color: colors::BLACK, size: 32.0, ..Default::default() },
                                 )
                             )
                             .child(
-                                text(
+                                styled_text(
                                     "Press Tab to navigate between boxes, type to see input",
-                                    TextStyle {
-                                        color: colors::GRAY_600,
-                                        size: 16.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_600, size: 16.0, ..Default::default() },
                                 )
                             )
                             // Status display
@@ -75,30 +69,21 @@ fn main() {
                                 column()
                                     .gap(8.0)
                                     .child(
-                                        text(
+                                        styled_text(
                                             format!("Last key: {}", last_key_val),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
-                                        text(
+                                        styled_text(
                                             format!("Focused: {}", focused_box_val),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                                     .child(
-                                        text(
+                                        styled_text(
                                             format!("Typed: {}", if typed_text_val.is_empty() { "(empty)" } else { &typed_text_val }),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
+                                            TextStyle { color: colors::GRAY_700, size: 18.0, ..Default::default() },
                                         )
                                     )
                             )
@@ -118,12 +103,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Box 1 (Blue)",
-                                                    TextStyle {
-                                                        color: colors::BLUE_600,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::BLUE_600, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -184,12 +166,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Box 2 (Green)",
-                                                    TextStyle {
-                                                        color: colors::GREEN_600,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::GREEN_600, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -246,12 +225,9 @@ fn main() {
                                             .items_center()
                                             .justify_center()
                                             .child(
-                                                text(
+                                                styled_text(
                                                     "Box 3 (Purple)",
-                                                    TextStyle {
-                                                        color: colors::PURPLE_600,
-                                                        size: 16.0,
-                                                    },
+                                                    TextStyle { color: colors::PURPLE_600, size: 16.0, ..Default::default() },
                                                 )
                                             )
                                             .interactive()
@@ -298,12 +274,9 @@ fn main() {
                                     )
                             )
                             .child(
-                                text(
+                                styled_text(
                                     "Tips: Tab/Shift+Tab to navigate | Escape to clear | Type any key",
-                                    TextStyle {
-                                        color: colors::GRAY_500,
-                                        size: 14.0,
-                                    },
+                                    TextStyle { color: colors::GRAY_500, size: 14.0, ..Default::default() },
                                 )
                             )
                     )
