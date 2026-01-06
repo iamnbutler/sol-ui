@@ -65,6 +65,7 @@ fn main() {
                                     TextStyle {
                                         color: colors::BLACK,
                                         size: 28.0,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -78,6 +79,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -122,6 +124,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -158,6 +161,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -186,6 +190,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -200,6 +205,7 @@ fn main() {
                                                     .label_style(TextStyle {
                                                         color: colors::BLACK,
                                                         size: 12.0,
+                                                        ..Default::default()
                                                     })
                                                     .with_id(8)
                                                     .interactive_checkbox()
@@ -218,6 +224,7 @@ fn main() {
                                                     .label_style(TextStyle {
                                                         color: colors::BLACK,
                                                         size: 18.0,
+                                                        ..Default::default()
                                                     })
                                                     .with_id(10)
                                                     .interactive_checkbox()
@@ -239,6 +246,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_600,
                                                 size: 14.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
