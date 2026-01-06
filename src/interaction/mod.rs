@@ -11,11 +11,16 @@ pub mod element;
 pub mod events;
 pub mod hit_test;
 pub mod registry;
+pub mod shortcuts;
 
 pub use element::{Interactable, InteractiveElement};
 pub use events::{EventHandlers, InteractionEvent, InteractionState};
 pub use hit_test::{HitTestBuilder, HitTestEntry, HitTestResult};
 pub use registry::{ElementRegistry, get_element_state, register_element};
+pub use shortcuts::{
+    Shortcut, ShortcutConflict, ShortcutId, ShortcutInfo, ShortcutMatch, ShortcutModifiers,
+    ShortcutRegistry, ShortcutScope,
+};
 
 /// Manages interaction state across the entire UI
 pub struct InteractionSystem {
@@ -45,6 +50,12 @@ pub struct InteractionSystem {
 
     /// Whether mouse is currently over the window
     mouse_in_window: bool,
+
+    /// Keyboard shortcuts registry
+    shortcut_registry: ShortcutRegistry,
+
+    /// Whether to process shortcuts before element handlers
+    shortcuts_enabled: bool,
 }
 
 impl InteractionSystem {
@@ -59,7 +70,16 @@ impl InteractionSystem {
             last_hit_test: Vec::new(),
             focusable_elements: Vec::new(),
             mouse_in_window: false,
+            shortcut_registry: ShortcutRegistry::new(),
+            shortcuts_enabled: true,
         }
+    }
+
+    /// Create a new InteractionSystem with standard macOS shortcuts pre-registered
+    pub fn with_standard_shortcuts() -> Self {
+        let mut system = Self::new();
+        shortcuts::standard::register_standard_shortcuts(&mut system.shortcut_registry);
+        system
     }
 
     /// Get the currently focused element
@@ -239,6 +259,20 @@ impl InteractionSystem {
                 events.extend(self.focus_next());
             }
             return events;
+        }
+
+        // Check for shortcuts first (only on initial key press, not repeats)
+        if self.shortcuts_enabled && !is_repeat {
+            if let Some(shortcut_match) =
+                self.shortcut_registry.find_match(key, &modifiers, self.focused_element)
+            {
+                events.push(InteractionEvent::ShortcutTriggered {
+                    shortcut_id: shortcut_match.id,
+                    action_name: shortcut_match.action_name,
+                });
+                // Shortcut consumed the key event
+                return events;
+            }
         }
 
         // Route keyboard event to focused element
@@ -466,6 +500,64 @@ impl InteractionSystem {
     /// Get current modifier state
     pub fn current_modifiers(&self) -> Modifiers {
         self.current_modifiers
+    }
+
+    // --- Shortcut methods ---
+
+    /// Get a reference to the shortcut registry
+    pub fn shortcuts(&self) -> &ShortcutRegistry {
+        &self.shortcut_registry
+    }
+
+    /// Get a mutable reference to the shortcut registry
+    pub fn shortcuts_mut(&mut self) -> &mut ShortcutRegistry {
+        &mut self.shortcut_registry
+    }
+
+    /// Enable or disable shortcut processing
+    pub fn set_shortcuts_enabled(&mut self, enabled: bool) {
+        self.shortcuts_enabled = enabled;
+    }
+
+    /// Check if shortcuts are enabled
+    pub fn shortcuts_enabled(&self) -> bool {
+        self.shortcuts_enabled
+    }
+
+    /// Register a global shortcut
+    pub fn register_shortcut(
+        &mut self,
+        shortcut: Shortcut,
+        action_name: impl Into<String>,
+    ) -> ShortcutId {
+        self.shortcut_registry
+            .register(shortcut, action_name, ShortcutScope::Global)
+    }
+
+    /// Register a shortcut that's only active when a specific element is focused
+    pub fn register_focused_shortcut(
+        &mut self,
+        shortcut: Shortcut,
+        action_name: impl Into<String>,
+        element_id: ElementId,
+    ) -> ShortcutId {
+        self.shortcut_registry
+            .register(shortcut, action_name, ShortcutScope::Focused(element_id))
+    }
+
+    /// Unregister a shortcut
+    pub fn unregister_shortcut(&mut self, id: ShortcutId) {
+        self.shortcut_registry.unregister(id);
+    }
+
+    /// Get a shortcut hint string for menus/tooltips (e.g., "⌘C" for copy)
+    pub fn shortcut_hint(&self, action_name: &str) -> Option<String> {
+        self.shortcut_registry.get_shortcut_hint(action_name)
+    }
+
+    /// Detect shortcut conflicts
+    pub fn detect_shortcut_conflicts(&self) -> Vec<ShortcutConflict> {
+        self.shortcut_registry.detect_conflicts()
     }
 }
 
