@@ -5,6 +5,7 @@ use cocoa::{
 use core_graphics::geometry::CGSize;
 
 use crate::layer::{InputEvent, Key, Modifiers, MouseButton};
+use glam::Vec2;
 use metal::MetalLayer;
 use objc::{
     class,
@@ -40,23 +41,14 @@ pub struct NSApplication {
 // Window delegate to handle events
 static mut WINDOW_DELEGATE_CLASS: *const Class = ptr::null();
 static mut VIEW_CLASS: *const Class = ptr::null();
-static mut DISPLAY_LINK_TARGET_CLASS: *const Class = ptr::null();
 
 thread_local! {
     static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
     static CURRENT_MODIFIERS: RefCell<Modifiers> = RefCell::new(Modifiers::new());
-    /// Flag indicating if we're in a live resize operation
-    static IS_LIVE_RESIZING: RefCell<bool> = RefCell::new(false);
-    /// CADisplayLink instance for live resize rendering
-    static DISPLAY_LINK: RefCell<Option<*mut Object>> = RefCell::new(None);
-    /// Callback to render during live resize
-    static RESIZE_RENDER_CALLBACK: RefCell<Option<Box<dyn FnMut()>>> = RefCell::new(None);
-    /// Stored reference to the metal layer for resize updates
-    static RESIZE_METAL_LAYER: RefCell<Option<*const c_void>> = RefCell::new(None);
-    /// Stored reference to ns_window for size queries during resize
-    static RESIZE_NS_WINDOW: RefCell<Option<*mut Object>> = RefCell::new(None);
-    /// Flag to signal that a resize render is needed
-    static RESIZE_RENDER_REQUESTED: RefCell<bool> = RefCell::new(false);
+    /// When true, window close is intercepted and WindowCloseRequested event is emitted
+    static CLOSE_CONFIRMATION_ENABLED: RefCell<bool> = RefCell::new(false);
+    /// Set to true to allow window close to proceed (used after user confirms)
+    static CLOSE_CONFIRMED: RefCell<bool> = RefCell::new(false);
 }
 
 #[allow(dead_code)] // dead ns_view is a false positive
@@ -141,14 +133,6 @@ impl Window {
 
         // Enable mouse moved events
         let _: () = unsafe { msg_send![ns_window, setAcceptsMouseMovedEvents: YES] };
-
-        // Store references for live resize callbacks
-        RESIZE_METAL_LAYER.with(|metal_layer_ref| {
-            *metal_layer_ref.borrow_mut() = Some(layer.as_ref() as *const _ as *const c_void);
-        });
-        RESIZE_NS_WINDOW.with(|window_ref| {
-            *window_ref.borrow_mut() = Some(ns_window);
-        });
 
         Arc::new(Window {
             ns_window,
@@ -434,41 +418,242 @@ impl Window {
         CURRENT_MODIFIERS.with(|m| *m.borrow())
     }
 
-    /// Set the callback to be called during live resize for rendering
-    ///
-    /// This callback will be invoked by CADisplayLink during window resize
-    /// operations, allowing smooth rendering while the resize is in progress.
-    pub fn set_resize_render_callback<F>(&self, callback: F)
-    where
-        F: FnMut() + 'static,
-    {
-        // Store references needed during resize
-        RESIZE_METAL_LAYER.with(|layer| {
-            *layer.borrow_mut() = Some(self.metal_layer.as_ref() as *const _ as *const c_void);
-        });
-        RESIZE_NS_WINDOW.with(|window| {
-            *window.borrow_mut() = Some(self.ns_window);
-        });
-        RESIZE_RENDER_CALLBACK.with(|cb| {
-            *cb.borrow_mut() = Some(Box::new(callback));
-        });
+    // ===================
+    // Window Management
+    // ===================
+
+    /// Set the window title
+    pub fn set_title(&self, title: &str) {
+        let title = unsafe { ns_string(title) };
+        let _: () = unsafe { msg_send![self.ns_window, setTitle: title] };
     }
 
-    /// Check if the window is currently in a live resize operation
-    pub fn is_live_resizing(&self) -> bool {
-        IS_LIVE_RESIZING.with(|resizing| *resizing.borrow())
+    /// Get the current window title
+    pub fn title(&self) -> String {
+        unsafe {
+            let title: *mut Object = msg_send![self.ns_window, title];
+            if title.is_null() {
+                return String::new();
+            }
+            let utf8: *const i8 = msg_send![title, UTF8String];
+            if utf8.is_null() {
+                return String::new();
+            }
+            std::ffi::CStr::from_ptr(utf8)
+                .to_string_lossy()
+                .into_owned()
+        }
     }
 
-    /// Update the metal layer drawable size to match current window size
-    pub fn update_drawable_size(&self) {
+    /// Minimize the window
+    pub fn minimize(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, miniaturize: nil] };
+    }
+
+    /// Check if the window is minimized
+    pub fn is_minimized(&self) -> bool {
+        let minimized: BOOL = unsafe { msg_send![self.ns_window, isMiniaturized] };
+        minimized == YES
+    }
+
+    /// Restore the window from minimized state
+    pub fn restore(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, deminiaturize: nil] };
+    }
+
+    /// Maximize the window (zoom to fill screen)
+    pub fn maximize(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, zoom: nil] };
+    }
+
+    /// Check if the window is maximized (zoomed)
+    pub fn is_maximized(&self) -> bool {
+        let zoomed: BOOL = unsafe { msg_send![self.ns_window, isZoomed] };
+        zoomed == YES
+    }
+
+    /// Enter fullscreen mode
+    pub fn enter_fullscreen(&self) {
+        let is_fullscreen = self.is_fullscreen();
+        if !is_fullscreen {
+            let _: () = unsafe { msg_send![self.ns_window, toggleFullScreen: nil] };
+        }
+    }
+
+    /// Exit fullscreen mode
+    pub fn exit_fullscreen(&self) {
+        let is_fullscreen = self.is_fullscreen();
+        if is_fullscreen {
+            let _: () = unsafe { msg_send![self.ns_window, toggleFullScreen: nil] };
+        }
+    }
+
+    /// Toggle fullscreen mode
+    pub fn toggle_fullscreen(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, toggleFullScreen: nil] };
+    }
+
+    /// Check if the window is in fullscreen mode
+    pub fn is_fullscreen(&self) -> bool {
+        let style_mask: u64 = unsafe { msg_send![self.ns_window, styleMask] };
+        // NSWindowStyleMaskFullScreen = 1 << 14
+        const NS_FULLSCREEN_MASK: u64 = 1 << 14;
+        (style_mask & NS_FULLSCREEN_MASK) != 0
+    }
+
+    /// Get the window position (origin of the frame in screen coordinates)
+    pub fn position(&self) -> (f32, f32) {
+        let frame: NSRect = unsafe { msg_send![self.ns_window, frame] };
+        (frame.origin.x as f32, frame.origin.y as f32)
+    }
+
+    /// Set the window position
+    pub fn set_position(&self, x: f32, y: f32) {
+        let origin = NSPoint::new(x as f64, y as f64);
+        let _: () = unsafe { msg_send![self.ns_window, setFrameOrigin: origin] };
+    }
+
+    /// Set the window size (content area size)
+    pub fn set_size(&self, width: f32, height: f32) {
+        let size = NSSize::new(width as f64, height as f64);
+        let _: () = unsafe { msg_send![self.ns_window, setContentSize: size] };
+
+        // Also update the metal layer drawable size
         let scale_factor: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
-        let frame: NSRect = unsafe { msg_send![self.ns_window, contentLayoutRect] };
-        let new_size = CGSize::new(
-            frame.size.width * scale_factor,
-            frame.size.height * scale_factor,
+        self.metal_layer.set_drawable_size(CGSize::new(
+            width as f64 * scale_factor,
+            height as f64 * scale_factor,
+        ));
+    }
+
+    /// Set both position and size at once
+    pub fn set_frame(&self, x: f32, y: f32, width: f32, height: f32) {
+        let frame = NSRect::new(
+            NSPoint::new(x as f64, y as f64),
+            NSSize::new(width as f64, height as f64),
         );
-        self.metal_layer.set_drawable_size(new_size);
-        self.metal_layer.set_contents_scale(scale_factor);
+        let _: () = unsafe { msg_send![self.ns_window, setFrame: frame display: YES] };
+
+        // Also update the metal layer drawable size
+        let scale_factor: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
+        self.metal_layer.set_drawable_size(CGSize::new(
+            width as f64 * scale_factor,
+            height as f64 * scale_factor,
+        ));
+    }
+
+    /// Get the full window frame (including title bar) in screen coordinates
+    pub fn frame(&self) -> (f32, f32, f32, f32) {
+        let frame: NSRect = unsafe { msg_send![self.ns_window, frame] };
+        (
+            frame.origin.x as f32,
+            frame.origin.y as f32,
+            frame.size.width as f32,
+            frame.size.height as f32,
+        )
+    }
+
+    /// Center the window on the screen
+    pub fn center(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, center] };
+    }
+
+    /// Check if the window has focus (is key window)
+    pub fn is_focused(&self) -> bool {
+        let is_key: BOOL = unsafe { msg_send![self.ns_window, isKeyWindow] };
+        is_key == YES
+    }
+
+    /// Request focus for this window
+    pub fn focus(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, makeKeyAndOrderFront: nil] };
+    }
+
+    /// Order the window to the front without making it key
+    pub fn order_front(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, orderFront: nil] };
+    }
+
+    /// Order the window to the back
+    pub fn order_back(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, orderBack: nil] };
+    }
+
+    /// Close the window
+    pub fn close(&self) {
+        let _: () = unsafe { msg_send![self.ns_window, close] };
+    }
+
+    // ===================
+    // Close Confirmation
+    // ===================
+
+    /// Enable close confirmation. When enabled, attempting to close the window
+    /// will emit a WindowCloseRequested event instead of closing immediately.
+    /// Call `confirm_close()` to actually close the window.
+    pub fn set_close_confirmation(&self, enabled: bool) {
+        CLOSE_CONFIRMATION_ENABLED.with(|c| *c.borrow_mut() = enabled);
+    }
+
+    /// Check if close confirmation is enabled
+    pub fn close_confirmation_enabled(&self) -> bool {
+        CLOSE_CONFIRMATION_ENABLED.with(|c| *c.borrow())
+    }
+
+    /// Confirm the close and actually close the window.
+    /// Only has effect when close confirmation is enabled.
+    pub fn confirm_close(&self) {
+        CLOSE_CONFIRMED.with(|c| *c.borrow_mut() = true);
+        self.close();
+    }
+
+    // ===================
+    // Position/Size Persistence
+    // ===================
+
+    /// Save the current window frame to user defaults with the given key
+    pub fn save_frame(&self, key: &str) {
+        let key_str = unsafe { ns_string(key) };
+        let _: () = unsafe { msg_send![self.ns_window, saveFrameUsingName: key_str] };
+    }
+
+    /// Restore the window frame from user defaults with the given key.
+    /// Returns true if a saved frame was found and applied.
+    pub fn restore_frame(&self, key: &str) -> bool {
+        let key_str = unsafe { ns_string(key) };
+        let result: BOOL = unsafe { msg_send![self.ns_window, setFrameUsingName: key_str] };
+        result == YES
+    }
+
+    /// Enable automatic frame saving with the given key.
+    /// The window will automatically save its frame when moved/resized.
+    pub fn set_frame_autosave_name(&self, name: &str) -> bool {
+        let name_str = unsafe { ns_string(name) };
+        let result: BOOL = unsafe { msg_send![self.ns_window, setFrameAutosaveName: name_str] };
+        result == YES
+    }
+
+    /// Get the current frame autosave name, if any
+    pub fn frame_autosave_name(&self) -> Option<String> {
+        unsafe {
+            let name: *mut Object = msg_send![self.ns_window, frameAutosaveName];
+            if name.is_null() {
+                return None;
+            }
+            let length: usize = msg_send![name, length];
+            if length == 0 {
+                return None;
+            }
+            let utf8: *const i8 = msg_send![name, UTF8String];
+            if utf8.is_null() {
+                return None;
+            }
+            Some(
+                std::ffi::CStr::from_ptr(utf8)
+                    .to_string_lossy()
+                    .into_owned(),
+            )
+        }
     }
 }
 
@@ -479,18 +664,28 @@ unsafe fn ensure_classes_initialized() {
     if unsafe { VIEW_CLASS.is_null() } {
         unsafe { create_view_class() };
     }
-    if unsafe { DISPLAY_LINK_TARGET_CLASS.is_null() } {
-        unsafe { create_display_link_target_class() };
-    }
 }
 
 unsafe fn create_window_delegate_class() {
     let superclass = class!(NSObject);
     let mut decl = ClassDecl::new("ToyUIWindowDelegate", superclass).unwrap();
 
-    // Add windowShouldClose method
+    // windowShouldClose: - handle close confirmation
     extern "C" fn window_should_close(_: &Object, _: Sel, _: *mut Object) -> BOOL {
-        YES
+        let confirmation_enabled = CLOSE_CONFIRMATION_ENABLED.with(|c| *c.borrow());
+        let close_confirmed = CLOSE_CONFIRMED.with(|c| *c.borrow());
+
+        if confirmation_enabled && !close_confirmed {
+            // Emit close requested event instead of closing
+            PENDING_EVENTS.with(|events| {
+                events.borrow_mut().push(InputEvent::WindowCloseRequested);
+            });
+            NO // Prevent close
+        } else {
+            // Reset confirmed flag for next time
+            CLOSE_CONFIRMED.with(|c| *c.borrow_mut() = false);
+            YES // Allow close
+        }
     }
 
     unsafe {
@@ -500,7 +695,7 @@ unsafe fn create_window_delegate_class() {
         );
     }
 
-    // Add windowWillClose method
+    // windowWillClose: - terminate app when window closes
     extern "C" fn window_will_close(_: &Object, _: Sel, _: *mut Object) {
         let app = unsafe { NSApplication::shared() };
         let _: () = unsafe { msg_send![app, terminate: nil] };
@@ -513,35 +708,42 @@ unsafe fn create_window_delegate_class() {
         );
     }
 
-    // Add windowDidResize method - called during live resize
+    // windowDidBecomeKey: - window gained focus
+    extern "C" fn window_did_become_key(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowFocused);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidBecomeKey:),
+            window_did_become_key as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // windowDidResignKey: - window lost focus
+    extern "C" fn window_did_resign_key(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowBlurred);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidResignKey:),
+            window_did_resign_key as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // windowDidResize: - window was resized
     extern "C" fn window_did_resize(_: &Object, _: Sel, notification: *mut Object) {
         unsafe {
-            // Get the window from the notification
             let window: *mut Object = msg_send![notification, object];
-
-            // Get the content view and its layer
-            let content_view: *mut Object = msg_send![window, contentView];
-            let layer: *mut Object = msg_send![content_view, layer];
-
-            // Get the new content size
-            let frame: NSRect = msg_send![window, contentLayoutRect];
-            let width = frame.size.width;
-            let height = frame.size.height;
-
-            // Get the backing scale factor
-            let scale_factor: f64 = msg_send![window, backingScaleFactor];
-
-            // Update the layer's drawable size
-            let drawable_size = CGSize::new(width * scale_factor, height * scale_factor);
-            let _: () = msg_send![layer, setDrawableSize: drawable_size];
-
-            // Also update the layer's contents scale
-            let _: () = msg_send![layer, setContentsScale: scale_factor];
-
-            // Push resize event so the app knows to re-render
+            let content_rect: NSRect = msg_send![window, contentLayoutRect];
             PENDING_EVENTS.with(|events| {
-                events.borrow_mut().push(InputEvent::WindowResize {
-                    size: glam::Vec2::new(width as f32, height as f32),
+                events.borrow_mut().push(InputEvent::WindowResized {
+                    size: Vec2::new(content_rect.size.width as f32, content_rect.size.height as f32),
                 });
             });
         }
@@ -554,62 +756,79 @@ unsafe fn create_window_delegate_class() {
         );
     }
 
-    // Add windowWillStartLiveResize: - create CADisplayLink for smooth rendering
-    extern "C" fn window_will_start_live_resize(_: &Object, _: Sel, _: *mut Object) {
-        IS_LIVE_RESIZING.with(|resizing| {
-            *resizing.borrow_mut() = true;
-        });
-
-        // Create CADisplayLink target
-        let target: *mut Object = unsafe { msg_send![DISPLAY_LINK_TARGET_CLASS, new] };
-
-        // Create CADisplayLink
-        let display_link: *mut Object = unsafe {
-            msg_send![
-                class!(CADisplayLink),
-                displayLinkWithTarget:target
-                selector:sel!(displayLinkFired:)
-            ]
-        };
-
-        // Get the main run loop
-        let run_loop: *mut Object = unsafe { msg_send![class!(NSRunLoop), mainRunLoop] };
-
-        // Add to NSRunLoopCommonModes so it fires during resize tracking
-        let common_modes = unsafe { ns_string("kCFRunLoopCommonModes") };
-        let _: () = unsafe { msg_send![display_link, addToRunLoop:run_loop forMode:common_modes] };
-
-        // Store the display link
-        DISPLAY_LINK.with(|link| {
-            *link.borrow_mut() = Some(display_link);
-        });
+    // windowDidMove: - window was moved
+    extern "C" fn window_did_move(_: &Object, _: Sel, notification: *mut Object) {
+        unsafe {
+            let window: *mut Object = msg_send![notification, object];
+            let frame: NSRect = msg_send![window, frame];
+            PENDING_EVENTS.with(|events| {
+                events.borrow_mut().push(InputEvent::WindowMoved {
+                    position: Vec2::new(frame.origin.x as f32, frame.origin.y as f32),
+                });
+            });
+        }
     }
 
     unsafe {
         decl.add_method(
-            sel!(windowWillStartLiveResize:),
-            window_will_start_live_resize as extern "C" fn(&Object, Sel, *mut Object),
+            sel!(windowDidMove:),
+            window_did_move as extern "C" fn(&Object, Sel, *mut Object),
         );
     }
 
-    // Add windowDidEndLiveResize: - stop and remove CADisplayLink
-    extern "C" fn window_did_end_live_resize(_: &Object, _: Sel, _: *mut Object) {
-        IS_LIVE_RESIZING.with(|resizing| {
-            *resizing.borrow_mut() = false;
-        });
-
-        // Invalidate and remove the display link
-        DISPLAY_LINK.with(|link| {
-            if let Some(display_link) = link.borrow_mut().take() {
-                let _: () = unsafe { msg_send![display_link, invalidate] };
-            }
+    // windowDidMiniaturize: - window was minimized
+    extern "C" fn window_did_miniaturize(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowMinimized);
         });
     }
 
     unsafe {
         decl.add_method(
-            sel!(windowDidEndLiveResize:),
-            window_did_end_live_resize as extern "C" fn(&Object, Sel, *mut Object),
+            sel!(windowDidMiniaturize:),
+            window_did_miniaturize as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // windowDidDeminiaturize: - window was restored from minimized
+    extern "C" fn window_did_deminiaturize(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowRestored);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidDeminiaturize:),
+            window_did_deminiaturize as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // windowDidEnterFullScreen: - entered fullscreen
+    extern "C" fn window_did_enter_fullscreen(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowEnteredFullscreen);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidEnterFullScreen:),
+            window_did_enter_fullscreen as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // windowDidExitFullScreen: - exited fullscreen
+    extern "C" fn window_did_exit_fullscreen(_: &Object, _: Sel, _: *mut Object) {
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::WindowExitedFullscreen);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidExitFullScreen:),
+            window_did_exit_fullscreen as extern "C" fn(&Object, Sel, *mut Object),
         );
     }
 
@@ -707,87 +926,9 @@ unsafe fn create_view_class() {
     }
 }
 
-/// Create the display link target class with the callback method
-unsafe fn create_display_link_target_class() {
-    let superclass = class!(NSObject);
-    let mut decl = ClassDecl::new("ToyUIDisplayLinkTarget", superclass).unwrap();
-
-    // The displayLinkFired: callback - updates drawable size and triggers render
-    extern "C" fn display_link_fired(_: &Object, _: Sel, _: *mut Object) {
-        // Update the metal layer drawable size
-        RESIZE_NS_WINDOW.with(|window_ref| {
-            RESIZE_METAL_LAYER.with(|layer_ref| {
-                if let (Some(ns_window), Some(metal_layer_ptr)) =
-                    (*window_ref.borrow(), *layer_ref.borrow())
-                {
-                    unsafe {
-                        // Get current scale factor and frame
-                        let scale_factor: f64 = msg_send![ns_window, backingScaleFactor];
-                        let frame: NSRect = msg_send![ns_window, contentLayoutRect];
-
-                        // Update metal layer drawable size
-                        let metal_layer = metal_layer_ptr as *mut Object;
-                        let new_size = CGSize::new(
-                            frame.size.width * scale_factor,
-                            frame.size.height * scale_factor,
-                        );
-                        let _: () = msg_send![metal_layer, setDrawableSize: new_size];
-                        let _: () = msg_send![metal_layer, setContentsScale: scale_factor];
-
-                        // Post a dummy event to wake up the main event loop
-                        // This allows the app to render during resize
-                        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
-                        let event: *mut Object = msg_send![
-                            class!(NSEvent),
-                            otherEventWithType: 15u64  // NSEventTypeApplicationDefined
-                            location: NSPoint::new(0.0, 0.0)
-                            modifierFlags: 0u64
-                            timestamp: 0.0f64
-                            windowNumber: 0i64
-                            context: nil
-                            subtype: 0i16
-                            data1: 0i64
-                            data2: 0i64
-                        ];
-                        let _: () = msg_send![app, postEvent: event atStart: YES];
-                    }
-                }
-            });
-        });
-
-        // Call the render callback if set
-        RESIZE_RENDER_CALLBACK.with(|callback| {
-            if let Some(ref mut cb) = *callback.borrow_mut() {
-                cb();
-            }
-        });
-    }
-
-    unsafe {
-        decl.add_method(
-            sel!(displayLinkFired:),
-            display_link_fired as extern "C" fn(&Object, Sel, *mut Object),
-        );
-    }
-
-    unsafe {
-        DISPLAY_LINK_TARGET_CLASS = decl.register();
-    }
-}
-
 // Helper to get shared NSApplication instance
 impl NSApplication {
     unsafe fn shared() -> *mut Object {
         msg_send![class!(NSApplication), sharedApplication]
-    }
-}
-
-impl Drop for Window {
-    fn drop(&mut self) {
-        // Release the NSWindow, which will also release its content view (ns_view)
-        // The metal_layer is owned by Rust and will be dropped automatically
-        unsafe {
-            let _: () = msg_send![self.ns_window, release];
-        }
     }
 }

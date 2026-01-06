@@ -148,7 +148,7 @@ fn main() {
                                     .gap(12.0)
                                     .child(
                                         button("-")
-                                            .padding(16.0)
+                                            .padding_xy(16.0, 12.0)
                                             .corner_radius(8.0)
                                             .backgrounds(
                                                 colors::RED_500,
@@ -165,7 +165,7 @@ fn main() {
                                     )
                                     .child(
                                         button("Reset")
-                                            .padding(16.0)
+                                            .padding_xy(16.0, 12.0)
                                             .corner_radius(8.0)
                                             .backgrounds(
                                                 colors::GRAY_500,
@@ -180,7 +180,7 @@ fn main() {
                                     )
                                     .child(
                                         button("+")
-                                            .padding(16.0)
+                                            .padding_xy(16.0, 12.0)
                                             .corner_radius(8.0)
                                             .backgrounds(
                                                 colors::GREEN_500,
@@ -197,7 +197,7 @@ fn main() {
                             // Add 10 button (demonstrates batched updates)
                             .child(
                                 button("+10 (batched)")
-                                    .padding(16.0)
+                                    .padding_xy(12.0, 8.0)
                                     .corner_radius(6.0)
                                     .backgrounds(
                                         colors::PURPLE_500,

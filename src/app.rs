@@ -1,6 +1,6 @@
 use crate::{
     entity::EntityStore,
-    layer::LayerManager,
+    layer::{InputEvent, LayerManager},
     platform::{create_app_menu, mac::metal_renderer::MetalRenderer, MenuBar, Window},
     task::{TaskRunner, clear_task_runner, set_task_runner},
     text_system::TextSystem,
@@ -14,6 +14,9 @@ use objc::{class, msg_send, sel, sel_impl};
 
 use std::sync::Arc;
 
+/// Callback type for handling window-level events
+pub type WindowEventHandler = Box<dyn FnMut(&InputEvent, &Window)>;
+
 pub struct App {
     window: Arc<Window>,
     device: Device,
@@ -26,6 +29,7 @@ pub struct App {
     last_window_size: Option<(f32, f32)>,
     animation_frame_requested: bool,
     start_time: Instant,
+    window_event_handler: Option<WindowEventHandler>,
 }
 
 pub struct AppBuilder {
@@ -34,6 +38,7 @@ pub struct AppBuilder {
     title: String,
     layer_setup: Box<dyn FnOnce(&mut LayerManager)>,
     menu_setup: Option<Box<dyn FnOnce(&str) -> MenuBar>>,
+    window_event_handler: Option<WindowEventHandler>,
 }
 
 pub fn app() -> AppBuilder {
@@ -48,6 +53,7 @@ impl AppBuilder {
             title: "Toy UI App".to_string(),
             layer_setup: Box::new(|_| {}),
             menu_setup: None,
+            window_event_handler: None,
         }
     }
 
@@ -98,13 +104,46 @@ impl AppBuilder {
         self
     }
 
+    /// Set a handler for window-level events (focus, blur, resize, minimize, fullscreen, etc.)
+    ///
+    /// The handler receives the event and a reference to the window, allowing you to
+    /// respond to events and control the window.
+    ///
+    /// # Example
+    /// ```ignore
+    /// app()
+    ///     .title("My App")
+    ///     .on_window_event(|event, window| {
+    ///         match event {
+    ///             InputEvent::WindowResized { size } => {
+    ///                 println!("Window resized to {}x{}", size.x, size.y);
+    ///             }
+    ///             InputEvent::KeyDown { key, modifiers, .. } => {
+    ///                 if *key == Key::F && modifiers.cmd {
+    ///                     window.toggle_fullscreen();
+    ///                 }
+    ///             }
+    ///             _ => {}
+    ///         }
+    ///     })
+    ///     .run();
+    /// ```
+    pub fn on_window_event<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(&InputEvent, &Window) + 'static,
+    {
+        self.window_event_handler = Some(Box::new(handler));
+        self
+    }
+
     pub fn run(mut self) {
         let layer_setup = std::mem::replace(&mut self.layer_setup, Box::new(|_| {}));
-        let app = self.build();
+        let window_event_handler = self.window_event_handler.take();
+        let app = self.build(window_event_handler);
         app.run(layer_setup);
     }
 
-    fn build(self) -> App {
+    fn build(self, window_event_handler: Option<WindowEventHandler>) -> App {
         let _build_span = info_span!("app_build").entered();
         let build_start = Instant::now();
 
@@ -186,6 +225,7 @@ impl AppBuilder {
             last_window_size: None,
             animation_frame_requested: false,
             start_time: Instant::now(),
+            window_event_handler,
         }
     }
 }
@@ -235,6 +275,11 @@ impl App {
             // Process input events
             let input_events = self.window.get_pending_input_events();
             for event in &input_events {
+                // First, call the window event handler if configured
+                if let Some(ref mut handler) = self.window_event_handler {
+                    handler(event, &self.window);
+                }
+                // Then pass to layer manager for UI handling
                 self.layer_manager.handle_input(event);
             }
 

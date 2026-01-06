@@ -582,6 +582,26 @@ pub enum InputEvent {
     ModifiersChanged {
         modifiers: Modifiers,
     },
+
+    // Window events
+    /// Window gained focus (became key window)
+    WindowFocused,
+    /// Window lost focus (resigned key window)
+    WindowBlurred,
+    /// Window was resized to new size
+    WindowResized { size: Vec2 },
+    /// Window was moved to new position
+    WindowMoved { position: Vec2 },
+    /// Window was minimized
+    WindowMinimized,
+    /// Window was restored from minimized state
+    WindowRestored,
+    /// Window entered fullscreen mode
+    WindowEnteredFullscreen,
+    /// Window exited fullscreen mode
+    WindowExitedFullscreen,
+    /// Window close was requested (can be intercepted for confirmation)
+    WindowCloseRequested,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
