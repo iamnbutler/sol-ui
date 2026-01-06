@@ -80,9 +80,12 @@ pub struct Button {
 
 impl Button {
     pub fn new(label: impl Into<String>) -> Self {
+        let label = label.into();
+        // Generate stable ID from label to ensure consistent identity across frames
+        let id = ElementId::stable(format!("button:{}", label));
         Self {
-            label: label.into(),
-            id: ElementId::auto(),
+            label,
+            id,
             handlers: Rc::new(RefCell::new(EventHandlers::new())),
             background: colors::BLUE_500,
             hover_background: colors::BLUE_400,

@@ -4,16 +4,55 @@ A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 
 `cargo add sol-ui`
 
-### Basic Example
+### Hello World
+
+```rust
+use sol_ui::{
+    app::app,
+    color::colors,
+    element::{container, text},
+    layer::LayerOptions,
+    style::TextStyle,
+};
+
+fn main() {
+    app()
+        .title("Hello World")
+        .size(400.0, 300.0)
+        .with_layers(|layers| {
+            layers.add_ui_layer(0, LayerOptions::default().with_clear(), || {
+                Box::new(
+                    container()
+                        .width_full()
+                        .height_full()
+                        .background(colors::WHITE)
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .child(text(
+                            "Hello, World!",
+                            TextStyle {
+                                color: colors::BLACK,
+                                size: 24.0,
+                            },
+                        ))
+                )
+            });
+        })
+        .run();
+}
+```
+
+### Interactive Counter
 
 ```rust
 use std::cell::RefCell;
 use std::rc::Rc;
 use sol_ui::{
-    app,
+    app::app,
     color::colors,
-    draw::TextStyle,
-    elements::{container, row, text},
+    style::TextStyle,
+    element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
 };

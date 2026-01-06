@@ -47,6 +47,10 @@ pub struct InteractiveElement<E: Element> {
 
 impl<E: Element> InteractiveElement<E> {
     /// Create a new interactive element wrapper
+    ///
+    /// Note: For stable interaction, call `.with_id()` or `.with_key()` to set
+    /// a unique identifier that persists across frames.
+    #[allow(deprecated)]
     pub fn new(element: E) -> Self {
         Self {
             element,
@@ -65,6 +69,15 @@ impl<E: Element> InteractiveElement<E> {
     /// Set the element ID (useful for debugging or specific targeting)
     pub fn with_id(mut self, id: impl Into<ElementId>) -> Self {
         self.id = id.into();
+        self
+    }
+
+    /// Set a unique string key for this element.
+    ///
+    /// Use this to ensure stable element identity across frames.
+    /// The key is hashed to produce a deterministic ElementId.
+    pub fn with_key(mut self, key: impl AsRef<str>) -> Self {
+        self.id = ElementId::stable(format!("interactive:{}", key.as_ref()));
         self
     }
 

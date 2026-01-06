@@ -7,12 +7,17 @@ use crate::{
 use glam::Vec2;
 use std::collections::HashMap;
 
+pub mod drag_drop;
 pub mod element;
 pub mod events;
 pub mod hit_test;
 pub mod registry;
 pub mod shortcuts;
 
+pub use drag_drop::{
+    DragConfig, DragData, DragDropEvent, DragState, DropResult, DropZone, DropZoneRegistry,
+    Draggable, DropTarget, DRAG_THRESHOLD,
+};
 pub use element::{Interactable, InteractiveElement};
 pub use events::{EventHandlers, InteractionEvent, InteractionState};
 pub use hit_test::{HitTestBuilder, HitTestEntry, HitTestResult};
@@ -656,7 +661,39 @@ impl ElementId {
         ElementId(id)
     }
 
-    /// Create an auto-generated element ID (should be avoided for stable IDs)
+    /// Create a stable element ID from a string key.
+    ///
+    /// This generates a deterministic ID by hashing the key, which means
+    /// the same key will always produce the same ID across frames.
+    /// Use this for interactive elements that need stable identity.
+    ///
+    /// # Example
+    /// ```
+    /// let id = ElementId::stable("my-button");
+    /// let id2 = ElementId::stable("my-button");
+    /// assert_eq!(id, id2); // Same key = same ID
+    /// ```
+    pub fn stable(key: impl AsRef<str>) -> Self {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+
+        let mut hasher = DefaultHasher::new();
+        key.as_ref().hash(&mut hasher);
+        // Use high bits to avoid collision with manual IDs and auto IDs
+        let hash = hasher.finish();
+        // Ensure we're in a distinct range from auto() IDs
+        ElementId(hash | 0x8000_0000_0000_0000)
+    }
+
+    /// Create an auto-generated element ID.
+    ///
+    /// **WARNING**: Auto-generated IDs are NOT stable across frames.
+    /// This means click handlers may not work correctly in immediate-mode UIs.
+    /// Prefer `ElementId::stable()` or `ElementId::new()` for interactive elements.
+    #[deprecated(
+        since = "0.0.1",
+        note = "Auto IDs are not stable across frames. Use ElementId::stable(key) or ElementId::new(id) instead."
+    )]
     pub fn auto() -> Self {
         use std::sync::atomic::{AtomicU64, Ordering};
         static COUNTER: AtomicU64 = AtomicU64::new(1_000_000); // Start high to avoid conflicts
@@ -665,6 +702,7 @@ impl ElementId {
 }
 
 impl Default for ElementId {
+    #[allow(deprecated)]
     fn default() -> Self {
         Self::auto()
     }
