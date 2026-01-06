@@ -57,6 +57,7 @@ fn main() {
                                         size: 28.0,
                                         color: colors::BLACK,
                                         line_height: 1.2,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -67,6 +68,7 @@ fn main() {
                                         size: 14.0,
                                         color: colors::GRAY_600,
                                         line_height: 1.4,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -84,6 +86,7 @@ fn main() {
                                                         size: 16.0,
                                                         color: colors::GRAY_700,
                                                         line_height: 1.2,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -102,6 +105,7 @@ fn main() {
                                                         size: 16.0,
                                                         color: colors::GRAY_700,
                                                         line_height: 1.2,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -122,6 +126,7 @@ fn main() {
                                                                 size: 14.0,
                                                                 color: colors::GRAY_500,
                                                                 line_height: 1.2,
+                                                                ..Default::default()
                                                             },
                                                         )
                                                     )
@@ -140,6 +145,7 @@ fn main() {
                                                 size: 14.0,
                                                 color: colors::GRAY_600,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -150,6 +156,7 @@ fn main() {
                                                 size: 14.0,
                                                 color: colors::GRAY_600,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -181,6 +188,7 @@ fn draggable_item(label: &str, color: Srgba<f32>) -> impl sol_ui::element::Eleme
                     size: 14.0,
                     color: colors::WHITE,
                     line_height: 1.2,
+                    ..Default::default()
                 },
             )
         )

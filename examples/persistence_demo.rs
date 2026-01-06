@@ -257,7 +257,7 @@ fn main() {
                                                     .press_background(colors::RED_600)
                                                     .text_color(colors::WHITE)
                                                     .corner_radius(8.0)
-                                                    .padding(16.0, 8.0)
+                                                    .padding_xy(16.0, 8.0)
                                                     .with_id(10)
                                                     .on_click_simple(move || {
                                                         dec_settings.borrow_mut().counter -= 1;
@@ -292,7 +292,7 @@ fn main() {
                                                     .press_background(colors::GREEN_600)
                                                     .text_color(colors::WHITE)
                                                     .corner_radius(8.0)
-                                                    .padding(16.0, 8.0)
+                                                    .padding_xy(16.0, 8.0)
                                                     .with_id(11)
                                                     .on_click_simple(move || {
                                                         inc_settings.borrow_mut().counter += 1;
