@@ -40,10 +40,23 @@ pub struct NSApplication {
 // Window delegate to handle events
 static mut WINDOW_DELEGATE_CLASS: *const Class = ptr::null();
 static mut VIEW_CLASS: *const Class = ptr::null();
+static mut DISPLAY_LINK_TARGET_CLASS: *const Class = ptr::null();
 
 thread_local! {
     static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
     static CURRENT_MODIFIERS: RefCell<Modifiers> = RefCell::new(Modifiers::new());
+    /// Flag indicating if we're in a live resize operation
+    static IS_LIVE_RESIZING: RefCell<bool> = RefCell::new(false);
+    /// CADisplayLink instance for live resize rendering
+    static DISPLAY_LINK: RefCell<Option<*mut Object>> = RefCell::new(None);
+    /// Callback to render during live resize
+    static RESIZE_RENDER_CALLBACK: RefCell<Option<Box<dyn FnMut()>>> = RefCell::new(None);
+    /// Stored reference to the metal layer for resize updates
+    static RESIZE_METAL_LAYER: RefCell<Option<*const c_void>> = RefCell::new(None);
+    /// Stored reference to ns_window for size queries during resize
+    static RESIZE_NS_WINDOW: RefCell<Option<*mut Object>> = RefCell::new(None);
+    /// Flag to signal that a resize render is needed
+    static RESIZE_RENDER_REQUESTED: RefCell<bool> = RefCell::new(false);
 }
 
 #[allow(dead_code)] // dead ns_view is a false positive
@@ -128,6 +141,14 @@ impl Window {
 
         // Enable mouse moved events
         let _: () = unsafe { msg_send![ns_window, setAcceptsMouseMovedEvents: YES] };
+
+        // Store references for live resize callbacks
+        RESIZE_METAL_LAYER.with(|metal_layer_ref| {
+            *metal_layer_ref.borrow_mut() = Some(layer.as_ref() as *const _ as *const c_void);
+        });
+        RESIZE_NS_WINDOW.with(|window_ref| {
+            *window_ref.borrow_mut() = Some(ns_window);
+        });
 
         Arc::new(Window {
             ns_window,
@@ -412,6 +433,43 @@ impl Window {
     pub fn current_modifiers(&self) -> Modifiers {
         CURRENT_MODIFIERS.with(|m| *m.borrow())
     }
+
+    /// Set the callback to be called during live resize for rendering
+    ///
+    /// This callback will be invoked by CADisplayLink during window resize
+    /// operations, allowing smooth rendering while the resize is in progress.
+    pub fn set_resize_render_callback<F>(&self, callback: F)
+    where
+        F: FnMut() + 'static,
+    {
+        // Store references needed during resize
+        RESIZE_METAL_LAYER.with(|layer| {
+            *layer.borrow_mut() = Some(self.metal_layer.as_ref() as *const _ as *const c_void);
+        });
+        RESIZE_NS_WINDOW.with(|window| {
+            *window.borrow_mut() = Some(self.ns_window);
+        });
+        RESIZE_RENDER_CALLBACK.with(|cb| {
+            *cb.borrow_mut() = Some(Box::new(callback));
+        });
+    }
+
+    /// Check if the window is currently in a live resize operation
+    pub fn is_live_resizing(&self) -> bool {
+        IS_LIVE_RESIZING.with(|resizing| *resizing.borrow())
+    }
+
+    /// Update the metal layer drawable size to match current window size
+    pub fn update_drawable_size(&self) {
+        let scale_factor: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
+        let frame: NSRect = unsafe { msg_send![self.ns_window, contentLayoutRect] };
+        let new_size = CGSize::new(
+            frame.size.width * scale_factor,
+            frame.size.height * scale_factor,
+        );
+        self.metal_layer.set_drawable_size(new_size);
+        self.metal_layer.set_contents_scale(scale_factor);
+    }
 }
 
 unsafe fn ensure_classes_initialized() {
@@ -420,6 +478,9 @@ unsafe fn ensure_classes_initialized() {
     }
     if unsafe { VIEW_CLASS.is_null() } {
         unsafe { create_view_class() };
+    }
+    if unsafe { DISPLAY_LINK_TARGET_CLASS.is_null() } {
+        unsafe { create_display_link_target_class() };
     }
 }
 
@@ -449,6 +510,65 @@ unsafe fn create_window_delegate_class() {
         decl.add_method(
             sel!(windowWillClose:),
             window_will_close as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // Add windowWillStartLiveResize: - create CADisplayLink for smooth rendering
+    extern "C" fn window_will_start_live_resize(_: &Object, _: Sel, _: *mut Object) {
+        IS_LIVE_RESIZING.with(|resizing| {
+            *resizing.borrow_mut() = true;
+        });
+
+        // Create CADisplayLink target
+        let target: *mut Object = unsafe { msg_send![DISPLAY_LINK_TARGET_CLASS, new] };
+
+        // Create CADisplayLink
+        let display_link: *mut Object = unsafe {
+            msg_send![
+                class!(CADisplayLink),
+                displayLinkWithTarget:target
+                selector:sel!(displayLinkFired:)
+            ]
+        };
+
+        // Get the main run loop
+        let run_loop: *mut Object = unsafe { msg_send![class!(NSRunLoop), mainRunLoop] };
+
+        // Add to NSRunLoopCommonModes so it fires during resize tracking
+        let common_modes = unsafe { ns_string("kCFRunLoopCommonModes") };
+        let _: () = unsafe { msg_send![display_link, addToRunLoop:run_loop forMode:common_modes] };
+
+        // Store the display link
+        DISPLAY_LINK.with(|link| {
+            *link.borrow_mut() = Some(display_link);
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowWillStartLiveResize:),
+            window_will_start_live_resize as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    // Add windowDidEndLiveResize: - stop and remove CADisplayLink
+    extern "C" fn window_did_end_live_resize(_: &Object, _: Sel, _: *mut Object) {
+        IS_LIVE_RESIZING.with(|resizing| {
+            *resizing.borrow_mut() = false;
+        });
+
+        // Invalidate and remove the display link
+        DISPLAY_LINK.with(|link| {
+            if let Some(display_link) = link.borrow_mut().take() {
+                let _: () = unsafe { msg_send![display_link, invalidate] };
+            }
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidEndLiveResize:),
+            window_did_end_live_resize as extern "C" fn(&Object, Sel, *mut Object),
         );
     }
 
@@ -543,6 +663,74 @@ unsafe fn create_view_class() {
 
     unsafe {
         VIEW_CLASS = decl.register();
+    }
+}
+
+/// Create the display link target class with the callback method
+unsafe fn create_display_link_target_class() {
+    let superclass = class!(NSObject);
+    let mut decl = ClassDecl::new("ToyUIDisplayLinkTarget", superclass).unwrap();
+
+    // The displayLinkFired: callback - updates drawable size and triggers render
+    extern "C" fn display_link_fired(_: &Object, _: Sel, _: *mut Object) {
+        // Update the metal layer drawable size
+        RESIZE_NS_WINDOW.with(|window_ref| {
+            RESIZE_METAL_LAYER.with(|layer_ref| {
+                if let (Some(ns_window), Some(metal_layer_ptr)) =
+                    (*window_ref.borrow(), *layer_ref.borrow())
+                {
+                    unsafe {
+                        // Get current scale factor and frame
+                        let scale_factor: f64 = msg_send![ns_window, backingScaleFactor];
+                        let frame: NSRect = msg_send![ns_window, contentLayoutRect];
+
+                        // Update metal layer drawable size
+                        let metal_layer = metal_layer_ptr as *mut Object;
+                        let new_size = CGSize::new(
+                            frame.size.width * scale_factor,
+                            frame.size.height * scale_factor,
+                        );
+                        let _: () = msg_send![metal_layer, setDrawableSize: new_size];
+                        let _: () = msg_send![metal_layer, setContentsScale: scale_factor];
+
+                        // Post a dummy event to wake up the main event loop
+                        // This allows the app to render during resize
+                        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+                        let event: *mut Object = msg_send![
+                            class!(NSEvent),
+                            otherEventWithType: 15u64  // NSEventTypeApplicationDefined
+                            location: NSPoint::new(0.0, 0.0)
+                            modifierFlags: 0u64
+                            timestamp: 0.0f64
+                            windowNumber: 0i64
+                            context: nil
+                            subtype: 0i16
+                            data1: 0i64
+                            data2: 0i64
+                        ];
+                        let _: () = msg_send![app, postEvent: event atStart: YES];
+                    }
+                }
+            });
+        });
+
+        // Call the render callback if set
+        RESIZE_RENDER_CALLBACK.with(|callback| {
+            if let Some(ref mut cb) = *callback.borrow_mut() {
+                cb();
+            }
+        });
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(displayLinkFired:),
+            display_link_fired as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
+    unsafe {
+        DISPLAY_LINK_TARGET_CLASS = decl.register();
     }
 }
 
