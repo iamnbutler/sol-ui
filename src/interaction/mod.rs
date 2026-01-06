@@ -510,3 +510,344 @@ impl From<i32> for ElementId {
         Self::new(id as u64)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::Rect;
+    use crate::layer::InputEvent;
+
+    fn create_test_system() -> InteractionSystem {
+        InteractionSystem::new()
+    }
+
+    fn create_hit_entries(entries: &[(u64, Rect, i32)]) -> Vec<HitTestEntry> {
+        entries
+            .iter()
+            .map(|(id, bounds, z)| HitTestEntry::new(ElementId::new(*id), *bounds, *z, 0))
+            .collect()
+    }
+
+    #[test]
+    fn test_interaction_system_creation() {
+        let system = create_test_system();
+        assert!(system.focused_element().is_none());
+    }
+
+    #[test]
+    fn test_mouse_enter_leave() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Move into button
+        let events = system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseEnter { element_id } if element_id.0 == 1)));
+
+        // Verify state
+        let state = system.get_state(ElementId::new(1)).unwrap();
+        assert!(state.is_hovered);
+        assert!(!state.is_pressed);
+
+        // Move out of button
+        let events = system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(200.0, 200.0),
+        });
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseLeave { element_id } if element_id.0 == 1)));
+    }
+
+    #[test]
+    fn test_mouse_click() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Click inside button
+        let down_events = system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        assert!(
+            down_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 1))
+        );
+
+        // Check pressed state - use get_state with default
+        if let Some(state) = system.get_state(ElementId::new(1)) {
+            assert!(state.is_pressed);
+        }
+
+        // Release
+        let up_events = system.handle_input(&InputEvent::MouseUp {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        // Should have both MouseUp and Click events
+        assert!(
+            up_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseUp { element_id, .. } if element_id.0 == 1))
+        );
+        assert!(
+            up_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::Click { element_id, .. } if element_id.0 == 1))
+        );
+    }
+
+    #[test]
+    fn test_no_click_when_released_outside() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Press inside
+        system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        // Release outside
+        let events = system.handle_input(&InputEvent::MouseUp {
+            position: Vec2::new(200.0, 200.0),
+            button: MouseButton::Left,
+        });
+
+        // Should have MouseUp but no Click
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseUp { element_id, .. } if element_id.0 == 1))
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::Click { .. }))
+        );
+    }
+
+    #[test]
+    fn test_z_order_hit_testing() {
+        let mut system = create_test_system();
+
+        // Two overlapping elements - both cover the same click position
+        let back = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let front = Rect::new(0.0, 0.0, 100.0, 100.0); // Same bounds for clear overlap
+
+        // Front has higher z-index - entries need to be sorted by z-index (highest first)
+        let mut entries = create_hit_entries(&[(1, back, 0), (2, front, 10)]);
+        entries.sort_by(|a, b| b.z_index.cmp(&a.z_index));
+        system.update_hit_test(entries);
+
+        // Click in overlapping area
+        let events = system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 50.0),
+            button: MouseButton::Left,
+        });
+
+        // Should hit front element (id 2) because it has higher z-index
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 2)),
+            "Expected MouseDown for element 2 (front), got events: {:?}",
+            events
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 1)),
+            "Should NOT have MouseDown for element 1 (back)"
+        );
+    }
+
+    #[test]
+    fn test_focus_management() {
+        let mut system = create_test_system();
+
+        // Set focus to element 1
+        let events = system.set_focus(Some(ElementId::new(1)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 1)));
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+
+        // Change focus to element 2
+        let events = system.set_focus(Some(ElementId::new(2)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusOut { element_id } if element_id.0 == 1)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 2)));
+        assert_eq!(system.focused_element(), Some(ElementId::new(2)));
+
+        // Clear focus
+        let events = system.set_focus(None);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusOut { element_id } if element_id.0 == 2)));
+        assert_eq!(system.focused_element(), None);
+    }
+
+    #[test]
+    fn test_tab_focus_navigation() {
+        let mut system = create_test_system();
+
+        // Register focusable elements
+        system.register_focusable(ElementId::new(1));
+        system.register_focusable(ElementId::new(2));
+        system.register_focusable(ElementId::new(3));
+
+        // Tab forward
+        let events = system.focus_next();
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 1)));
+
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(2)));
+
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(3)));
+
+        // Wrap around
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+    }
+
+    #[test]
+    fn test_shift_tab_focus_navigation() {
+        let mut system = create_test_system();
+
+        system.register_focusable(ElementId::new(1));
+        system.register_focusable(ElementId::new(2));
+        system.register_focusable(ElementId::new(3));
+
+        // Start at element 2
+        system.set_focus(Some(ElementId::new(2)));
+
+        // Shift+Tab backward
+        system.focus_previous();
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+
+        // Wrap around backward
+        system.focus_previous();
+        assert_eq!(system.focused_element(), Some(ElementId::new(3)));
+    }
+
+    #[test]
+    fn test_keyboard_events_to_focused() {
+        let mut system = create_test_system();
+
+        // Set focus
+        system.set_focus(Some(ElementId::new(1)));
+
+        // Send key down
+        let events = system.handle_input(&InputEvent::KeyDown {
+            key: Key::A,
+            modifiers: Modifiers::new(),
+            character: Some('a'),
+            is_repeat: false,
+        });
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::KeyDown { element_id, key, .. }
+                    if element_id.0 == 1 && *key == Key::A))
+        );
+    }
+
+    #[test]
+    fn test_scroll_wheel() {
+        let mut system = create_test_system();
+        let scrollable = Rect::new(0.0, 0.0, 200.0, 200.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, scrollable, 0)]));
+
+        let events = system.handle_input(&InputEvent::ScrollWheel {
+            position: Vec2::new(100.0, 100.0),
+            delta: Vec2::new(0.0, -10.0),
+        });
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::ScrollWheel { element_id, delta, .. }
+                    if element_id.0 == 1 && delta.y == -10.0))
+        );
+    }
+
+    #[test]
+    fn test_mouse_leave_window() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Move into button
+        system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+
+        // Mouse leaves window
+        let events = system.handle_input(&InputEvent::MouseLeave);
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseLeave { element_id } if element_id.0 == 1)));
+    }
+
+    #[test]
+    fn test_clear_resets_all_state() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+        system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+        system.set_focus(Some(ElementId::new(1)));
+        system.register_focusable(ElementId::new(1));
+
+        system.clear();
+
+        assert!(system.focused_element().is_none());
+        assert!(system.get_state(ElementId::new(1)).is_none());
+    }
+
+    #[test]
+    fn test_element_id_equality() {
+        let id1 = ElementId::new(42);
+        let id2 = ElementId::new(42);
+        let id3 = ElementId::new(43);
+
+        assert_eq!(id1, id2);
+        assert_ne!(id1, id3);
+    }
+
+    #[test]
+    fn test_element_id_from_conversions() {
+        let from_u64: ElementId = 42u64.into();
+        let from_usize: ElementId = 42usize.into();
+        let from_i32: ElementId = 42i32.into();
+
+        assert_eq!(from_u64, from_usize);
+        assert_eq!(from_usize, from_i32);
+    }
+}
