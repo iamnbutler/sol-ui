@@ -50,11 +50,57 @@ pub mod colors {
     pub const PURPLE_600: Color = Srgba::new(0.49, 0.32, 0.77, 1.0);
 }
 
-/// Helper trait for Color
+/// Extension trait for creating and manipulating colors.
+///
+/// Provides convenient constructors and utilities for the [`Color`] type.
+///
+/// # Examples
+///
+/// ```
+/// use sol_ui::color::{Color, ColorExt};
+///
+/// // Create colors from RGB/RGBA values (0.0 to 1.0)
+/// let red = Color::rgb(1.0, 0.0, 0.0);
+/// let semi_transparent = Color::rgba(1.0, 0.0, 0.0, 0.5);
+///
+/// // Create colors from hex strings
+/// let blue = Color::hex("#0000ff");
+/// let green = Color::hex("#0f0");  // shorthand
+///
+/// // Modify alpha
+/// let faded = red.with_alpha(0.3);
+/// ```
 pub trait ColorExt {
+    /// Create an opaque color from RGB components.
+    ///
+    /// # Arguments
+    /// * `r` - Red component (0.0 to 1.0)
+    /// * `g` - Green component (0.0 to 1.0)
+    /// * `b` - Blue component (0.0 to 1.0)
+    ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt};
+    /// let red = Color::rgb(1.0, 0.0, 0.0);
+    /// ```
     fn rgb(r: f32, g: f32, b: f32) -> Self;
+
+    /// Create a color from RGBA components.
+    ///
+    /// # Arguments
+    /// * `r` - Red component (0.0 to 1.0)
+    /// * `g` - Green component (0.0 to 1.0)
+    /// * `b` - Blue component (0.0 to 1.0)
+    /// * `a` - Alpha component (0.0 = transparent, 1.0 = opaque)
+    ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt};
+    /// let semi_red = Color::rgba(1.0, 0.0, 0.0, 0.5);
+    /// ```
     fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self;
-    /// Create a color from a hex string (e.g., "#ff0000", "#f00", "#ff0000ff")
+
+    /// Create a color from a hex string.
     ///
     /// Supports formats:
     /// - `#RGB` (3 chars) - shorthand, expands to RRGGBB
@@ -64,14 +110,54 @@ pub trait ColorExt {
     ///
     /// The `#` prefix is optional.
     ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt};
+    /// let red = Color::hex("#ff0000");
+    /// let green = Color::hex("#0f0");      // shorthand
+    /// let blue_50 = Color::hex("#0000ff80"); // 50% alpha
+    /// ```
+    ///
     /// # Panics
-    /// Panics if the hex string is invalid. Use `try_hex` for fallible parsing.
+    /// Panics if the hex string is invalid. Use [`try_hex`](Self::try_hex) for fallible parsing.
     fn hex(hex: &str) -> Self;
-    /// Try to create a color from a hex string, returning None if invalid
+
+    /// Try to create a color from a hex string, returning `None` if invalid.
+    ///
+    /// See [`hex`](Self::hex) for supported formats.
+    ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt};
+    /// assert!(Color::try_hex("#ff0000").is_some());
+    /// assert!(Color::try_hex("invalid").is_none());
+    /// ```
     fn try_hex(hex: &str) -> Option<Self>
     where
         Self: Sized;
+
+    /// Return a new color with the specified alpha value.
+    ///
+    /// # Arguments
+    /// * `alpha` - New alpha value (0.0 = transparent, 1.0 = opaque)
+    ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt, colors};
+    /// let faded_red = colors::RED.with_alpha(0.5);
+    /// ```
     fn with_alpha(self, alpha: f32) -> Self;
+
+    /// Convert the color to an array of u8 values [R, G, B, A].
+    ///
+    /// Each component is scaled from 0.0-1.0 to 0-255.
+    ///
+    /// # Examples
+    /// ```
+    /// use sol_ui::color::{Color, ColorExt, colors};
+    /// let arr = colors::WHITE.as_u8_arr();
+    /// assert_eq!(arr, [255, 255, 255, 255]);
+    /// ```
     fn as_u8_arr(&self) -> [u8; 4];
 }
 
