@@ -13,7 +13,7 @@ use crate::{
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
-use tracing::{debug, info_span};
+use tracing::{debug, info, info_span};
 
 /// Options for configuring a layer
 #[derive(Debug, Clone)]
