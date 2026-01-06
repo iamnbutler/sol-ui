@@ -177,18 +177,6 @@ impl<'a> RawLayerContext<'a> {
             self.time,
         );
     }
-
-    /// Set camera for 3D rendering
-    pub fn set_camera(&mut self, _camera: ()) {
-        // TODO: Implement camera system
-        todo!("Camera system not yet implemented")
-    }
-
-    /// Draw a 3D mesh
-    pub fn draw_mesh(&mut self, _mesh: (), _transform: ()) {
-        // TODO: Implement mesh rendering
-        todo!("Mesh rendering not yet implemented")
-    }
 }
 
 impl<F> Layer for RawLayer<F>
