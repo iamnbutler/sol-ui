@@ -316,6 +316,7 @@ where
         self.root_element = Some((self.render_fn)());
 
         // Phase 1: Layout
+        let layout_start = std::time::Instant::now();
         let mut layout_ctx = LayoutContext {
             engine: &mut self.layout_engine,
             text_system,
@@ -339,6 +340,8 @@ where
 
         // End frame - clean up nodes that weren't used
         self.layout_engine.end_frame();
+
+        info!("Layout phase took {:?}", layout_start.elapsed());
 
         // Phase 2: Paint
         let mut draw_list =
