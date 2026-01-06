@@ -504,7 +504,7 @@ impl MetalRenderer {
                         size: style.size,
                         color: style.color.clone(),
                         weight: parley::FontWeight::NORMAL,
-                        line_height: 1.2,
+                        line_height: style.line_height,
                     };
                     let shaped = {
                         let _shape_span = info_span!("shape_text", text_len = text.len()).entered();

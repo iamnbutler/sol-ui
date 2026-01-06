@@ -83,7 +83,7 @@ impl<'a> LayoutContext<'a> {
             size: style.size,
             weight: parley::FontWeight::NORMAL,
             color: style.color.clone(),
-            line_height: 1.2,
+            line_height: style.line_height,
         };
 
         self.text_system

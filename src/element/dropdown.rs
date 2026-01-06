@@ -104,10 +104,12 @@ impl<T: Clone + ToString + 'static> Dropdown<T> {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::BLACK,
+                line_height: 1.2,
             },
             placeholder_style: TextStyle {
                 size: 14.0,
                 color: colors::GRAY_500,
+                line_height: 1.2,
             },
             list_background: colors::WHITE,
             option_hover_background: Color::rgba(0.9, 0.95, 1.0, 1.0), // Light blue
@@ -306,6 +308,7 @@ impl<T: Clone + ToString + 'static> Element for Dropdown<T> {
             style: TextStyle {
                 size: 10.0,
                 color: colors::GRAY_600,
+                line_height: 1.2,
             },
         });
 

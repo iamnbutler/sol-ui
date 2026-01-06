@@ -85,6 +85,7 @@ impl Button {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::WHITE,
+                line_height: 1.2,
             },
             disabled_text_color: colors::GRAY_600,
             padding_h: 16.0,
@@ -296,7 +297,7 @@ impl Element for Button {
                 size: self.text_style.size,
                 weight: parley::FontWeight::NORMAL,
                 color: self.text_style.color.clone(),
-                line_height: 1.2,
+                line_height: self.text_style.line_height,
             },
             None,
             ctx.scale_factor,

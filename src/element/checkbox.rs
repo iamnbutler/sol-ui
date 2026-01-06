@@ -72,6 +72,7 @@ impl Checkbox {
             label_style: TextStyle {
                 color: colors::BLACK,
                 size: 14.0,
+                line_height: 1.2,
             },
             label_gap: DEFAULT_LABEL_GAP,
             disabled: false,
