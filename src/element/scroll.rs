@@ -5,6 +5,7 @@ use crate::{
     element::{Element, LayoutContext},
     entity::{Entity, new_entity, read_entity, update_entity},
     geometry::{Corners, Edges, Rect},
+    interaction::ElementId,
     render::{PaintContext, PaintQuad},
 };
 use glam::Vec2;
@@ -48,6 +49,7 @@ pub fn scroll() -> ScrollContainer {
 
 /// A scrollable container element
 pub struct ScrollContainer {
+    id: ElementId,
     style: Style,
     background: Option<Color>,
     scrollbar_color: Option<Color>,
@@ -61,6 +63,7 @@ pub struct ScrollContainer {
 impl ScrollContainer {
     pub fn new() -> Self {
         Self {
+            id: ElementId::auto(),
             style: Style {
                 overflow: taffy::Point {
                     x: Overflow::Hidden,
@@ -76,6 +79,12 @@ impl ScrollContainer {
             child_nodes: Vec::new(),
             state: None,
         }
+    }
+
+    /// Set a stable element ID for targeting and testing
+    pub fn with_id(mut self, id: impl Into<ElementId>) -> Self {
+        self.id = id.into();
+        self
     }
 
     /// Set the background color

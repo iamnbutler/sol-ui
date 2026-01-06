@@ -2,6 +2,7 @@ use crate::{
     color::Color,
     element::{Element, LayoutContext, PaintContext},
     geometry::{Corners, Edges, Rect},
+    interaction::ElementId,
     render::PaintQuad,
 };
 use taffy::prelude::*;
@@ -23,6 +24,7 @@ pub fn column() -> Container {
 
 /// A container element that can have children and styling
 pub struct Container {
+    id: ElementId,
     style: Style,
     background: Option<Color>,
     border_color: Option<Color>,
@@ -35,6 +37,7 @@ pub struct Container {
 impl Container {
     pub fn new() -> Self {
         Self {
+            id: ElementId::auto(),
             style: Style::default(),
             background: None,
             border_color: None,
@@ -43,6 +46,12 @@ impl Container {
             children: Vec::new(),
             child_nodes: Vec::new(),
         }
+    }
+
+    /// Set a stable element ID for targeting and testing
+    pub fn with_id(mut self, id: impl Into<ElementId>) -> Self {
+        self.id = id.into();
+        self
     }
 
     /// Set the background color
