@@ -342,7 +342,14 @@ impl TextInput {
         self
     }
 
-    /// Set border color
+    /// Set border color and width
+    pub fn border(mut self, color: Color, width: f32) -> Self {
+        self.border_color = color;
+        self.border_width = width;
+        self
+    }
+
+    /// Set border color only
     pub fn border_color(mut self, color: Color) -> Self {
         self.border_color = color;
         self
@@ -354,7 +361,7 @@ impl TextInput {
         self
     }
 
-    /// Set border width
+    /// Set border width only
     pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
@@ -366,22 +373,29 @@ impl TextInput {
         self
     }
 
-    /// Set horizontal padding
+    /// Set uniform padding (all sides)
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding_h = padding;
+        self.padding_v = padding;
+        self
+    }
+
+    /// Set horizontal and vertical padding separately
+    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.padding_h = horizontal;
+        self.padding_v = vertical;
+        self
+    }
+
+    /// Set horizontal padding only
     pub fn padding_h(mut self, padding: f32) -> Self {
         self.padding_h = padding;
         self
     }
 
-    /// Set vertical padding
+    /// Set vertical padding only
     pub fn padding_v(mut self, padding: f32) -> Self {
         self.padding_v = padding;
-        self
-    }
-
-    /// Set both paddings
-    pub fn padding(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.padding_h = horizontal;
-        self.padding_v = vertical;
         self
     }
 
@@ -500,11 +514,11 @@ impl Element for TextInput {
 
         // Measure text for cursor positioning
         let text_config = crate::text_system::TextConfig {
-            font_stack: parley::FontStack::from("system-ui"),
+            font_stack: parley::FontStack::from(self.text_style.font_family),
             size: self.text_style.size,
-            weight: parley::FontWeight::NORMAL,
+            weight: self.text_style.weight,
             color: self.text_style.color.clone(),
-            line_height: 1.2,
+            line_height: self.text_style.line_height,
         };
 
         // Paint selection highlight if present

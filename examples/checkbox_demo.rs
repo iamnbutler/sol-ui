@@ -200,7 +200,7 @@ fn main() {
                                             .items_center()
                                             .child(
                                                 checkbox(true)
-                                                    .size(14.0)
+                                                    .box_size(14.0)
                                                     .label("Small")
                                                     .label_style(TextStyle {
                                                         color: colors::BLACK,
@@ -212,14 +212,14 @@ fn main() {
                                             )
                                             .child(
                                                 checkbox(true)
-                                                    .size(20.0)
+                                                    .box_size(20.0)
                                                     .label("Medium")
                                                     .with_id(9)
                                                     .interactive_checkbox()
                                             )
                                             .child(
                                                 checkbox(true)
-                                                    .size(28.0)
+                                                    .box_size(28.0)
                                                     .label("Large")
                                                     .label_style(TextStyle {
                                                         color: colors::BLACK,
