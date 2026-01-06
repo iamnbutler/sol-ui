@@ -77,11 +77,11 @@ impl<'a> LayoutContext<'a> {
     /// Measure text (for use during layout)
     pub fn measure_text(&mut self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Vec2 {
         let text_config = crate::text_system::TextConfig {
-            font_stack: parley::FontStack::from("system-ui"),
+            font_stack: parley::FontStack::from(style.font_family),
             size: style.size,
-            weight: parley::FontWeight::NORMAL,
+            weight: parley::FontWeight::new(style.weight.to_value() as f32),
             color: style.color.clone(),
-            line_height: 1.2,
+            line_height: style.line_height,
         };
 
         self.text_system

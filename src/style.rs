@@ -5,12 +5,51 @@ use crate::color::{
     colors::{BLACK, WHITE},
 };
 
+/// Font weight for text styling
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FontWeight {
+    Thin,
+    ExtraLight,
+    Light,
+    #[default]
+    Normal,
+    Medium,
+    SemiBold,
+    Bold,
+    ExtraBold,
+    Black,
+}
+
+impl FontWeight {
+    /// Convert to the numeric weight value (100-900)
+    pub fn to_value(self) -> u16 {
+        match self {
+            FontWeight::Thin => 100,
+            FontWeight::ExtraLight => 200,
+            FontWeight::Light => 300,
+            FontWeight::Normal => 400,
+            FontWeight::Medium => 500,
+            FontWeight::SemiBold => 600,
+            FontWeight::Bold => 700,
+            FontWeight::ExtraBold => 800,
+            FontWeight::Black => 900,
+        }
+    }
+}
+
 /// Text styling information
 #[derive(Debug, Clone, PartialEq)]
 pub struct TextStyle {
+    /// Font size in logical pixels
     pub size: f32,
+    /// Text color
     pub color: Color,
-    // TODO: Add font family, weight, etc.
+    /// Font family name (e.g., "system-ui", "monospace", "Arial")
+    pub font_family: &'static str,
+    /// Font weight
+    pub weight: FontWeight,
+    /// Line height multiplier
+    pub line_height: f32,
 }
 
 impl Default for TextStyle {
@@ -18,6 +57,9 @@ impl Default for TextStyle {
         Self {
             size: 16.0,
             color: WHITE,
+            font_family: "system-ui",
+            weight: FontWeight::Normal,
+            line_height: 1.2,
         }
     }
 }

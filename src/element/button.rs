@@ -85,6 +85,7 @@ impl Button {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
             disabled_text_color: colors::GRAY_600,
             padding_h: 16.0,
@@ -332,11 +333,11 @@ impl Element for Button {
         let text_size = ctx.text_system.measure_text(
             &self.label,
             &crate::text_system::TextConfig {
-                font_stack: parley::FontStack::from("system-ui"),
+                font_stack: parley::FontStack::from(self.text_style.font_family),
                 size: self.text_style.size,
-                weight: parley::FontWeight::NORMAL,
+                weight: parley::FontWeight::new(self.text_style.weight.to_value() as f32),
                 color: self.text_style.color.clone(),
-                line_height: 1.2,
+                line_height: self.text_style.line_height,
             },
             None,
             ctx.scale_factor,

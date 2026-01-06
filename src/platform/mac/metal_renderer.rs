@@ -495,11 +495,11 @@ impl MetalRenderer {
                 } => {
                     // Shape and render text
                     let text_config = crate::text_system::TextConfig {
-                        font_stack: parley::FontStack::from("system-ui"),
+                        font_stack: parley::FontStack::from(style.font_family),
                         size: style.size,
                         color: style.color.clone(),
-                        weight: parley::FontWeight::NORMAL,
-                        line_height: 1.2,
+                        weight: parley::FontWeight::new(style.weight.to_value() as f32),
+                        line_height: style.line_height,
                     };
                     let shaped = {
                         let _shape_span = info_span!("shape_text", text_len = text.len()).entered();
