@@ -102,7 +102,7 @@ fn main() {
                                 .child(
                                     button("+")
                                         .with_id(1)
-                                        .padding(16.0, 10.0)
+                                        .padding(16.0)
                                         .on_click_simple(move || {
                                             *inc.borrow_mut() += 1;
                                         })
@@ -113,7 +113,7 @@ fn main() {
                                         .background(colors::GRAY_700)
                                         .hover_background(colors::GRAY_600)
                                         .press_background(colors::GRAY_800)
-                                        .padding(24.0, 10.0)
+                                        .padding(16.0)
                                         .on_click_simple(move || {
                                             *reset.borrow_mut() = 0;
                                         })
@@ -124,7 +124,7 @@ fn main() {
                                         .background(colors::RED_500)
                                         .hover_background(colors::RED_400)
                                         .press_background(colors::RED_600)
-                                        .padding(16.0, 10.0)
+                                        .padding(16.0)
                                         .on_click_simple(move || {
                                             *dec.borrow_mut() -= 1;
                                         })

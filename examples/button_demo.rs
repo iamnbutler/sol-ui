@@ -146,7 +146,7 @@ fn main() {
                                                 button("Rounded")
                                                     .with_id(4)
                                                     .corner_radius(20.0)
-                                                    .padding(20.0, 10.0)
+                                                    .padding(16.0)
                                                     .background(colors::GREEN_500)
                                                     .hover_background(colors::GREEN_400)
                                                     .press_background(colors::GREEN_600)
@@ -165,7 +165,7 @@ fn main() {
                                             .child(
                                                 button("Large")
                                                     .with_id(6)
-                                                    .padding(24.0, 14.0)
+                                                    .padding(16.0)
                                                     .text_size(18.0)
                                                     .background(colors::PURPLE_500)
                                                     .hover_background(colors::PURPLE_400)
