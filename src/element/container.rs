@@ -51,9 +51,21 @@ impl Container {
         self
     }
 
-    /// Set the border
+    /// Set the border (color and width)
     pub fn border(mut self, color: Color, width: f32) -> Self {
         self.border_color = Some(color);
+        self.border_width = width;
+        self
+    }
+
+    /// Set only the border color
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color = Some(color);
+        self
+    }
+
+    /// Set only the border width
+    pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
     }

@@ -50,6 +50,9 @@ pub fn scroll() -> ScrollContainer {
 pub struct ScrollContainer {
     style: Style,
     background: Option<Color>,
+    border_color: Option<Color>,
+    border_width: f32,
+    corner_radius: f32,
     scrollbar_color: Option<Color>,
     scrollbar_width: f32,
     show_scrollbar: bool,
@@ -69,6 +72,9 @@ impl ScrollContainer {
                 ..Style::default()
             },
             background: None,
+            border_color: None,
+            border_width: 0.0,
+            corner_radius: 0.0,
             scrollbar_color: Some(Color::rgba(0.5, 0.5, 0.5, 0.5)),
             scrollbar_width: 8.0,
             show_scrollbar: true,
@@ -81,6 +87,31 @@ impl ScrollContainer {
     /// Set the background color
     pub fn background(mut self, color: Color) -> Self {
         self.background = Some(color);
+        self
+    }
+
+    /// Set the border (color and width)
+    pub fn border(mut self, color: Color, width: f32) -> Self {
+        self.border_color = Some(color);
+        self.border_width = width;
+        self
+    }
+
+    /// Set only the border color
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color = Some(color);
+        self
+    }
+
+    /// Set only the border width
+    pub fn border_width(mut self, width: f32) -> Self {
+        self.border_width = width;
+        self
+    }
+
+    /// Set corner radius
+    pub fn corner_radius(mut self, radius: f32) -> Self {
+        self.corner_radius = radius;
         self
     }
 
@@ -217,9 +248,15 @@ impl Element for ScrollContainer {
             return;
         }
 
-        // Paint background
-        if let Some(bg) = self.background {
-            ctx.paint_quad(PaintQuad::filled(bounds, bg));
+        // Paint background and border
+        if self.background.is_some() || self.border_color.is_some() {
+            ctx.paint_quad(PaintQuad {
+                bounds,
+                fill: self.background.unwrap_or(crate::color::colors::TRANSPARENT),
+                corner_radii: Corners::all(self.corner_radius),
+                border_widths: Edges::all(self.border_width),
+                border_color: self.border_color.unwrap_or(crate::color::colors::TRANSPARENT),
+            });
         }
 
         // Get scroll offset from state

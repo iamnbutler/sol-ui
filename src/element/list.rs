@@ -205,6 +205,12 @@ pub struct List {
     item_padding: f32,
     /// Corner radius for items
     item_corner_radius: f32,
+    /// Border color for the list container
+    border_color: Option<Color>,
+    /// Border width for the list container
+    border_width: f32,
+    /// Corner radius for the list container
+    corner_radius: f32,
     /// Custom empty state element
     empty_state: Option<Box<dyn Element>>,
     /// Custom loading state element
@@ -247,6 +253,9 @@ impl List {
             },
             item_padding: 12.0,
             item_corner_radius: 4.0,
+            border_color: None,
+            border_width: 0.0,
+            corner_radius: 0.0,
             empty_state: None,
             loading_state: None,
             style: Style {
@@ -360,6 +369,31 @@ impl List {
     /// Set item corner radius
     pub fn item_corner_radius(mut self, radius: f32) -> Self {
         self.item_corner_radius = radius;
+        self
+    }
+
+    /// Set the border (color and width)
+    pub fn border(mut self, color: Color, width: f32) -> Self {
+        self.border_color = Some(color);
+        self.border_width = width;
+        self
+    }
+
+    /// Set only the border color
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color = Some(color);
+        self
+    }
+
+    /// Set only the border width
+    pub fn border_width(mut self, width: f32) -> Self {
+        self.border_width = width;
+        self
+    }
+
+    /// Set corner radius for the list container
+    pub fn corner_radius(mut self, radius: f32) -> Self {
+        self.corner_radius = radius;
         self
     }
 
@@ -644,9 +678,15 @@ impl Element for List {
             return;
         }
 
-        // Paint background
-        if let Some(bg) = self.background {
-            ctx.paint_quad(PaintQuad::filled(bounds, bg));
+        // Paint background and border
+        if self.background.is_some() || self.border_color.is_some() {
+            ctx.paint_quad(PaintQuad {
+                bounds,
+                fill: self.background.unwrap_or(colors::TRANSPARENT),
+                corner_radii: Corners::all(self.corner_radius),
+                border_widths: Edges::all(self.border_width),
+                border_color: self.border_color.unwrap_or(colors::TRANSPARENT),
+            });
         }
 
         // Check if we're in loading state
