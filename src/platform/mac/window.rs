@@ -4,7 +4,7 @@ use cocoa::{
 };
 use core_graphics::geometry::CGSize;
 
-use crate::layer::{InputEvent, MouseButton};
+use crate::layer::{InputEvent, Key, Modifiers, MouseButton};
 use metal::MetalLayer;
 use objc::{
     class,
@@ -43,6 +43,7 @@ static mut VIEW_CLASS: *const Class = ptr::null();
 
 thread_local! {
     static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
+    static CURRENT_MODIFIERS: RefCell<Modifiers> = RefCell::new(Modifiers::new());
 }
 
 #[allow(dead_code)] // dead ns_view is a false positive
@@ -205,6 +206,9 @@ impl Window {
                 5 => self.handle_mouse_moved(event), // NSEventTypeMouseMoved
                 6 => self.handle_mouse_moved(event), // NSEventTypeLeftMouseDragged
                 7 => self.handle_mouse_moved(event), // NSEventTypeRightMouseDragged
+                10 => self.handle_key_down(event),   // NSEventTypeKeyDown
+                11 => self.handle_key_up(event),     // NSEventTypeKeyUp
+                12 => self.handle_flags_changed(event), // NSEventTypeFlagsChanged
                 _ => {}
             }
 
@@ -281,6 +285,101 @@ impl Window {
         let y = bounds.size.height - window_point.y;
 
         (x, y)
+    }
+
+    fn handle_key_down(&self, event: *mut Object) {
+        let key_code: u16 = unsafe { msg_send![event, keyCode] };
+        let is_repeat: bool = unsafe { msg_send![event, isARepeat] };
+        let key = Key::from_keycode(key_code);
+
+        // Get the character from the event
+        let character = self.get_character_from_event(event);
+
+        // Get current modifiers
+        let modifiers = self.get_modifiers_from_event(event);
+
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::KeyDown {
+                key,
+                modifiers,
+                character,
+                is_repeat,
+            });
+        });
+    }
+
+    fn handle_key_up(&self, event: *mut Object) {
+        let key_code: u16 = unsafe { msg_send![event, keyCode] };
+        let key = Key::from_keycode(key_code);
+
+        // Get current modifiers
+        let modifiers = self.get_modifiers_from_event(event);
+
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::KeyUp { key, modifiers });
+        });
+    }
+
+    fn handle_flags_changed(&self, event: *mut Object) {
+        let modifiers = self.get_modifiers_from_event(event);
+
+        // Update the stored modifiers
+        CURRENT_MODIFIERS.with(|current| {
+            *current.borrow_mut() = modifiers;
+        });
+
+        PENDING_EVENTS.with(|events| {
+            events.borrow_mut().push(InputEvent::ModifiersChanged { modifiers });
+        });
+    }
+
+    fn get_modifiers_from_event(&self, event: *mut Object) -> Modifiers {
+        let flags: u64 = unsafe { msg_send![event, modifierFlags] };
+
+        // macOS modifier flag masks
+        const NS_EVENT_MODIFIER_FLAG_CAPS_LOCK: u64 = 1 << 16;
+        const NS_EVENT_MODIFIER_FLAG_SHIFT: u64 = 1 << 17;
+        const NS_EVENT_MODIFIER_FLAG_CONTROL: u64 = 1 << 18;
+        const NS_EVENT_MODIFIER_FLAG_OPTION: u64 = 1 << 19;
+        const NS_EVENT_MODIFIER_FLAG_COMMAND: u64 = 1 << 20;
+
+        Modifiers {
+            shift: flags & NS_EVENT_MODIFIER_FLAG_SHIFT != 0,
+            ctrl: flags & NS_EVENT_MODIFIER_FLAG_CONTROL != 0,
+            alt: flags & NS_EVENT_MODIFIER_FLAG_OPTION != 0,
+            cmd: flags & NS_EVENT_MODIFIER_FLAG_COMMAND != 0,
+            caps_lock: flags & NS_EVENT_MODIFIER_FLAG_CAPS_LOCK != 0,
+        }
+    }
+
+    fn get_character_from_event(&self, event: *mut Object) -> Option<char> {
+        unsafe {
+            // Get the characters string from the event
+            let characters: *mut Object = msg_send![event, characters];
+            if characters.is_null() {
+                return None;
+            }
+
+            let length: usize = msg_send![characters, length];
+            if length == 0 {
+                return None;
+            }
+
+            // Get the first character
+            let char_code: u16 = msg_send![characters, characterAtIndex: 0usize];
+
+            // Convert to char, filtering out control characters (except for some special cases)
+            char::from_u32(char_code as u32).filter(|c| {
+                // Allow printable characters and common whitespace
+                !c.is_control() || *c == '\t' || *c == '\n' || *c == '\r'
+            })
+        }
+    }
+
+    /// Get the current modifier state
+    #[allow(dead_code)]
+    pub fn current_modifiers(&self) -> Modifiers {
+        CURRENT_MODIFIERS.with(|m| *m.borrow())
     }
 }
 

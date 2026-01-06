@@ -49,3 +49,7 @@ path = "examples/glow_shader.rs"
 [[example]]
 name = "checkbox_demo"
 path = "examples/checkbox_demo.rs"
+
+[[example]]
+name = "keyboard_input"
+path = "examples/keyboard_input.rs"

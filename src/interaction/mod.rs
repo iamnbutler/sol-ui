@@ -1,8 +1,8 @@
-//! Interaction system for handling mouse events with z-order based hit testing
+//! Interaction system for handling mouse and keyboard events with z-order based hit testing
 
 use crate::{
     geometry::Point,
-    layer::{InputEvent, MouseButton},
+    layer::{InputEvent, Key, Modifiers, MouseButton},
 };
 use glam::Vec2;
 use std::collections::HashMap;
@@ -28,11 +28,20 @@ pub struct InteractionSystem {
     /// Currently pressed element ID and button
     pressed_element: Option<(ElementId, MouseButton)>,
 
+    /// Currently focused element ID (receives keyboard events)
+    focused_element: Option<ElementId>,
+
+    /// Current modifier key state
+    current_modifiers: Modifiers,
+
     /// Element interaction states
     element_states: HashMap<ElementId, InteractionState>,
 
     /// Hit test results from last frame
     last_hit_test: Vec<HitTestEntry>,
+
+    /// List of focusable elements in tab order (built during paint)
+    focusable_elements: Vec<ElementId>,
 
     /// Whether mouse is currently over the window
     mouse_in_window: bool,
@@ -44,10 +53,108 @@ impl InteractionSystem {
             mouse_position: Vec2::ZERO,
             hovered_element: None,
             pressed_element: None,
+            focused_element: None,
+            current_modifiers: Modifiers::new(),
             element_states: HashMap::new(),
             last_hit_test: Vec::new(),
+            focusable_elements: Vec::new(),
             mouse_in_window: false,
         }
+    }
+
+    /// Get the currently focused element
+    pub fn focused_element(&self) -> Option<ElementId> {
+        self.focused_element
+    }
+
+    /// Set focus to an element, returning focus events
+    pub fn set_focus(&mut self, element_id: Option<ElementId>) -> Vec<InteractionEvent> {
+        let mut events = Vec::new();
+
+        if self.focused_element == element_id {
+            return events;
+        }
+
+        // Remove focus from previous element
+        if let Some(prev_id) = self.focused_element {
+            if let Some(state) = self.element_states.get_mut(&prev_id) {
+                state.is_focused = false;
+            }
+            events.push(InteractionEvent::FocusOut {
+                element_id: prev_id,
+            });
+        }
+
+        // Set focus to new element
+        if let Some(new_id) = element_id {
+            self.element_states
+                .entry(new_id)
+                .or_insert_with(InteractionState::new)
+                .is_focused = true;
+
+            events.push(InteractionEvent::FocusIn { element_id: new_id });
+        }
+
+        self.focused_element = element_id;
+        events
+    }
+
+    /// Register an element as focusable (called during paint)
+    pub fn register_focusable(&mut self, element_id: ElementId) {
+        if !self.focusable_elements.contains(&element_id) {
+            self.focusable_elements.push(element_id);
+        }
+    }
+
+    /// Clear focusable elements (called at start of paint)
+    pub fn clear_focusable_elements(&mut self) {
+        self.focusable_elements.clear();
+    }
+
+    /// Move focus to next focusable element (Tab key)
+    pub fn focus_next(&mut self) -> Vec<InteractionEvent> {
+        if self.focusable_elements.is_empty() {
+            return Vec::new();
+        }
+
+        let next_index = if let Some(current) = self.focused_element {
+            let current_index = self
+                .focusable_elements
+                .iter()
+                .position(|&id| id == current)
+                .unwrap_or(0);
+            (current_index + 1) % self.focusable_elements.len()
+        } else {
+            0
+        };
+
+        let next_element = self.focusable_elements[next_index];
+        self.set_focus(Some(next_element))
+    }
+
+    /// Move focus to previous focusable element (Shift+Tab key)
+    pub fn focus_previous(&mut self) -> Vec<InteractionEvent> {
+        if self.focusable_elements.is_empty() {
+            return Vec::new();
+        }
+
+        let prev_index = if let Some(current) = self.focused_element {
+            let current_index = self
+                .focusable_elements
+                .iter()
+                .position(|&id| id == current)
+                .unwrap_or(0);
+            if current_index == 0 {
+                self.focusable_elements.len() - 1
+            } else {
+                current_index - 1
+            }
+        } else {
+            self.focusable_elements.len() - 1
+        };
+
+        let prev_element = self.focusable_elements[prev_index];
+        self.set_focus(Some(prev_element))
     }
 
     /// Update the hit test results for the current frame
@@ -86,7 +193,74 @@ impl InteractionSystem {
                 events.extend(self.handle_mouse_leave());
             }
 
-            _ => {} // Other events not handled yet
+            InputEvent::KeyDown {
+                key,
+                modifiers,
+                character,
+                is_repeat,
+            } => {
+                self.current_modifiers = *modifiers;
+                events.extend(self.handle_key_down(*key, *modifiers, *character, *is_repeat));
+            }
+
+            InputEvent::KeyUp { key, modifiers } => {
+                self.current_modifiers = *modifiers;
+                events.extend(self.handle_key_up(*key, *modifiers));
+            }
+
+            InputEvent::ModifiersChanged { modifiers } => {
+                self.current_modifiers = *modifiers;
+            }
+        }
+
+        events
+    }
+
+    /// Handle key down events
+    fn handle_key_down(
+        &mut self,
+        key: Key,
+        modifiers: Modifiers,
+        character: Option<char>,
+        is_repeat: bool,
+    ) -> Vec<InteractionEvent> {
+        let mut events = Vec::new();
+
+        // Handle Tab key for focus navigation
+        if key == Key::Tab && !is_repeat {
+            if modifiers.shift {
+                events.extend(self.focus_previous());
+            } else {
+                events.extend(self.focus_next());
+            }
+            return events;
+        }
+
+        // Route keyboard event to focused element
+        if let Some(element_id) = self.focused_element {
+            events.push(InteractionEvent::KeyDown {
+                element_id,
+                key,
+                modifiers,
+                character,
+                is_repeat,
+            });
+        }
+
+        events
+    }
+
+    /// Handle key up events
+    fn handle_key_up(&mut self, key: Key, modifiers: Modifiers) -> Vec<InteractionEvent> {
+        let mut events = Vec::new();
+
+        // Route keyboard event to focused element
+        if let Some(element_id) = self.focused_element {
+            events.push(InteractionEvent::KeyUp {
+                element_id,
+                key,
+                modifiers,
+            });
         }
 
         events
@@ -262,7 +436,14 @@ impl InteractionSystem {
         self.element_states.clear();
         self.hovered_element = None;
         self.pressed_element = None;
+        self.focused_element = None;
         self.last_hit_test.clear();
+        self.focusable_elements.clear();
+    }
+
+    /// Get current modifier state
+    pub fn current_modifiers(&self) -> Modifiers {
+        self.current_modifiers
     }
 }
 

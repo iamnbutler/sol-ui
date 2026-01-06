@@ -543,16 +543,32 @@ impl LayerManager {
     }
 }
 
-/// Input event placeholder
+/// Input events from the platform layer
 #[derive(Debug, Clone)]
 pub enum InputEvent {
-    // TODO: Define input events
+    // Mouse events
     MouseMove { position: Vec2 },
     MouseDown { position: Vec2, button: MouseButton },
     MouseUp { position: Vec2, button: MouseButton },
     MouseLeave,
-    KeyDown { key: Key },
-    KeyUp { key: Key },
+
+    // Keyboard events
+    KeyDown {
+        key: Key,
+        modifiers: Modifiers,
+        /// The character produced by this key press (if any)
+        character: Option<char>,
+        /// Whether this is a key repeat event
+        is_repeat: bool,
+    },
+    KeyUp {
+        key: Key,
+        modifiers: Modifiers,
+    },
+    /// Modifier keys changed (shift, ctrl, cmd, alt)
+    ModifiersChanged {
+        modifiers: Modifiers,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -562,12 +578,215 @@ pub enum MouseButton {
     Middle,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Modifier key state
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Modifiers {
+    pub shift: bool,
+    pub ctrl: bool,
+    pub alt: bool,   // Option key on macOS
+    pub cmd: bool,   // Command key on macOS
+    pub caps_lock: bool,
+}
+
+impl Modifiers {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Returns true if no modifiers are pressed
+    pub fn is_empty(&self) -> bool {
+        !self.shift && !self.ctrl && !self.alt && !self.cmd
+    }
+
+    /// Returns true if only shift is pressed
+    pub fn shift_only(&self) -> bool {
+        self.shift && !self.ctrl && !self.alt && !self.cmd
+    }
+
+    /// Returns true if command (or ctrl on non-mac) is pressed
+    pub fn command_or_ctrl(&self) -> bool {
+        self.cmd || self.ctrl
+    }
+}
+
+/// Virtual key codes matching macOS key codes
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Key {
-    // TODO: Define key codes
-    A,
-    B,
-    C, // ... etc
+    // Letters
+    A, B, C, D, E, F, G, H, I, J, K, L, M,
+    N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
+
+    // Numbers
+    Key0, Key1, Key2, Key3, Key4, Key5, Key6, Key7, Key8, Key9,
+
+    // Function keys
+    F1, F2, F3, F4, F5, F6, F7, F8, F9, F10, F11, F12,
+
+    // Modifiers (for tracking purposes)
+    Shift, Control, Alt, Command, CapsLock,
+    LeftShift, RightShift, LeftControl, RightControl,
+    LeftAlt, RightAlt, LeftCommand, RightCommand,
+
+    // Navigation
+    Up, Down, Left, Right,
+    Home, End, PageUp, PageDown,
+
+    // Editing
+    Backspace, Delete, Tab, Return, Escape, Space,
+
+    // Punctuation and symbols
+    Minus, Equal, LeftBracket, RightBracket, Backslash,
+    Semicolon, Quote, Grave, Comma, Period, Slash,
+
+    // Numpad
+    Numpad0, Numpad1, Numpad2, Numpad3, Numpad4,
+    Numpad5, Numpad6, Numpad7, Numpad8, Numpad9,
+    NumpadDecimal, NumpadMultiply, NumpadPlus,
+    NumpadClear, NumpadDivide, NumpadEnter, NumpadMinus, NumpadEquals,
+
+    // Other
+    Insert, PrintScreen, ScrollLock, Pause,
+
+    /// Unknown key with raw key code
+    Unknown(u16),
+}
+
+impl Key {
+    /// Convert from macOS virtual key code
+    pub fn from_keycode(code: u16) -> Self {
+        match code {
+            0x00 => Key::A,
+            0x01 => Key::S,
+            0x02 => Key::D,
+            0x03 => Key::F,
+            0x04 => Key::H,
+            0x05 => Key::G,
+            0x06 => Key::Z,
+            0x07 => Key::X,
+            0x08 => Key::C,
+            0x09 => Key::V,
+            0x0B => Key::B,
+            0x0C => Key::Q,
+            0x0D => Key::W,
+            0x0E => Key::E,
+            0x0F => Key::R,
+            0x10 => Key::Y,
+            0x11 => Key::T,
+            0x12 => Key::Key1,
+            0x13 => Key::Key2,
+            0x14 => Key::Key3,
+            0x15 => Key::Key4,
+            0x16 => Key::Key6,
+            0x17 => Key::Key5,
+            0x18 => Key::Equal,
+            0x19 => Key::Key9,
+            0x1A => Key::Key7,
+            0x1B => Key::Minus,
+            0x1C => Key::Key8,
+            0x1D => Key::Key0,
+            0x1E => Key::RightBracket,
+            0x1F => Key::O,
+            0x20 => Key::U,
+            0x21 => Key::LeftBracket,
+            0x22 => Key::I,
+            0x23 => Key::P,
+            0x24 => Key::Return,
+            0x25 => Key::L,
+            0x26 => Key::J,
+            0x27 => Key::Quote,
+            0x28 => Key::K,
+            0x29 => Key::Semicolon,
+            0x2A => Key::Backslash,
+            0x2B => Key::Comma,
+            0x2C => Key::Slash,
+            0x2D => Key::N,
+            0x2E => Key::M,
+            0x2F => Key::Period,
+            0x30 => Key::Tab,
+            0x31 => Key::Space,
+            0x32 => Key::Grave,
+            0x33 => Key::Backspace,
+            0x35 => Key::Escape,
+            0x37 => Key::Command,
+            0x38 => Key::LeftShift,
+            0x39 => Key::CapsLock,
+            0x3A => Key::LeftAlt,
+            0x3B => Key::LeftControl,
+            0x3C => Key::RightShift,
+            0x3D => Key::RightAlt,
+            0x3E => Key::RightControl,
+            // Function keys
+            0x7A => Key::F1,
+            0x78 => Key::F2,
+            0x63 => Key::F3,
+            0x76 => Key::F4,
+            0x60 => Key::F5,
+            0x61 => Key::F6,
+            0x62 => Key::F7,
+            0x64 => Key::F8,
+            0x65 => Key::F9,
+            0x6D => Key::F10,
+            0x67 => Key::F11,
+            0x6F => Key::F12,
+            // Arrow keys
+            0x7B => Key::Left,
+            0x7C => Key::Right,
+            0x7D => Key::Down,
+            0x7E => Key::Up,
+            // Navigation
+            0x73 => Key::Home,
+            0x77 => Key::End,
+            0x74 => Key::PageUp,
+            0x79 => Key::PageDown,
+            0x75 => Key::Delete,
+            // Numpad
+            0x52 => Key::Numpad0,
+            0x53 => Key::Numpad1,
+            0x54 => Key::Numpad2,
+            0x55 => Key::Numpad3,
+            0x56 => Key::Numpad4,
+            0x57 => Key::Numpad5,
+            0x58 => Key::Numpad6,
+            0x59 => Key::Numpad7,
+            0x5B => Key::Numpad8,
+            0x5C => Key::Numpad9,
+            0x41 => Key::NumpadDecimal,
+            0x43 => Key::NumpadMultiply,
+            0x45 => Key::NumpadPlus,
+            0x47 => Key::NumpadClear,
+            0x4B => Key::NumpadDivide,
+            0x4C => Key::NumpadEnter,
+            0x4E => Key::NumpadMinus,
+            0x51 => Key::NumpadEquals,
+            _ => Key::Unknown(code),
+        }
+    }
+
+    /// Returns true if this is a printable character key
+    pub fn is_printable(&self) -> bool {
+        matches!(
+            self,
+            Key::A | Key::B | Key::C | Key::D | Key::E | Key::F | Key::G | Key::H |
+            Key::I | Key::J | Key::K | Key::L | Key::M | Key::N | Key::O | Key::P |
+            Key::Q | Key::R | Key::S | Key::T | Key::U | Key::V | Key::W | Key::X |
+            Key::Y | Key::Z |
+            Key::Key0 | Key::Key1 | Key::Key2 | Key::Key3 | Key::Key4 |
+            Key::Key5 | Key::Key6 | Key::Key7 | Key::Key8 | Key::Key9 |
+            Key::Space | Key::Minus | Key::Equal | Key::LeftBracket | Key::RightBracket |
+            Key::Backslash | Key::Semicolon | Key::Quote | Key::Grave | Key::Comma |
+            Key::Period | Key::Slash
+        )
+    }
+
+    /// Returns true if this is a modifier key
+    pub fn is_modifier(&self) -> bool {
+        matches!(
+            self,
+            Key::Shift | Key::Control | Key::Alt | Key::Command | Key::CapsLock |
+            Key::LeftShift | Key::RightShift | Key::LeftControl | Key::RightControl |
+            Key::LeftAlt | Key::RightAlt | Key::LeftCommand | Key::RightCommand
+        )
+    }
 }
 
 // Re-export commonly used types

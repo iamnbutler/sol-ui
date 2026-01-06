@@ -12,6 +12,9 @@ pub struct ElementRegistry {
 
     /// Map of element IDs to their current interaction state
     states: HashMap<ElementId, InteractionState>,
+
+    /// List of focusable elements in tab order
+    focusable_elements: Vec<ElementId>,
 }
 
 impl ElementRegistry {
@@ -20,7 +23,20 @@ impl ElementRegistry {
         Self {
             handlers: HashMap::new(),
             states: HashMap::new(),
+            focusable_elements: Vec::new(),
         }
+    }
+
+    /// Register an element as focusable
+    pub fn register_focusable(&mut self, id: ElementId) {
+        if !self.focusable_elements.contains(&id) {
+            self.focusable_elements.push(id);
+        }
+    }
+
+    /// Get the list of focusable elements
+    pub fn focusable_elements(&self) -> &[ElementId] {
+        &self.focusable_elements
     }
 
     /// Register an element's event handlers
@@ -55,7 +71,11 @@ impl ElementRegistry {
             | InteractionEvent::MouseMove { element_id, .. }
             | InteractionEvent::MouseDown { element_id, .. }
             | InteractionEvent::MouseUp { element_id, .. }
-            | InteractionEvent::Click { element_id, .. } => *element_id,
+            | InteractionEvent::Click { element_id, .. }
+            | InteractionEvent::KeyDown { element_id, .. }
+            | InteractionEvent::KeyUp { element_id, .. }
+            | InteractionEvent::FocusIn { element_id }
+            | InteractionEvent::FocusOut { element_id } => *element_id,
         };
 
         // Update states based on event type
@@ -80,6 +100,16 @@ impl ElementRegistry {
                     state.is_pressed = false;
                 }
             }
+            InteractionEvent::FocusIn { .. } => {
+                if let Some(state) = self.states.get_mut(&element_id) {
+                    state.is_focused = true;
+                }
+            }
+            InteractionEvent::FocusOut { .. } => {
+                if let Some(state) = self.states.get_mut(&element_id) {
+                    state.is_focused = false;
+                }
+            }
             _ => {}
         }
 
@@ -96,6 +126,7 @@ impl ElementRegistry {
     pub fn clear(&mut self) {
         self.handlers.clear();
         self.states.clear();
+        self.focusable_elements.clear();
     }
 
     /// Check if an element is registered
@@ -155,4 +186,13 @@ pub fn get_element_state(id: ElementId) -> Option<InteractionState> {
             .as_ref()
             .and_then(|registry| registry.borrow().get_state(id).cloned())
     })
+}
+
+/// Register an element as focusable with the current registry
+pub fn register_focusable(id: ElementId) {
+    CURRENT_REGISTRY.with(|r| {
+        if let Some(registry) = r.borrow().as_ref() {
+            registry.borrow_mut().register_focusable(id);
+        }
+    });
 }

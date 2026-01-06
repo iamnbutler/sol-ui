@@ -7,8 +7,9 @@ use crate::{
     geometry::Rect,
     interaction::{
         events::EventHandlers,
-        registry::{get_element_state, register_element},
+        registry::{get_element_state, register_element, register_focusable},
     },
+    layer::{Key, Modifiers},
     render::{PaintContext, PaintQuad},
 };
 use std::cell::RefCell;
@@ -29,9 +30,13 @@ pub struct InteractiveElement<E: Element> {
     /// Visual feedback options
     hover_overlay: Option<Color>,
     press_overlay: Option<Color>,
+    focus_overlay: Option<Color>,
 
     /// Whether this element is interactive
     enabled: bool,
+
+    /// Whether this element can receive keyboard focus
+    focusable: bool,
 
     /// Z-index offset for this element
     z_index: i32,
@@ -49,7 +54,9 @@ impl<E: Element> InteractiveElement<E> {
             handlers: Rc::new(RefCell::new(EventHandlers::new())),
             hover_overlay: None,
             press_overlay: None,
+            focus_overlay: None,
             enabled: true,
+            focusable: false,
             z_index: 0,
             node_id: None,
         }
@@ -73,6 +80,12 @@ impl<E: Element> InteractiveElement<E> {
         self
     }
 
+    /// Set focus overlay color for visual feedback
+    pub fn focus_overlay(mut self, color: Color) -> Self {
+        self.focus_overlay = Some(color);
+        self
+    }
+
     /// Set both hover and press overlays
     pub fn with_overlays(mut self, hover: Color, press: Color) -> Self {
         self.hover_overlay = Some(hover);
@@ -86,11 +99,26 @@ impl<E: Element> InteractiveElement<E> {
         self
     }
 
+    /// Make this element focusable (can receive keyboard focus)
+    pub fn focusable(mut self) -> Self {
+        self.focusable = true;
+        self
+    }
+
+    /// Make this element focusable with a focus overlay color
+    pub fn focusable_with_overlay(mut self, color: Color) -> Self {
+        self.focusable = true;
+        self.focus_overlay = Some(color);
+        self
+    }
+
     /// Set the z-index offset for this element
     pub fn z_index(mut self, z_index: i32) -> Self {
         self.z_index = z_index;
         self
     }
+
+    // --- Mouse handlers ---
 
     /// Set the click handler
     pub fn on_click<F>(self, handler: F) -> Self
@@ -146,9 +174,54 @@ impl<E: Element> InteractiveElement<E> {
         self
     }
 
+    // --- Keyboard handlers ---
+
+    /// Set the key down handler (element must be focusable)
+    pub fn on_key_down<F>(self, handler: F) -> Self
+    where
+        F: FnMut(Key, Modifiers, Option<char>, bool) + 'static,
+    {
+        self.handlers.borrow_mut().on_key_down = Some(Box::new(handler));
+        self
+    }
+
+    /// Set the key up handler (element must be focusable)
+    pub fn on_key_up<F>(self, handler: F) -> Self
+    where
+        F: FnMut(Key, Modifiers) + 'static,
+    {
+        self.handlers.borrow_mut().on_key_up = Some(Box::new(handler));
+        self
+    }
+
+    // --- Focus handlers ---
+
+    /// Set the focus in handler
+    pub fn on_focus_in<F>(self, handler: F) -> Self
+    where
+        F: FnMut() + 'static,
+    {
+        self.handlers.borrow_mut().on_focus_in = Some(Box::new(handler));
+        self
+    }
+
+    /// Set the focus out handler
+    pub fn on_focus_out<F>(self, handler: F) -> Self
+    where
+        F: FnMut() + 'static,
+    {
+        self.handlers.borrow_mut().on_focus_out = Some(Box::new(handler));
+        self
+    }
+
     /// Get the element's ID
     pub fn element_id(&self) -> ElementId {
         self.id
+    }
+
+    /// Check if this element is focusable
+    pub fn is_focusable(&self) -> bool {
+        self.focusable
     }
 }
 
@@ -169,13 +242,21 @@ impl<E: Element> Element for InteractiveElement<E> {
             register_element(self.id, self.handlers.clone());
         }
 
+        // Register as focusable if enabled
+        if self.enabled && self.focusable {
+            register_focusable(self.id);
+        }
+
         // Get current interaction state from registry
         let state = get_element_state(self.id).unwrap_or_default();
 
-        // Then apply interaction overlays if needed
+        // Apply interaction overlays if needed
         if self.enabled {
+            // Determine which overlay to show (priority: pressed > focused > hovered)
             let overlay_color = if state.is_pressed {
                 self.press_overlay
+            } else if state.is_focused {
+                self.focus_overlay
             } else if state.is_hovered {
                 self.hover_overlay
             } else {
