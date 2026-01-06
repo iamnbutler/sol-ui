@@ -551,6 +551,8 @@ pub enum InputEvent {
     MouseDown { position: Vec2, button: MouseButton },
     MouseUp { position: Vec2, button: MouseButton },
     MouseLeave,
+    /// Scroll wheel event (positive delta = scroll up/left, negative = scroll down/right)
+    ScrollWheel { position: Vec2, delta: Vec2 },
 
     // Keyboard events
     KeyDown {

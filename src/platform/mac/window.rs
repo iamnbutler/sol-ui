@@ -199,16 +199,17 @@ impl Window {
 
             // Handle different event types
             match event_type {
-                1 => self.handle_mouse_down(event),  // NSEventTypeLeftMouseDown
-                2 => self.handle_mouse_up(event),    // NSEventTypeLeftMouseUp
-                3 => self.handle_mouse_down(event),  // NSEventTypeRightMouseDown
-                4 => self.handle_mouse_up(event),    // NSEventTypeRightMouseUp
-                5 => self.handle_mouse_moved(event), // NSEventTypeMouseMoved
-                6 => self.handle_mouse_moved(event), // NSEventTypeLeftMouseDragged
-                7 => self.handle_mouse_moved(event), // NSEventTypeRightMouseDragged
-                10 => self.handle_key_down(event),   // NSEventTypeKeyDown
-                11 => self.handle_key_up(event),     // NSEventTypeKeyUp
+                1 => self.handle_mouse_down(event),   // NSEventTypeLeftMouseDown
+                2 => self.handle_mouse_up(event),     // NSEventTypeLeftMouseUp
+                3 => self.handle_mouse_down(event),   // NSEventTypeRightMouseDown
+                4 => self.handle_mouse_up(event),     // NSEventTypeRightMouseUp
+                5 => self.handle_mouse_moved(event),  // NSEventTypeMouseMoved
+                6 => self.handle_mouse_moved(event),  // NSEventTypeLeftMouseDragged
+                7 => self.handle_mouse_moved(event),  // NSEventTypeRightMouseDragged
+                10 => self.handle_key_down(event),    // NSEventTypeKeyDown
+                11 => self.handle_key_up(event),      // NSEventTypeKeyUp
                 12 => self.handle_flags_changed(event), // NSEventTypeFlagsChanged
+                22 => self.handle_scroll_wheel(event), // NSEventTypeScrollWheel
                 _ => {}
             }
 
@@ -373,6 +374,36 @@ impl Window {
                 // Allow printable characters and common whitespace
                 !c.is_control() || *c == '\t' || *c == '\n' || *c == '\r'
             })
+        }
+    }
+
+    fn handle_scroll_wheel(&self, event: *mut Object) {
+        let location = self.get_mouse_location(event);
+
+        // Get scroll deltas (macOS provides these in "line" units for trackpad)
+        let delta_x: f64 = unsafe { msg_send![event, scrollingDeltaX] };
+        let delta_y: f64 = unsafe { msg_send![event, scrollingDeltaY] };
+
+        // Check if this is a precise scroll event (trackpad) or imprecise (mouse wheel)
+        let is_precise: bool = unsafe { msg_send![event, hasPreciseScrollingDeltas] };
+
+        // For mouse wheel (imprecise), multiply by a factor to get reasonable pixel values
+        // For trackpad (precise), the values are already in pixels
+        let multiplier = if is_precise { 1.0 } else { 10.0 };
+
+        let delta = glam::Vec2::new(
+            (delta_x * multiplier) as f32,
+            (delta_y * multiplier) as f32,
+        );
+
+        // Only emit event if there's actual scrolling
+        if delta.x.abs() > 0.0 || delta.y.abs() > 0.0 {
+            PENDING_EVENTS.with(|events| {
+                events.borrow_mut().push(InputEvent::ScrollWheel {
+                    position: glam::Vec2::new(location.0 as f32, location.1 as f32),
+                    delta,
+                });
+            });
         }
     }
 

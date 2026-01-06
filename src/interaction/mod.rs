@@ -211,6 +211,11 @@ impl InteractionSystem {
             InputEvent::ModifiersChanged { modifiers } => {
                 self.current_modifiers = *modifiers;
             }
+
+            InputEvent::ScrollWheel { position, delta } => {
+                self.mouse_position = *position;
+                events.extend(self.handle_scroll_wheel(*position, *delta));
+            }
         }
 
         events
@@ -400,6 +405,23 @@ impl InteractionSystem {
 
         // Note: We don't clear pressed state on mouse leave
         // This allows drag operations to continue outside the window
+
+        events
+    }
+
+    /// Handle scroll wheel events
+    fn handle_scroll_wheel(&mut self, position: Vec2, delta: Vec2) -> Vec<InteractionEvent> {
+        let mut events = Vec::new();
+
+        // Find what's under the mouse and send scroll event to it
+        if let Some(hit) = self.hit_test(position) {
+            events.push(InteractionEvent::ScrollWheel {
+                element_id: hit.element_id,
+                delta,
+                position,
+                local_position: hit.local_position,
+            });
+        }
 
         events
     }

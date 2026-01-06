@@ -46,6 +46,14 @@ pub enum InteractionEvent {
         local_position: Vec2,
     },
 
+    /// Scroll wheel event on an element
+    ScrollWheel {
+        element_id: ElementId,
+        delta: Vec2,
+        position: Vec2,
+        local_position: Vec2,
+    },
+
     // --- Keyboard Events ---
 
     /// Key pressed on focused element
@@ -139,6 +147,7 @@ pub struct EventHandlers {
     pub on_mouse_down: Option<Box<dyn FnMut(MouseButton, Vec2, Vec2)>>,
     pub on_mouse_up: Option<Box<dyn FnMut(MouseButton, Vec2, Vec2)>>,
     pub on_click: Option<Box<dyn FnMut(MouseButton, Vec2, Vec2)>>,
+    pub on_scroll: Option<Box<dyn FnMut(Vec2, Vec2, Vec2)>>,
     // Keyboard handlers
     pub on_key_down: Option<Box<dyn FnMut(Key, Modifiers, Option<char>, bool)>>,
     pub on_key_up: Option<Box<dyn FnMut(Key, Modifiers)>>,
@@ -156,6 +165,7 @@ impl EventHandlers {
             on_mouse_down: None,
             on_mouse_up: None,
             on_click: None,
+            on_scroll: None,
             on_key_down: None,
             on_key_up: None,
             on_focus_in: None,
@@ -214,6 +224,15 @@ impl EventHandlers {
         F: FnMut(MouseButton, Vec2, Vec2) + 'static,
     {
         self.on_click = Some(Box::new(handler));
+        self
+    }
+
+    /// Set the scroll handler
+    pub fn on_scroll<F>(mut self, handler: F) -> Self
+    where
+        F: FnMut(Vec2, Vec2, Vec2) + 'static,
+    {
+        self.on_scroll = Some(Box::new(handler));
         self
     }
 
@@ -303,6 +322,16 @@ impl EventHandlers {
             } => {
                 if let Some(handler) = &mut self.on_click {
                     handler(*button, *position, *local_position);
+                }
+            }
+            InteractionEvent::ScrollWheel {
+                delta,
+                position,
+                local_position,
+                ..
+            } => {
+                if let Some(handler) = &mut self.on_scroll {
+                    handler(*delta, *position, *local_position);
                 }
             }
             InteractionEvent::KeyDown {
