@@ -1,4 +1,5 @@
 use crate::{
+    color::Color,
     element::{Element, LayoutContext, PaintContext},
     geometry::Rect,
     render::PaintText,
@@ -6,9 +7,14 @@ use crate::{
 };
 use taffy::prelude::*;
 
-/// Create a new text element
-pub fn text(content: impl Into<String>, style: TextStyle) -> Text {
-    Text::new(content, style)
+/// Create a new text element with default styling
+pub fn text(content: impl Into<String>) -> Text {
+    Text::new(content)
+}
+
+/// Create a new text element with explicit styling
+pub fn text_styled(content: impl Into<String>, style: TextStyle) -> Text {
+    Text::with_style(content, style)
 }
 
 /// A simple text element
@@ -19,12 +25,40 @@ pub struct Text {
 }
 
 impl Text {
-    pub fn new(content: impl Into<String>, style: TextStyle) -> Self {
+    /// Create a new text element with default styling
+    pub fn new(content: impl Into<String>) -> Self {
+        Self {
+            content: content.into(),
+            style: TextStyle::default(),
+            node_id: None,
+        }
+    }
+
+    /// Create a new text element with explicit styling
+    pub fn with_style(content: impl Into<String>, style: TextStyle) -> Self {
         Self {
             content: content.into(),
             style,
             node_id: None,
         }
+    }
+
+    /// Set the text style
+    pub fn style(mut self, style: TextStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// Set the text size
+    pub fn size(mut self, size: f32) -> Self {
+        self.style.size = size;
+        self
+    }
+
+    /// Set the text color
+    pub fn color(mut self, color: Color) -> Self {
+        self.style.color = color;
+        self
     }
 }
 

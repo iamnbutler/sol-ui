@@ -10,7 +10,7 @@ pub use button::{Button, button};
 pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
 pub use container::{Container, column, container, row};
 pub use scroll::{ScrollContainer, ScrollState, scroll};
-pub use text::{Text, text};
+pub use text::{Text, text, text_styled};
 
 use crate::{
     geometry::Rect,

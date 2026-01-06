@@ -12,7 +12,6 @@ use sol_ui::{
     element::{column, container, text},
     interaction::Interactable,
     layer::{Key, LayerOptions, MouseButton},
-    style::TextStyle,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -52,55 +51,25 @@ fn main() {
                             .items_center()
                             .justify_center()
                             .gap(20.0)
-                            .child(
-                                text(
-                                    "Keyboard Input Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 32.0,
-                                    },
-                                )
-                            )
-                            .child(
-                                text(
-                                    "Press Tab to navigate between boxes, type to see input",
-                                    TextStyle {
-                                        color: colors::GRAY_600,
-                                        size: 16.0,
-                                    },
-                                )
-                            )
+                            .child(text("Keyboard Input Demo")
+                                .size(32.0)
+                                .color(colors::BLACK))
+                            .child(text("Press Tab to navigate between boxes, type to see input")
+                                .size(16.0)
+                                .color(colors::GRAY_600))
                             // Status display
                             .child(
                                 column()
                                     .gap(8.0)
-                                    .child(
-                                        text(
-                                            format!("Last key: {}", last_key_val),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
-                                    .child(
-                                        text(
-                                            format!("Focused: {}", focused_box_val),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
-                                    .child(
-                                        text(
-                                            format!("Typed: {}", if typed_text_val.is_empty() { "(empty)" } else { &typed_text_val }),
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text(format!("Last key: {}", last_key_val))
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
+                                    .child(text(format!("Focused: {}", focused_box_val))
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
+                                    .child(text(format!("Typed: {}", if typed_text_val.is_empty() { "(empty)" } else { &typed_text_val }))
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
                             )
                             // Focusable input boxes
                             .child(
@@ -117,15 +86,9 @@ fn main() {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .child(
-                                                text(
-                                                    "Box 1 (Blue)",
-                                                    TextStyle {
-                                                        color: colors::BLUE_600,
-                                                        size: 16.0,
-                                                    },
-                                                )
-                                            )
+                                            .child(text("Box 1 (Blue)")
+                                                .size(16.0)
+                                                .color(colors::BLUE_600))
                                             .interactive()
                                             .with_id(1)
                                             .focusable_with_overlay(colors::BLUE_500.with_alpha(0.3))
@@ -183,15 +146,9 @@ fn main() {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .child(
-                                                text(
-                                                    "Box 2 (Green)",
-                                                    TextStyle {
-                                                        color: colors::GREEN_600,
-                                                        size: 16.0,
-                                                    },
-                                                )
-                                            )
+                                            .child(text("Box 2 (Green)")
+                                                .size(16.0)
+                                                .color(colors::GREEN_600))
                                             .interactive()
                                             .with_id(2)
                                             .focusable_with_overlay(colors::GREEN_500.with_alpha(0.3))
@@ -245,15 +202,9 @@ fn main() {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .child(
-                                                text(
-                                                    "Box 3 (Purple)",
-                                                    TextStyle {
-                                                        color: colors::PURPLE_600,
-                                                        size: 16.0,
-                                                    },
-                                                )
-                                            )
+                                            .child(text("Box 3 (Purple)")
+                                                .size(16.0)
+                                                .color(colors::PURPLE_600))
                                             .interactive()
                                             .with_id(3)
                                             .focusable_with_overlay(colors::PURPLE_500.with_alpha(0.3))
@@ -297,15 +248,9 @@ fn main() {
                                             })
                                     )
                             )
-                            .child(
-                                text(
-                                    "Tips: Tab/Shift+Tab to navigate | Escape to clear | Type any key",
-                                    TextStyle {
-                                        color: colors::GRAY_500,
-                                        size: 14.0,
-                                    },
-                                )
-                            )
+                            .child(text("Tips: Tab/Shift+Tab to navigate | Escape to clear | Type any key")
+                                .size(14.0)
+                                .color(colors::GRAY_500))
                     )
                 },
             );

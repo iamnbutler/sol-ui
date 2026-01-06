@@ -12,7 +12,6 @@ use sol_ui::{
     element::{column, container, row, text, Container},
     interaction::Interactable,
     layer::{Key, LayerOptions, MouseButton},
-    style::TextStyle,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -49,29 +48,17 @@ fn main() {
                             .justify_center()
                             .gap(24.0)
                             // Title
-                            .child(
-                                text(
-                                    "Keyboard Shortcuts Demo",
-                                    TextStyle {
-                                        color: colors::GRAY_900,
-                                        size: 32.0,
-                                    },
-                                )
-                            )
+                            .child(text("Keyboard Shortcuts Demo")
+                                .size(32.0)
+                                .color(colors::GRAY_900))
                             // Instructions
                             .child(
                                 column()
                                     .gap(8.0)
                                     .items_center()
-                                    .child(
-                                        text(
-                                            "Try these shortcuts:",
-                                            TextStyle {
-                                                color: colors::GRAY_600,
-                                                size: 16.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text("Try these shortcuts:")
+                                        .size(16.0)
+                                        .color(colors::GRAY_600))
                                     .child(shortcut_row("Cmd+S", "Save"))
                                     .child(shortcut_row("Cmd+Z", "Undo"))
                                     .child(shortcut_row("Shift+Cmd+Z", "Redo"))
@@ -90,24 +77,12 @@ fn main() {
                                     .corner_radius(8.0)
                                     .flex_col()
                                     .gap(8.0)
-                                    .child(
-                                        text(
-                                            format!("Last action: {}", last_action_val),
-                                            TextStyle {
-                                                color: colors::GRAY_800,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
-                                    .child(
-                                        text(
-                                            format!("Counter: {}", counter_val),
-                                            TextStyle {
-                                                color: colors::GRAY_600,
-                                                size: 16.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text(format!("Last action: {}", last_action_val))
+                                        .size(18.0)
+                                        .color(colors::GRAY_800))
+                                    .child(text(format!("Counter: {}", counter_val))
+                                        .size(16.0)
+                                        .color(colors::GRAY_600))
                             )
                             // Interactive buttons demonstrating focused shortcuts
                             .child(
@@ -123,15 +98,9 @@ fn main() {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .child(
-                                                text(
-                                                    "Increment (+)",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 16.0,
-                                                    },
-                                                )
-                                            )
+                                            .child(text("Increment (+)")
+                                                .size(16.0)
+                                                .color(colors::WHITE))
                                             .interactive()
                                             .with_id(1)
                                             .focusable_with_overlay(colors::BLUE_400.with_alpha(0.5))
@@ -168,15 +137,9 @@ fn main() {
                                             .flex()
                                             .items_center()
                                             .justify_center()
-                                            .child(
-                                                text(
-                                                    "Decrement (-)",
-                                                    TextStyle {
-                                                        color: colors::WHITE,
-                                                        size: 16.0,
-                                                    },
-                                                )
-                                            )
+                                            .child(text("Decrement (-)")
+                                                .size(16.0)
+                                                .color(colors::WHITE))
                                             .interactive()
                                             .with_id(2)
                                             .focusable_with_overlay(colors::RED_400.with_alpha(0.5))
@@ -204,15 +167,9 @@ fn main() {
                                             })
                                     )
                             )
-                            .child(
-                                text(
-                                    "Tab to switch focus between buttons | +/- keys work when focused",
-                                    TextStyle {
-                                        color: colors::GRAY_500,
-                                        size: 14.0,
-                                    },
-                                )
-                            )
+                            .child(text("Tab to switch focus between buttons | +/- keys work when focused")
+                                .size(14.0)
+                                .color(colors::GRAY_500))
                     )
                 },
             );
@@ -234,23 +191,11 @@ fn shortcut_row(shortcut: &str, description: &str) -> Container {
                 .flex()
                 .items_center()
                 .justify_center()
-                .child(
-                    text(
-                        shortcut,
-                        TextStyle {
-                            color: colors::GRAY_700,
-                            size: 14.0,
-                        },
-                    )
-                )
+                .child(text(shortcut)
+                    .size(14.0)
+                    .color(colors::GRAY_700))
         )
-        .child(
-            text(
-                description,
-                TextStyle {
-                    color: colors::GRAY_600,
-                    size: 14.0,
-                },
-            )
-        )
+        .child(text(description)
+            .size(14.0)
+            .color(colors::GRAY_600))
 }

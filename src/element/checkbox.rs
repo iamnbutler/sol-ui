@@ -233,7 +233,7 @@ impl Element for Checkbox {
     fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
         // Create label element if we have label text
         let label_node = if let Some(label_text) = &self.label {
-            let mut label = text(label_text.clone(), self.label_style.clone());
+            let mut label = text(label_text.clone()).style(self.label_style.clone());
             let node = label.layout(ctx);
             self.label_element = Some(label);
             self.label_node_id = Some(node);

@@ -3,7 +3,6 @@ use sol_ui::{
     app::app,
     element::{column, container, row, text},
     layer::{LayerManager, LayerOptions},
-    style::TextStyle,
 };
 use tracing::{info, info_span};
 use tracing_subscriber::{EnvFilter, fmt};
@@ -35,44 +34,24 @@ fn main() {
                     column()
                         .padding(20.0)
                         .gap(10.0)
-                        .child(text(
-                            "Hello from Taffy!",
-                            TextStyle {
-                                size: 24.0,
-                                color: Srgba::new(0.0, 0.0, 0.0, 1.0),
-                            },
-                        ))
-                        .child(text(
-                            "This is a column layout with padding and gap.",
-                            TextStyle {
-                                size: 16.0,
-                                color: Srgba::new(0.3, 0.3, 0.3, 1.0),
-                            },
-                        ))
+                        .child(text("Hello from Taffy!")
+                            .size(24.0)
+                            .color(Srgba::new(0.0, 0.0, 0.0, 1.0)))
+                        .child(text("This is a column layout with padding and gap.")
+                            .size(16.0)
+                            .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
                         .child(
                             row()
                                 .gap(15.0)
-                                .child(text(
-                                    "Row item 1",
-                                    TextStyle {
-                                        size: 14.0,
-                                        color: Srgba::new(0.0, 0.5, 0.0, 1.0),
-                                    },
-                                ))
-                                .child(text(
-                                    "Row item 2",
-                                    TextStyle {
-                                        size: 14.0,
-                                        color: Srgba::new(0.0, 0.0, 0.5, 1.0),
-                                    },
-                                ))
-                                .child(text(
-                                    "Row item 3",
-                                    TextStyle {
-                                        size: 14.0,
-                                        color: Srgba::new(0.5, 0.0, 0.0, 1.0),
-                                    },
-                                )),
+                                .child(text("Row item 1")
+                                    .size(14.0)
+                                    .color(Srgba::new(0.0, 0.5, 0.0, 1.0)))
+                                .child(text("Row item 2")
+                                    .size(14.0)
+                                    .color(Srgba::new(0.0, 0.0, 0.5, 1.0)))
+                                .child(text("Row item 3")
+                                    .size(14.0)
+                                    .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
                         ),
                 )
             });
@@ -93,33 +72,21 @@ fn main() {
                                 .child(
                                     column()
                                         .gap(20.0)
-                                        .child(text(
-                                            "Centered Content",
-                                            TextStyle {
-                                                size: 28.0,
-                                                color: Srgba::new(0.2, 0.2, 0.2, 1.0),
-                                            },
-                                        ))
-                                        .child(text(
-                                            "This div is centered in the window",
-                                            TextStyle {
-                                                size: 16.0,
-                                                color: Srgba::new(0.4, 0.4, 0.4, 1.0),
-                                            },
-                                        ))
+                                        .child(text("Centered Content")
+                                            .size(28.0)
+                                            .color(Srgba::new(0.2, 0.2, 0.2, 1.0)))
+                                        .child(text("This div is centered in the window")
+                                            .size(16.0)
+                                            .color(Srgba::new(0.4, 0.4, 0.4, 1.0)))
                                         .child(
                                             container()
                                                 .background(Srgba::new(0.2, 0.3, 0.8, 1.0))
                                                 .size(200.0, 50.0)
                                                 .justify_center()
                                                 .items_center()
-                                                .child(text(
-                                                    "Button-like div",
-                                                    TextStyle {
-                                                        size: 16.0,
-                                                        color: Srgba::new(1.0, 1.0, 1.0, 1.0),
-                                                    },
-                                                )),
+                                                .child(text("Button-like div")
+                                                    .size(16.0)
+                                                    .color(Srgba::new(1.0, 1.0, 1.0, 1.0))),
                                         ),
                                 ),
                         ),
@@ -142,20 +109,12 @@ fn main() {
                                 .child(
                                     column()
                                         .gap(15.0)
-                                        .child(text(
-                                            "Complex Layout Example",
-                                            TextStyle {
-                                                size: 24.0,
-                                                color: Srgba::new(0.1, 0.1, 0.1, 1.0),
-                                            },
-                                        ))
-                                        .child(text(
-                                            "This demonstrates nested layouts with the builder pattern.",
-                                            TextStyle {
-                                                size: 16.0,
-                                                color: Srgba::new(0.3, 0.3, 0.3, 1.0),
-                                            },
-                                        ))
+                                        .child(text("Complex Layout Example")
+                                            .size(24.0)
+                                            .color(Srgba::new(0.1, 0.1, 0.1, 1.0)))
+                                        .child(text("This demonstrates nested layouts with the builder pattern.")
+                                            .size(16.0)
+                                            .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
                                         .child(
                                             row()
                                                 .gap(10.0)
@@ -163,37 +122,25 @@ fn main() {
                                                     container()
                                                         .background(Srgba::new(1.0, 0.8, 0.8, 1.0))
                                                         .padding(10.0)
-                                                        .child(text(
-                                                            "Card 1",
-                                                            TextStyle {
-                                                                size: 14.0,
-                                                                color: Srgba::new(0.5, 0.0, 0.0, 1.0),
-                                                            },
-                                                        )),
+                                                        .child(text("Card 1")
+                                                            .size(14.0)
+                                                            .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
                                                 )
                                                 .child(
                                                     container()
                                                         .background(Srgba::new(0.8, 1.0, 0.8, 1.0))
                                                         .padding(10.0)
-                                                        .child(text(
-                                                            "Card 2",
-                                                            TextStyle {
-                                                                size: 14.0,
-                                                                color: Srgba::new(0.0, 0.5, 0.0, 1.0),
-                                                            },
-                                                        )),
+                                                        .child(text("Card 2")
+                                                            .size(14.0)
+                                                            .color(Srgba::new(0.0, 0.5, 0.0, 1.0))),
                                                 )
                                                 .child(
                                                     container()
                                                         .background(Srgba::new(0.8, 0.8, 1.0, 1.0))
                                                         .padding(10.0)
-                                                        .child(text(
-                                                            "Card 3",
-                                                            TextStyle {
-                                                                size: 14.0,
-                                                                color: Srgba::new(0.0, 0.0, 0.5, 1.0),
-                                                            },
-                                                        )),
+                                                        .child(text("Card 3")
+                                                            .size(14.0)
+                                                            .color(Srgba::new(0.0, 0.0, 0.5, 1.0))),
                                                 ),
                                         ),
                                 ),
@@ -213,13 +160,9 @@ fn main() {
                     .background(Srgba::new(0.0, 0.0, 0.0, 0.1));
 
                 // Add header
-                root_container = root_container.child(text(
-                    "Performance Test - 50 Items",
-                    TextStyle {
-                        size: 20.0,
-                        color: Srgba::new(0.0, 0.0, 0.0, 1.0),
-                    },
-                ));
+                root_container = root_container.child(text("Performance Test - 50 Items")
+                    .size(20.0)
+                    .color(Srgba::new(0.0, 0.0, 0.0, 1.0)));
 
                 // Create many items
                 for i in 0..50 {
@@ -234,13 +177,9 @@ fn main() {
                                     .background(color)
                                     .size(30.0, 20.0),
                             )
-                            .child(text(
-                                format!("Item {}", i + 1),
-                                TextStyle {
-                                    size: 14.0,
-                                    color: Srgba::new(0.3, 0.3, 0.3, 1.0),
-                                },
-                            )),
+                            .child(text(format!("Item {}", i + 1))
+                                .size(14.0)
+                                .color(Srgba::new(0.3, 0.3, 0.3, 1.0))),
                     );
                 }
 

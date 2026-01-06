@@ -4,7 +4,6 @@ use sol_ui::{
     element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
-    style::TextStyle,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -72,20 +71,12 @@ fn main() {
                         .items_center()
                         .justify_center()
                         .gap(20.0)
-                        .child(text(
-                            "Toy UI Demo",
-                            TextStyle {
-                                color: colors::WHITE,
-                                size: 24.0,
-                            },
-                        ))
-                        .child(text(
-                            format!("Count: {}", count),
-                            TextStyle {
-                                color: colors::GRAY_200,
-                                size: 20.0,
-                            },
-                        ))
+                        .child(text("Toy UI Demo")
+                            .size(24.0)
+                            .color(colors::WHITE))
+                        .child(text(format!("Count: {}", count))
+                            .size(20.0)
+                            .color(colors::GRAY_200))
                         .child(
                             row()
                                 .gap(10.0)
@@ -97,13 +88,9 @@ fn main() {
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .child(text(
-                                            "+",
-                                            TextStyle {
-                                                color: colors::WHITE,
-                                                size: 12.0,
-                                            },
-                                        ))
+                                        .child(text("+")
+                                            .size(12.0)
+                                            .color(colors::WHITE))
                                         .interactive()
                                         .with_id(1)
                                         .on_click({
@@ -123,13 +110,9 @@ fn main() {
                                         .flex()
                                         .items_center()
                                         .justify_center()
-                                        .child(text(
-                                            "Reset",
-                                            TextStyle {
-                                                color: colors::WHITE,
-                                                size: 12.0,
-                                            },
-                                        ))
+                                        .child(text("Reset")
+                                            .size(12.0)
+                                            .color(colors::WHITE))
                                         .interactive()
                                         .with_id(2)
                                         .on_click({
@@ -149,13 +132,9 @@ fn main() {
                                     .flex()
                                     .items_center()
                                     .justify_center()
-                                    .child(text(
-                                        "-",
-                                        TextStyle {
-                                            color: colors::WHITE,
-                                            size: 12.0,
-                                        },
-                                    ))
+                                    .child(text("-")
+                                        .size(12.0)
+                                        .color(colors::WHITE))
                                     .interactive()
                                     .with_id(3)
                                     .on_click({

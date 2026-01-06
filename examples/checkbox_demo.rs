@@ -59,28 +59,16 @@ fn main() {
                             .flex_col()
                             .padding(40.0)
                             .gap(30.0)
-                            .child(
-                                text(
-                                    "Checkbox Demo",
-                                    TextStyle {
-                                        color: colors::BLACK,
-                                        size: 28.0,
-                                    },
-                                )
-                            )
+                            .child(text("Checkbox Demo")
+                                .size(28.0)
+                                .color(colors::BLACK))
                             // Basic checkboxes section
                             .child(
                                 column()
                                     .gap(12.0)
-                                    .child(
-                                        text(
-                                            "Basic Checkboxes",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text("Basic Checkboxes")
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
                                     .child(
                                         checkbox(opt1)
                                             .label("Option 1 (unchecked by default)")
@@ -116,15 +104,9 @@ fn main() {
                             .child(
                                 column()
                                     .gap(12.0)
-                                    .child(
-                                        text(
-                                            "Settings",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text("Settings")
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
                                     .child(
                                         checkbox(notif)
                                             .label("Enable notifications")
@@ -152,15 +134,9 @@ fn main() {
                             .child(
                                 column()
                                     .gap(12.0)
-                                    .child(
-                                        text(
-                                            "Disabled States",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text("Disabled States")
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
                                     .child(
                                         checkbox(false)
                                             .label("Disabled unchecked")
@@ -180,15 +156,9 @@ fn main() {
                             .child(
                                 column()
                                     .gap(12.0)
-                                    .child(
-                                        text(
-                                            "Size Variations",
-                                            TextStyle {
-                                                color: colors::GRAY_700,
-                                                size: 18.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text("Size Variations")
+                                        .size(18.0)
+                                        .color(colors::GRAY_700))
                                     .child(
                                         row()
                                             .gap(20.0)
@@ -230,18 +200,12 @@ fn main() {
                                     .background(colors::WHITE)
                                     .padding(16.0)
                                     .corner_radius(8.0)
-                                    .child(
-                                        text(
-                                            format!(
-                                                "Current state: Option1={}, Option2={}, Option3={}, Notifications={}, DarkMode={}",
-                                                opt1, opt2, opt3, notif, dark
-                                            ),
-                                            TextStyle {
-                                                color: colors::GRAY_600,
-                                                size: 14.0,
-                                            },
-                                        )
-                                    )
+                                    .child(text(format!(
+                                            "Current state: Option1={}, Option2={}, Option3={}, Notifications={}, DarkMode={}",
+                                            opt1, opt2, opt3, notif, dark
+                                        ))
+                                        .size(14.0)
+                                        .color(colors::GRAY_600))
                             )
                     )
                 },
