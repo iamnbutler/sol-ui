@@ -1,5 +1,5 @@
 use crate::{
-    entity::EntityStore,
+    entity::{EntityStore, clear_entity_store, set_entity_store},
     layer::{InputEvent, LayerManager},
     platform::{create_app_menu, mac::metal_renderer::MetalRenderer, MenuBar, Window},
     task::{TaskRunner, clear_task_runner, set_task_runner},
@@ -273,6 +273,8 @@ impl App {
             }
 
             // Process input events
+            // Set entity store so callbacks can access state during input handling
+            set_entity_store(&mut self.entity_store);
             let input_events = self.window.get_pending_input_events();
             for event in &input_events {
                 // First, call the window event handler if configured
@@ -282,6 +284,8 @@ impl App {
                 // Then pass to layer manager for UI handling
                 self.layer_manager.handle_input(event);
             }
+            // Clear entity store after input - render will set it again
+            clear_entity_store();
 
             let frame_start = Instant::now();
             let _frame_span = info_span!("frame", frame_number = frame_count).entered();

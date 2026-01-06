@@ -179,6 +179,7 @@ fn main() {
                                             color: colors::RED_400.with_alpha(0.3),
                                             size: 64.0,
                                             line_height: 1.2,
+                                            ..Default::default()
                                         },
                                     )),
                             )
@@ -274,6 +275,7 @@ fn main() {
                                                                             },
                                                                             size: 16.0,
                                                                             line_height: 1.2,
+                                                                            ..Default::default()
                                                                         },
                                                                     )),
                                                             )
@@ -291,6 +293,7 @@ fn main() {
                                                                             color: colors::RED_500,
                                                                             size: 20.0,
                                                                             line_height: 1.2,
+                                                                            ..Default::default()
                                                                         },
                                                                     ))
                                                                     .interactive()
@@ -326,6 +329,7 @@ fn main() {
                                                             color: colors::GRAY_400,
                                                             size: 16.0,
                                                             line_height: 1.2,
+                                                            ..Default::default()
                                                         },
                                                     )),
                                             );
@@ -358,6 +362,7 @@ fn main() {
                                                     color: colors::GRAY_500,
                                                     size: 14.0,
                                                     line_height: 1.2,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             // Filter buttons
@@ -407,6 +412,7 @@ fn main() {
                                                                     color: colors::GRAY_500,
                                                                     size: 14.0,
                                                                     line_height: 1.2,
+                                                                    ..Default::default()
                                                                 },
                                                             ))
                                                             .interactive()
@@ -466,6 +472,7 @@ fn filter_button(
                 },
                 size: 14.0,
                 line_height: 1.2,
+                ..Default::default()
             },
         ))
         .interactive()
