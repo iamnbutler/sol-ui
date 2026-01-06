@@ -342,7 +342,14 @@ impl TextInput {
         self
     }
 
-    /// Set border color
+    /// Set border color and width
+    pub fn border(mut self, color: Color, width: f32) -> Self {
+        self.border_color = color;
+        self.border_width = width;
+        self
+    }
+
+    /// Set border color only
     pub fn border_color(mut self, color: Color) -> Self {
         self.border_color = color;
         self
@@ -354,7 +361,7 @@ impl TextInput {
         self
     }
 
-    /// Set border width
+    /// Set border width only
     pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
