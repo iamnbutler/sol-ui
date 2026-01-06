@@ -334,26 +334,6 @@ impl DrawList {
         }
     }
 
-    /// Get the visibility ratio of a rectangle (0.0 = fully culled, 1.0 = fully visible)
-    fn _amount_visible(&self, rect: &Rect) -> f32 {
-        let mut visibility = 1.0;
-
-        // Check against viewport
-        if let Some(viewport) = &self.viewport {
-            visibility *= rect.visibility_ratio_in(viewport);
-            if visibility == 0.0 {
-                return 0.0;
-            }
-        }
-
-        // Check against clip stack
-        if let Some(clip) = self.clip_stack.last() {
-            visibility *= rect.visibility_ratio_in(clip);
-        }
-
-        visibility
-    }
-
     /// Add a filled rectangle to the draw list
     pub fn add_rect(&mut self, rect: Rect, color: Color) {
         // Skip if completely transparent
