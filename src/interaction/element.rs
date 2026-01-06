@@ -7,7 +7,7 @@ use crate::{
     geometry::Rect,
     interaction::{
         events::EventHandlers,
-        registry::{get_element_state, register_element, register_focusable},
+        registry::{get_element_state, register_element},
     },
     layer::{Key, Modifiers},
     render::{PaintContext, PaintQuad},
@@ -255,11 +255,6 @@ impl<E: Element> Element for InteractiveElement<E> {
             register_element(self.id, self.handlers.clone());
         }
 
-        // Register as focusable if enabled
-        if self.enabled && self.focusable {
-            register_focusable(self.id);
-        }
-
         // Get current interaction state from registry
         let state = get_element_state(self.id).unwrap_or_default();
 
@@ -282,9 +277,13 @@ impl<E: Element> Element for InteractiveElement<E> {
             }
         }
 
-        // Register this element for hit testing
+        // Register for hit testing (focusable elements get focus on click)
         if self.enabled {
-            ctx.register_hit_test(self.id, bounds, self.z_index);
+            if self.focusable {
+                ctx.register_focusable(self.id, bounds, self.z_index);
+            } else {
+                ctx.register_hit_test(self.id, bounds, self.z_index);
+            }
         }
     }
 }

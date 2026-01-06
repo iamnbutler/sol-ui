@@ -85,7 +85,7 @@ impl<'a> PaintContext<'a> {
     /// Paint text
     pub fn paint_text(&mut self, text: PaintText) {
         self.draw_list
-            .add_text(text.position, &text.text, text.style);
+            .add_text(text.position, &text.text, text.style, text.measured_size);
     }
 
     /// Paint a shadow
@@ -133,6 +133,16 @@ impl<'a> PaintContext<'a> {
             builder.borrow_mut().add_entry(element_id, bounds, z_index);
         }
     }
+
+    /// Register a focusable element for hit testing and focus management
+    pub fn register_focusable(&mut self, element_id: ElementId, bounds: Rect, z_index: i32) {
+        if let Some(builder) = &self.hit_test_builder {
+            // bounds are already in screen coordinates (absolute position)
+            builder
+                .borrow_mut()
+                .add_focusable_entry(element_id, bounds, z_index);
+        }
+    }
 }
 
 /// A quad to be rendered
@@ -172,6 +182,8 @@ pub struct PaintText {
     pub text: String,
     /// Text styling
     pub style: TextStyle,
+    /// Pre-measured text size for accurate culling (None = use estimation)
+    pub measured_size: Option<Vec2>,
 }
 
 /// A shadow to be rendered
@@ -334,26 +346,6 @@ impl DrawList {
         }
     }
 
-    /// Get the visibility ratio of a rectangle (0.0 = fully culled, 1.0 = fully visible)
-    fn _amount_visible(&self, rect: &Rect) -> f32 {
-        let mut visibility = 1.0;
-
-        // Check against viewport
-        if let Some(viewport) = &self.viewport {
-            visibility *= rect.visibility_ratio_in(viewport);
-            if visibility == 0.0 {
-                return 0.0;
-            }
-        }
-
-        // Check against clip stack
-        if let Some(clip) = self.clip_stack.last() {
-            visibility *= rect.visibility_ratio_in(clip);
-        }
-
-        visibility
-    }
-
     /// Add a filled rectangle to the draw list
     pub fn add_rect(&mut self, rect: Rect, color: Color) {
         // Skip if completely transparent
@@ -381,17 +373,29 @@ impl DrawList {
     }
 
     /// Add text to the draw list
-    pub fn add_text(&mut self, position: Vec2, text: impl Into<String>, style: TextStyle) {
+    ///
+    /// If `measured_size` is provided, it will be used for accurate culling.
+    /// Otherwise, a rough estimate based on character count is used.
+    pub fn add_text(
+        &mut self,
+        position: Vec2,
+        text: impl Into<String>,
+        style: TextStyle,
+        measured_size: Option<Vec2>,
+    ) {
         let text = text.into();
         if text.is_empty() {
             return;
         }
 
-        // Approximate text bounds for culling (this is a rough estimate)
-        // In a real implementation, you'd want to measure the text properly
-        let approx_width = text.len() as f32 * style.size * 0.6;
-        let approx_height = style.size * 1.2;
-        let text_rect = Rect::from_pos_size(position, Vec2::new(approx_width, approx_height));
+        // Use measured size if available, otherwise estimate
+        let text_size = measured_size.unwrap_or_else(|| {
+            // Fallback estimation: assumes average character width ~0.6x font size
+            let approx_width = text.len() as f32 * style.size * 0.6;
+            let approx_height = style.size * style.line_height;
+            Vec2::new(approx_width, approx_height)
+        });
+        let text_rect = Rect::from_pos_size(position, text_size);
 
         // Skip if not visible (viewport culling)
         if !self.is_visible(&text_rect) {

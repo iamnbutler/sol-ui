@@ -6,7 +6,7 @@ use parley::{
     FontContext, FontStack, FontWeight, GlyphRun, Layout, LayoutContext, LineHeight,
     PositionedLayoutItem, StyleProperty,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use swash::FontRef;
 use swash::scale::{Render, ScaleContext, Source};
 
@@ -72,6 +72,14 @@ struct Shelf {
     height: u32,
     next_x: u32,
 }
+
+/// Padding in pixels added around each glyph in the atlas.
+///
+/// Bilinear texture filtering samples a 2x2 texel neighborhood, which can bleed
+/// colors from adjacent glyphs if they're packed too tightly. Adding 1px padding
+/// on each side (2px total per dimension) ensures the filter kernel never samples
+/// neighboring glyph data.
+const GLYPH_ATLAS_PADDING: u32 = 1;
 
 /// Glyph atlas that manages glyph textures
 pub struct GlyphAtlas {
@@ -211,17 +219,17 @@ impl GlyphAtlas {
 
     /// Find a position for a glyph using shelf packing
     fn find_position(&mut self, width: u32, height: u32) -> Result<(u32, u32), String> {
-        // Add padding around glyphs
-        // todo!("Why 2? Where does this magic number come from?");
-        let padded_width = width + 2;
-        let padded_height = height + 2;
+        // Add padding on each side to prevent texture bleeding during bilinear filtering
+        let padded_width = width + GLYPH_ATLAS_PADDING * 2;
+        let padded_height = height + GLYPH_ATLAS_PADDING * 2;
 
         // Try to fit in an existing shelf
         for shelf in &mut self.shelves {
             if shelf.height >= padded_height && shelf.next_x + padded_width <= self.width {
                 let x = shelf.next_x;
                 shelf.next_x += padded_width;
-                return Ok((x + 1, shelf.y + 1)); // +1 for padding // todo!("Why +1? Where does this magic number come from?");
+                // Skip the padding at the start of the allocation
+                return Ok((x + GLYPH_ATLAS_PADDING, shelf.y + GLYPH_ATLAS_PADDING));
             }
         }
 
@@ -242,7 +250,8 @@ impl GlyphAtlas {
             next_x: padded_width,
         });
 
-        Ok((1, next_y + 1)) // +1 for padding
+        // Skip the padding at the start of the allocation
+        Ok((GLYPH_ATLAS_PADDING, next_y + GLYPH_ATLAS_PADDING))
     }
 }
 
@@ -280,6 +289,10 @@ struct ShapedTextCacheKey {
     scale_factor: u32,
 }
 
+/// Maximum number of entries in the shaped text cache before eviction.
+/// Sized to handle typical UI text while preventing unbounded growth.
+const SHAPED_TEXT_CACHE_MAX_SIZE: usize = 1024;
+
 /// Text system that manages fonts, shaping, and atlas
 pub struct TextSystem {
     font_context: FontContext,
@@ -289,8 +302,10 @@ pub struct TextSystem {
     /// Cache of font data to ID mappings
     font_id_cache: HashMap<Vec<u8>, u64>,
     next_font_id: u64,
-    /// Cache of shaped text
+    /// Cache of shaped text (bounded LRU-style cache)
     shaped_text_cache: HashMap<ShapedTextCacheKey, ShapedText>,
+    /// Tracks insertion order for FIFO eviction when cache is full
+    shaped_text_cache_order: VecDeque<ShapedTextCacheKey>,
     /// Frame-based cache for text measurements to avoid duplicate work
     measurement_cache: HashMap<MeasurementCacheKey, Vec2>,
 }
@@ -309,8 +324,6 @@ struct MeasurementCacheKey {
 
 impl TextSystem {
     /// Create a new text system with the given Metal device
-    ///
-    /// future_todo!("Make this le")
     pub fn new(device: &Device) -> Result<Self, String> {
         let _new_span = info_span!("text_system_new").entered();
         let total_start = Instant::now();
@@ -344,17 +357,33 @@ impl TextSystem {
             font_id_cache: HashMap::new(),
             next_font_id: 1,
             shaped_text_cache: HashMap::new(),
+            shaped_text_cache_order: VecDeque::new(),
             measurement_cache: HashMap::new(),
         })
     }
 
-    /// Clear frame-based caches - should be called at the start of each frame
+    /// Called at the start of each frame - maintains caches
     pub fn begin_frame(&mut self) {
-        self.measurement_cache.clear();
-        debug!(
-            "Cleared {} cached measurements",
-            self.measurement_cache.len()
-        );
+        // Text measurements are deterministic and can persist across frames.
+        // Only clear if cache gets too large to prevent unbounded memory growth.
+        const MAX_MEASUREMENT_CACHE_SIZE: usize = 1000;
+        if self.measurement_cache.len() > MAX_MEASUREMENT_CACHE_SIZE {
+            debug!(
+                "Measurement cache exceeded {} entries, clearing",
+                MAX_MEASUREMENT_CACHE_SIZE
+            );
+            self.measurement_cache.clear();
+        }
+
+        // Similarly for shaped text cache
+        const MAX_SHAPED_TEXT_CACHE_SIZE: usize = 500;
+        if self.shaped_text_cache.len() > MAX_SHAPED_TEXT_CACHE_SIZE {
+            debug!(
+                "Shaped text cache exceeded {} entries, clearing",
+                MAX_SHAPED_TEXT_CACHE_SIZE
+            );
+            self.shaped_text_cache.clear();
+        }
     }
 
     /// Measure text with the given configuration
@@ -521,7 +550,18 @@ impl TextSystem {
             size: Vec2::new(layout.width(), layout.height()),
         };
 
-        // Store in cache
+        // Store in cache with bounded eviction
+        if !self.shaped_text_cache.contains_key(&cache_key) {
+            // Evict oldest entries if cache is full
+            while self.shaped_text_cache.len() >= SHAPED_TEXT_CACHE_MAX_SIZE {
+                if let Some(old_key) = self.shaped_text_cache_order.pop_front() {
+                    self.shaped_text_cache.remove(&old_key);
+                } else {
+                    break;
+                }
+            }
+            self.shaped_text_cache_order.push_back(cache_key.clone());
+        }
         self.shaped_text_cache
             .insert(cache_key, shaped_text.clone());
 

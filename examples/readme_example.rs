@@ -1,23 +1,28 @@
+//! README Counter Example
+//!
+//! A simple counter app demonstrating:
+//! - Raw layer with animated shader background
+//! - UI layer with Button elements
+//! - Shared state via Rc<RefCell<>>
+
 use sol_ui::{
     app::app,
     color::colors,
-    element::{container, row, text},
-    interaction::Interactable,
-    layer::{LayerOptions, MouseButton},
+    element::{button, container, row, text},
+    layer::LayerOptions,
     style::TextStyle,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 
 fn main() {
-    // Shared state
     let counter = Rc::new(RefCell::new(0));
 
     app()
-        .title("Toy UI Example")
+        .title("Sol UI - Counter Example")
         .size(800.0, 600.0)
         .with_layers(move |layers| {
-            // Layer 0: Animated starfield
+            // Layer 0: Animated starfield background
             layers.add_raw_layer(0, LayerOptions::default().with_clear(), |ctx| {
                 ctx.request_animation_frame();
 
@@ -59,10 +64,13 @@ fn main() {
                 ctx.draw_fullscreen_quad(shader);
             });
 
-            // Layer 1: Interactive UI
+            // Layer 1: Interactive UI using Button elements
             let counter_clone = counter.clone();
             layers.add_ui_layer(1, LayerOptions::default().with_input(), move || {
                 let count = *counter_clone.borrow();
+                let inc = counter_clone.clone();
+                let dec = counter_clone.clone();
+                let reset = counter_clone.clone();
 
                 Box::new(
                     container()
@@ -73,7 +81,7 @@ fn main() {
                         .justify_center()
                         .gap(20.0)
                         .child(text(
-                            "Toy UI Demo",
+                            "Sol UI Demo",
                             TextStyle {
                                 color: colors::WHITE,
                                 size: 24.0,
@@ -90,84 +98,36 @@ fn main() {
                             row()
                                 .gap(10.0)
                                 .child(
-                                    container()
-                                        .width(40.0)
-                                        .height(40.0)
-                                        .border(colors::GRAY_900, 1.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .child(text(
-                                            "+",
-                                            TextStyle {
-                                                color: colors::WHITE,
-                                                size: 12.0,
-                                            },
-                                        ))
-                                        .interactive()
+                                    button("+")
                                         .with_id(1)
-                                        .on_click({
-                                            let counter = counter_clone.clone();
-                                            move |button, _, _| {
-                                                if button == MouseButton::Left {
-                                                    *counter.borrow_mut() += 1;
-                                                }
-                                            }
-                                        }),
+                                        .padding(16.0, 10.0)
+                                        .on_click_simple(move || {
+                                            *inc.borrow_mut() += 1;
+                                        })
                                 )
                                 .child(
-                                    container()
-                                        .width(160.0)
-                                        .height(40.0)
-                                        .border(colors::GRAY_900, 1.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .child(text(
-                                            "Reset",
-                                            TextStyle {
-                                                color: colors::WHITE,
-                                                size: 12.0,
-                                            },
-                                        ))
-                                        .interactive()
+                                    button("Reset")
                                         .with_id(2)
-                                        .on_click({
-                                            let counter = counter_clone.clone();
-                                            move |button, _, _| {
-                                                if button == MouseButton::Left {
-                                                    *counter.borrow_mut() = 0;
-                                                }
-                                            }
-                                        }),
+                                        .background(colors::GRAY_700)
+                                        .hover_background(colors::GRAY_600)
+                                        .press_background(colors::GRAY_800)
+                                        .padding(24.0, 10.0)
+                                        .on_click_simple(move || {
+                                            *reset.borrow_mut() = 0;
+                                        })
                                 )
-                            .child(
-                                container()
-                                    .width(40.0)
-                                    .height(40.0)
-                                    .border(colors::GRAY_900, 1.0)
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .child(text(
-                                        "-",
-                                        TextStyle {
-                                            color: colors::WHITE,
-                                            size: 12.0,
-                                        },
-                                    ))
-                                    .interactive()
-                                    .with_id(3)
-                                    .on_click({
-                                        let counter = counter_clone.clone();
-                                        move |button, _, _| {
-                                            if button == MouseButton::Left {
-                                                *counter.borrow_mut() -= 1;
-                                            }
-                                        }
-                                    }),
-                            )
-                        ),
+                                .child(
+                                    button("-")
+                                        .with_id(3)
+                                        .background(colors::RED_500)
+                                        .hover_background(colors::RED_400)
+                                        .press_background(colors::RED_600)
+                                        .padding(16.0, 10.0)
+                                        .on_click_simple(move || {
+                                            *dec.borrow_mut() -= 1;
+                                        })
+                                )
+                        )
                 )
             });
         })

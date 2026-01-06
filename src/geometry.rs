@@ -199,6 +199,16 @@ impl Corners {
         }
     }
 
+    /// Create corners with different values for each corner
+    pub fn new(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
+        Self {
+            top_left,
+            top_right,
+            bottom_right,
+            bottom_left,
+        }
+    }
+
     /// Create corners with no radius (square corners)
     pub fn zero() -> Self {
         Self::default()

@@ -221,14 +221,17 @@ impl<T: ToString + Clone + 'static> Dropdown<T> {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::BLACK,
+                ..Default::default()
             },
             placeholder_style: TextStyle {
                 size: 14.0,
                 color: colors::GRAY_500,
+                ..Default::default()
             },
             option_style: TextStyle {
                 size: 14.0,
                 color: colors::BLACK,
+                ..Default::default()
             },
             highlight_background: colors::BLUE_400.with_alpha(0.2),
             selected_background: colors::BLUE_400.with_alpha(0.1),
@@ -538,6 +541,7 @@ impl<T: ToString + Clone + 'static> Dropdown<T> {
             position: Vec2::new(text_x, text_y),
             text,
             style,
+            measured_size: None,
         });
 
         // Paint dropdown arrow
@@ -641,6 +645,7 @@ impl<T: ToString + Clone + 'static> Dropdown<T> {
                     color: text_color,
                     ..self.option_style.clone()
                 },
+                measured_size: None,
             });
 
             // Register hit area for this option (if not disabled)

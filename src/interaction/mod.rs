@@ -11,11 +11,16 @@ pub mod element;
 pub mod events;
 pub mod hit_test;
 pub mod registry;
+pub mod shortcuts;
 
 pub use element::{Interactable, InteractiveElement};
 pub use events::{EventHandlers, InteractionEvent, InteractionState};
 pub use hit_test::{HitTestBuilder, HitTestEntry, HitTestResult};
 pub use registry::{ElementRegistry, get_element_state, register_element};
+pub use shortcuts::{
+    Shortcut, ShortcutConflict, ShortcutId, ShortcutInfo, ShortcutMatch, ShortcutModifiers,
+    ShortcutRegistry, ShortcutScope,
+};
 
 /// Manages interaction state across the entire UI
 pub struct InteractionSystem {
@@ -45,6 +50,16 @@ pub struct InteractionSystem {
 
     /// Whether mouse is currently over the window
     mouse_in_window: bool,
+
+    /// Stack of focus traps (for modal dialogs)
+    /// Each trap contains the element IDs that form the trap boundary
+    focus_trap_stack: Vec<Vec<ElementId>>,
+
+    /// Keyboard shortcuts registry
+    shortcut_registry: ShortcutRegistry,
+
+    /// Whether to process shortcuts before element handlers
+    shortcuts_enabled: bool,
 }
 
 impl InteractionSystem {
@@ -59,7 +74,17 @@ impl InteractionSystem {
             last_hit_test: Vec::new(),
             focusable_elements: Vec::new(),
             mouse_in_window: false,
+            focus_trap_stack: Vec::new(),
+            shortcut_registry: ShortcutRegistry::new(),
+            shortcuts_enabled: true,
         }
+    }
+
+    /// Create a new InteractionSystem with standard macOS shortcuts pre-registered
+    pub fn with_standard_shortcuts() -> Self {
+        let mut system = Self::new();
+        shortcuts::standard::register_standard_shortcuts(&mut system.shortcut_registry);
+        system
     }
 
     /// Get the currently focused element
@@ -111,54 +136,125 @@ impl InteractionSystem {
         self.focusable_elements.clear();
     }
 
+    /// Get the current set of navigable elements (respecting focus traps)
+    fn get_navigable_elements(&self) -> &[ElementId] {
+        if let Some(trap) = self.focus_trap_stack.last() {
+            trap.as_slice()
+        } else {
+            &self.focusable_elements
+        }
+    }
+
     /// Move focus to next focusable element (Tab key)
     pub fn focus_next(&mut self) -> Vec<InteractionEvent> {
-        if self.focusable_elements.is_empty() {
+        let navigable = self.get_navigable_elements();
+        if navigable.is_empty() {
             return Vec::new();
         }
 
         let next_index = if let Some(current) = self.focused_element {
-            let current_index = self
-                .focusable_elements
+            let current_index = navigable
                 .iter()
                 .position(|&id| id == current)
                 .unwrap_or(0);
-            (current_index + 1) % self.focusable_elements.len()
+            (current_index + 1) % navigable.len()
         } else {
             0
         };
 
-        let next_element = self.focusable_elements[next_index];
+        let next_element = navigable[next_index];
         self.set_focus(Some(next_element))
     }
 
     /// Move focus to previous focusable element (Shift+Tab key)
     pub fn focus_previous(&mut self) -> Vec<InteractionEvent> {
-        if self.focusable_elements.is_empty() {
+        let navigable = self.get_navigable_elements();
+        if navigable.is_empty() {
             return Vec::new();
         }
 
         let prev_index = if let Some(current) = self.focused_element {
-            let current_index = self
-                .focusable_elements
+            let current_index = navigable
                 .iter()
                 .position(|&id| id == current)
                 .unwrap_or(0);
             if current_index == 0 {
-                self.focusable_elements.len() - 1
+                navigable.len() - 1
             } else {
                 current_index - 1
             }
         } else {
-            self.focusable_elements.len() - 1
+            navigable.len() - 1
         };
 
-        let prev_element = self.focusable_elements[prev_index];
+        let prev_element = navigable[prev_index];
         self.set_focus(Some(prev_element))
+    }
+
+    /// Push a focus trap (used for modals)
+    /// Elements in the trap must be from the current focusable_elements list
+    /// Returns focus events if the first element in the trap gains focus
+    pub fn push_focus_trap(&mut self, element_ids: Vec<ElementId>) -> Vec<InteractionEvent> {
+        // Filter to only include elements that are actually focusable
+        let trap: Vec<_> = element_ids
+            .into_iter()
+            .filter(|id| self.focusable_elements.contains(id))
+            .collect();
+
+        if trap.is_empty() {
+            return Vec::new();
+        }
+
+        // Auto-focus first element in trap if nothing in trap is focused
+        let should_focus_first = self.focused_element.map_or(true, |focused| {
+            !trap.contains(&focused)
+        });
+
+        let first_element = trap[0];
+        self.focus_trap_stack.push(trap);
+
+        if should_focus_first {
+            self.set_focus(Some(first_element))
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Pop the current focus trap (when modal closes)
+    /// Returns focus events if focus should return to a previous element
+    pub fn pop_focus_trap(&mut self) -> Vec<InteractionEvent> {
+        self.focus_trap_stack.pop();
+        // Optionally restore focus to something in the parent scope
+        // For now, keep focus where it is unless it's no longer valid
+        if let Some(current) = self.focused_element {
+            let navigable = self.get_navigable_elements();
+            if !navigable.contains(&current) && !navigable.is_empty() {
+                // Current focus is no longer in scope, move to first navigable element
+                return self.set_focus(Some(navigable[0]));
+            }
+        }
+        Vec::new()
+    }
+
+    /// Check if a focus trap is active
+    pub fn has_focus_trap(&self) -> bool {
+        !self.focus_trap_stack.is_empty()
     }
 
     /// Update the hit test results for the current frame
     pub fn update_hit_test(&mut self, entries: Vec<HitTestEntry>) {
+        // Extract focusable elements in paint/tab order (lower z-index first for tab order)
+        self.focusable_elements.clear();
+        let mut focusables: Vec<_> = entries
+            .iter()
+            .filter(|e| e.focusable)
+            .collect();
+        // Sort by z-index ascending for tab order (paint order)
+        focusables.sort_by_key(|e| e.z_index);
+        for entry in focusables {
+            self.focusable_elements.push(entry.element_id);
+        }
+
         self.last_hit_test = entries;
 
         // Update hover state based on new hit test
@@ -239,6 +335,20 @@ impl InteractionSystem {
                 events.extend(self.focus_next());
             }
             return events;
+        }
+
+        // Check for shortcuts first (only on initial key press, not repeats)
+        if self.shortcuts_enabled && !is_repeat {
+            if let Some(shortcut_match) =
+                self.shortcut_registry.find_match(key, &modifiers, self.focused_element)
+            {
+                events.push(InteractionEvent::ShortcutTriggered {
+                    shortcut_id: shortcut_match.id,
+                    action_name: shortcut_match.action_name,
+                });
+                // Shortcut consumed the key event
+                return events;
+            }
         }
 
         // Route keyboard event to focused element
@@ -339,6 +449,14 @@ impl InteractionSystem {
                 position,
                 local_position: hit.local_position,
             });
+
+            // Focus the clicked element if it's focusable (left click only)
+            if button == MouseButton::Left && self.focusable_elements.contains(&element_id) {
+                events.extend(self.set_focus(Some(element_id)));
+            }
+        } else {
+            // Clicked on empty space - clear focus
+            events.extend(self.set_focus(None));
         }
 
         events
@@ -461,11 +579,70 @@ impl InteractionSystem {
         self.focused_element = None;
         self.last_hit_test.clear();
         self.focusable_elements.clear();
+        self.focus_trap_stack.clear();
     }
 
     /// Get current modifier state
     pub fn current_modifiers(&self) -> Modifiers {
         self.current_modifiers
+    }
+
+    // --- Shortcut methods ---
+
+    /// Get a reference to the shortcut registry
+    pub fn shortcuts(&self) -> &ShortcutRegistry {
+        &self.shortcut_registry
+    }
+
+    /// Get a mutable reference to the shortcut registry
+    pub fn shortcuts_mut(&mut self) -> &mut ShortcutRegistry {
+        &mut self.shortcut_registry
+    }
+
+    /// Enable or disable shortcut processing
+    pub fn set_shortcuts_enabled(&mut self, enabled: bool) {
+        self.shortcuts_enabled = enabled;
+    }
+
+    /// Check if shortcuts are enabled
+    pub fn shortcuts_enabled(&self) -> bool {
+        self.shortcuts_enabled
+    }
+
+    /// Register a global shortcut
+    pub fn register_shortcut(
+        &mut self,
+        shortcut: Shortcut,
+        action_name: impl Into<String>,
+    ) -> ShortcutId {
+        self.shortcut_registry
+            .register(shortcut, action_name, ShortcutScope::Global)
+    }
+
+    /// Register a shortcut that's only active when a specific element is focused
+    pub fn register_focused_shortcut(
+        &mut self,
+        shortcut: Shortcut,
+        action_name: impl Into<String>,
+        element_id: ElementId,
+    ) -> ShortcutId {
+        self.shortcut_registry
+            .register(shortcut, action_name, ShortcutScope::Focused(element_id))
+    }
+
+    /// Unregister a shortcut
+    pub fn unregister_shortcut(&mut self, id: ShortcutId) {
+        self.shortcut_registry.unregister(id);
+    }
+
+    /// Get a shortcut hint string for menus/tooltips (e.g., "⌘C" for copy)
+    pub fn shortcut_hint(&self, action_name: &str) -> Option<String> {
+        self.shortcut_registry.get_shortcut_hint(action_name)
+    }
+
+    /// Detect shortcut conflicts
+    pub fn detect_shortcut_conflicts(&self) -> Vec<ShortcutConflict> {
+        self.shortcut_registry.detect_conflicts()
     }
 }
 
@@ -541,5 +718,346 @@ impl From<usize> for ElementId {
 impl From<i32> for ElementId {
     fn from(id: i32) -> Self {
         Self::new(id as u64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::geometry::Rect;
+    use crate::layer::InputEvent;
+
+    fn create_test_system() -> InteractionSystem {
+        InteractionSystem::new()
+    }
+
+    fn create_hit_entries(entries: &[(u64, Rect, i32)]) -> Vec<HitTestEntry> {
+        entries
+            .iter()
+            .map(|(id, bounds, z)| HitTestEntry::new(ElementId::new(*id), *bounds, *z, 0))
+            .collect()
+    }
+
+    #[test]
+    fn test_interaction_system_creation() {
+        let system = create_test_system();
+        assert!(system.focused_element().is_none());
+    }
+
+    #[test]
+    fn test_mouse_enter_leave() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Move into button
+        let events = system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseEnter { element_id } if element_id.0 == 1)));
+
+        // Verify state
+        let state = system.get_state(ElementId::new(1)).unwrap();
+        assert!(state.is_hovered);
+        assert!(!state.is_pressed);
+
+        // Move out of button
+        let events = system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(200.0, 200.0),
+        });
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseLeave { element_id } if element_id.0 == 1)));
+    }
+
+    #[test]
+    fn test_mouse_click() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Click inside button
+        let down_events = system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        assert!(
+            down_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 1))
+        );
+
+        // Check pressed state - use get_state with default
+        if let Some(state) = system.get_state(ElementId::new(1)) {
+            assert!(state.is_pressed);
+        }
+
+        // Release
+        let up_events = system.handle_input(&InputEvent::MouseUp {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        // Should have both MouseUp and Click events
+        assert!(
+            up_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseUp { element_id, .. } if element_id.0 == 1))
+        );
+        assert!(
+            up_events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::Click { element_id, .. } if element_id.0 == 1))
+        );
+    }
+
+    #[test]
+    fn test_no_click_when_released_outside() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Press inside
+        system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 30.0),
+            button: MouseButton::Left,
+        });
+
+        // Release outside
+        let events = system.handle_input(&InputEvent::MouseUp {
+            position: Vec2::new(200.0, 200.0),
+            button: MouseButton::Left,
+        });
+
+        // Should have MouseUp but no Click
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseUp { element_id, .. } if element_id.0 == 1))
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::Click { .. }))
+        );
+    }
+
+    #[test]
+    fn test_z_order_hit_testing() {
+        let mut system = create_test_system();
+
+        // Two overlapping elements - both cover the same click position
+        let back = Rect::new(0.0, 0.0, 100.0, 100.0);
+        let front = Rect::new(0.0, 0.0, 100.0, 100.0); // Same bounds for clear overlap
+
+        // Front has higher z-index - entries need to be sorted by z-index (highest first)
+        let mut entries = create_hit_entries(&[(1, back, 0), (2, front, 10)]);
+        entries.sort_by(|a, b| b.z_index.cmp(&a.z_index));
+        system.update_hit_test(entries);
+
+        // Click in overlapping area
+        let events = system.handle_input(&InputEvent::MouseDown {
+            position: Vec2::new(50.0, 50.0),
+            button: MouseButton::Left,
+        });
+
+        // Should hit front element (id 2) because it has higher z-index
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 2)),
+            "Expected MouseDown for element 2 (front), got events: {:?}",
+            events
+        );
+        assert!(
+            !events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::MouseDown { element_id, .. } if element_id.0 == 1)),
+            "Should NOT have MouseDown for element 1 (back)"
+        );
+    }
+
+    #[test]
+    fn test_focus_management() {
+        let mut system = create_test_system();
+
+        // Set focus to element 1
+        let events = system.set_focus(Some(ElementId::new(1)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 1)));
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+
+        // Change focus to element 2
+        let events = system.set_focus(Some(ElementId::new(2)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusOut { element_id } if element_id.0 == 1)));
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 2)));
+        assert_eq!(system.focused_element(), Some(ElementId::new(2)));
+
+        // Clear focus
+        let events = system.set_focus(None);
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusOut { element_id } if element_id.0 == 2)));
+        assert_eq!(system.focused_element(), None);
+    }
+
+    #[test]
+    fn test_tab_focus_navigation() {
+        let mut system = create_test_system();
+
+        // Register focusable elements
+        system.register_focusable(ElementId::new(1));
+        system.register_focusable(ElementId::new(2));
+        system.register_focusable(ElementId::new(3));
+
+        // Tab forward
+        let events = system.focus_next();
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::FocusIn { element_id } if element_id.0 == 1)));
+
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(2)));
+
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(3)));
+
+        // Wrap around
+        system.focus_next();
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+    }
+
+    #[test]
+    fn test_shift_tab_focus_navigation() {
+        let mut system = create_test_system();
+
+        system.register_focusable(ElementId::new(1));
+        system.register_focusable(ElementId::new(2));
+        system.register_focusable(ElementId::new(3));
+
+        // Start at element 2
+        system.set_focus(Some(ElementId::new(2)));
+
+        // Shift+Tab backward
+        system.focus_previous();
+        assert_eq!(system.focused_element(), Some(ElementId::new(1)));
+
+        // Wrap around backward
+        system.focus_previous();
+        assert_eq!(system.focused_element(), Some(ElementId::new(3)));
+    }
+
+    #[test]
+    fn test_keyboard_events_to_focused() {
+        let mut system = create_test_system();
+
+        // Set focus
+        system.set_focus(Some(ElementId::new(1)));
+
+        // Send key down
+        let events = system.handle_input(&InputEvent::KeyDown {
+            key: Key::A,
+            modifiers: Modifiers::new(),
+            character: Some('a'),
+            is_repeat: false,
+        });
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::KeyDown { element_id, key, .. }
+                    if element_id.0 == 1 && *key == Key::A))
+        );
+    }
+
+    #[test]
+    fn test_scroll_wheel() {
+        let mut system = create_test_system();
+        let scrollable = Rect::new(0.0, 0.0, 200.0, 200.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, scrollable, 0)]));
+
+        let events = system.handle_input(&InputEvent::ScrollWheel {
+            position: Vec2::new(100.0, 100.0),
+            delta: Vec2::new(0.0, -10.0),
+        });
+
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, InteractionEvent::ScrollWheel { element_id, delta, .. }
+                    if element_id.0 == 1 && delta.y == -10.0))
+        );
+    }
+
+    #[test]
+    fn test_mouse_leave_window() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+
+        // Move into button
+        system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+
+        // Mouse leaves window
+        let events = system.handle_input(&InputEvent::MouseLeave);
+
+        assert!(events
+            .iter()
+            .any(|e| matches!(e, InteractionEvent::MouseLeave { element_id } if element_id.0 == 1)));
+    }
+
+    #[test]
+    fn test_clear_resets_all_state() {
+        let mut system = create_test_system();
+        let button = Rect::new(10.0, 10.0, 100.0, 50.0);
+
+        system.update_hit_test(create_hit_entries(&[(1, button, 0)]));
+        system.handle_input(&InputEvent::MouseMove {
+            position: Vec2::new(50.0, 30.0),
+        });
+        system.set_focus(Some(ElementId::new(1)));
+        system.register_focusable(ElementId::new(1));
+
+        system.clear();
+
+        assert!(system.focused_element().is_none());
+        assert!(system.get_state(ElementId::new(1)).is_none());
+    }
+
+    #[test]
+    fn test_element_id_equality() {
+        let id1 = ElementId::new(42);
+        let id2 = ElementId::new(42);
+        let id3 = ElementId::new(43);
+
+        assert_eq!(id1, id2);
+        assert_ne!(id1, id3);
+    }
+
+    #[test]
+    fn test_element_id_from_conversions() {
+        let from_u64: ElementId = 42u64.into();
+        let from_usize: ElementId = 42usize.into();
+        let from_i32: ElementId = 42i32.into();
+
+        assert_eq!(from_u64, from_usize);
+        assert_eq!(from_usize, from_i32);
     }
 }
