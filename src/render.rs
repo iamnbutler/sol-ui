@@ -7,7 +7,7 @@ use crate::{
     geometry::{Corners, Edges, Rect},
     interaction::{ElementId, HitTestBuilder},
     layout_engine::TaffyLayoutEngine,
-    style::{ElementStyle, Fill, TextStyle},
+    style::{CornerRadii, ElementStyle, Fill, TextStyle},
     text_system::TextSystem,
 };
 use glam::Vec2;
@@ -26,11 +26,38 @@ pub struct PaintContext<'a> {
 impl<'a> PaintContext<'a> {
     /// Paint a quad with all its properties
     pub fn paint_quad(&mut self, quad: PaintQuad) {
-        // For now, just handle the fill
-        // TODO: Handle borders, corner radii, etc.
+        // Check if we need rounded corners - use SDF frame rendering
+        if quad.corner_radii != Corners::zero() {
+            // Convert geometry::Corners to style::CornerRadii
+            let corner_radii = CornerRadii::new(
+                quad.corner_radii.top_left,
+                quad.corner_radii.top_right,
+                quad.corner_radii.bottom_right,
+                quad.corner_radii.bottom_left,
+            );
+
+            // Use largest border width for uniform border (SDF frames use single width)
+            let border_width = quad.border_widths.top
+                .max(quad.border_widths.right)
+                .max(quad.border_widths.bottom)
+                .max(quad.border_widths.left);
+
+            let style = ElementStyle {
+                fill: Fill::Solid(quad.fill),
+                border_width,
+                border_color: quad.border_color,
+                corner_radii,
+                shadow: None,
+            };
+
+            self.draw_list.add_frame(quad.bounds, style);
+            return;
+        }
+
+        // Simple rect path for square corners
         self.draw_list.add_rect(quad.bounds, quad.fill);
 
-        // Paint borders if present
+        // Paint borders if present (only for square corners)
         if quad.border_widths != Edges::zero()
             && quad.border_color != crate::color::colors::TRANSPARENT
         {
