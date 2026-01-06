@@ -17,6 +17,9 @@ pub struct HitTestEntry {
 
     /// Layer index this element belongs to
     pub layer_index: usize,
+
+    /// Whether this element can receive keyboard focus
+    pub focusable: bool,
 }
 
 impl HitTestEntry {
@@ -26,7 +29,13 @@ impl HitTestEntry {
             bounds,
             z_index,
             layer_index,
+            focusable: false,
         }
+    }
+
+    pub fn with_focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
     }
 }
 
@@ -70,6 +79,18 @@ impl HitTestBuilder {
             self.current_z_base + relative_z,
             self.layer_index,
         );
+        self.entries.push(entry);
+    }
+
+    /// Add a focusable hit test entry
+    pub fn add_focusable_entry(&mut self, element_id: ElementId, bounds: Rect, relative_z: i32) {
+        let entry = HitTestEntry::new(
+            element_id,
+            bounds,
+            self.current_z_base + relative_z,
+            self.layer_index,
+        )
+        .with_focusable(true);
         self.entries.push(entry);
     }
 
