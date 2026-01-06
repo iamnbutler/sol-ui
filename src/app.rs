@@ -1,7 +1,7 @@
 use crate::{
     entity::EntityStore,
     layer::LayerManager,
-    platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
+    platform::{Window, create_app_menu, setup_app_delegate, mac::metal_renderer::MetalRenderer},
     text_system::TextSystem,
 };
 use std::time::Instant;
@@ -81,6 +81,9 @@ impl AppBuilder {
         info!("Initializing NSApplication");
         let ns_app: id = unsafe { msg_send![class!(NSApplication), sharedApplication] };
         let _: () = unsafe { msg_send![ns_app, setActivationPolicy: 0] }; // NSApplicationActivationPolicyRegular
+
+        // Set up app delegate for lifecycle hooks
+        unsafe { setup_app_delegate() };
         info!("NSApplication initialized in {:?}", start.elapsed());
 
         // Create app menu
