@@ -8,8 +8,8 @@ use crate::{
 use glam::Vec2;
 use metal::{
     Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
-    MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
-    VertexDescriptor,
+    MTLScissorRect, MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor,
+    RenderPipelineState, VertexDescriptor,
 };
 use std::ffi::c_void;
 use std::mem;
@@ -41,6 +41,19 @@ struct FrameUniforms {
     shadow_blur: f32,
     _padding2: f32,
     shadow_color: [f32; 4],
+}
+
+/// A render batch with an optional clip rect
+/// Commands within the same clip region are batched together for efficient rendering
+struct RenderBatch {
+    /// Scissor rect in physical pixels (None = full viewport)
+    clip_rect: Option<Rect>,
+    /// Solid geometry vertices
+    solid_vertices: Vec<Vertex>,
+    /// Text geometry vertices
+    text_vertices: Vec<Vertex>,
+    /// Frame elements (rendered with SDF)
+    frames: Vec<(Rect, ElementStyle)>,
 }
 
 pub struct MetalRenderer {
@@ -459,34 +472,40 @@ impl MetalRenderer {
         vertices
     }
 
-    /// Build vertices from UI draw commands
-    /// Convert draw list commands to vertex data
-    fn draw_list_to_vertices(
+    /// Build render batches from UI draw commands
+    /// Each batch corresponds to a clip region and contains vertices/frames to render
+    fn draw_list_to_batches(
         &self,
         draw_list: &DrawList,
         screen_size: (f32, f32),
         scale_factor: f32,
         text_system: &mut TextSystem,
-    ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, ElementStyle)>) {
+    ) -> Vec<RenderBatch> {
         let _vertices_span = info_span!(
-            "draw_list_to_vertices",
+            "draw_list_to_batches",
             command_count = draw_list.commands().len()
         )
         .entered();
-        let mut solid_vertices = Vec::new();
-        let mut text_vertices = Vec::new();
-        let mut frames = Vec::new();
+
+        let mut batches = Vec::new();
+        let mut clip_stack: Vec<Rect> = Vec::new();
+        let mut current_batch = RenderBatch {
+            clip_rect: None,
+            solid_vertices: Vec::new(),
+            text_vertices: Vec::new(),
+            frames: Vec::new(),
+        };
 
         for command in draw_list.commands() {
             match command {
                 DrawCommand::Rect { rect, color } => {
                     // Convert rect to vertices (two triangles)
                     let vertices = self.rect_to_vertices(rect, *color, screen_size, scale_factor);
-                    solid_vertices.extend_from_slice(&vertices);
+                    current_batch.solid_vertices.extend_from_slice(&vertices);
                 }
                 DrawCommand::Frame { rect, style } => {
                     // Collect frames for separate rendering pass
-                    frames.push((*rect, style.clone()));
+                    current_batch.frames.push((*rect, style.clone()));
                 }
                 DrawCommand::Text {
                     position,
@@ -515,16 +534,67 @@ impl MetalRenderer {
                             screen_size,
                             scale_factor,
                         );
-                        text_vertices.extend_from_slice(&vertices);
+                        current_batch.text_vertices.extend_from_slice(&vertices);
                     }
                 }
-                DrawCommand::PushClip { .. } | DrawCommand::PopClip => {
-                    // TODO: Implement clipping
+                DrawCommand::PushClip { rect } => {
+                    // Finish current batch before changing clip
+                    if !current_batch.solid_vertices.is_empty()
+                        || !current_batch.text_vertices.is_empty()
+                        || !current_batch.frames.is_empty()
+                    {
+                        batches.push(current_batch);
+                    }
+
+                    // Push new clip rect (intersect with current clip if any)
+                    let new_clip = if let Some(current_clip) = clip_stack.last() {
+                        current_clip.intersect(rect)
+                    } else {
+                        Some(*rect)
+                    };
+
+                    clip_stack.push(new_clip.unwrap_or(*rect));
+
+                    // Start new batch with the new clip rect
+                    current_batch = RenderBatch {
+                        clip_rect: clip_stack.last().copied(),
+                        solid_vertices: Vec::new(),
+                        text_vertices: Vec::new(),
+                        frames: Vec::new(),
+                    };
+                }
+                DrawCommand::PopClip => {
+                    // Finish current batch before changing clip
+                    if !current_batch.solid_vertices.is_empty()
+                        || !current_batch.text_vertices.is_empty()
+                        || !current_batch.frames.is_empty()
+                    {
+                        batches.push(current_batch);
+                    }
+
+                    // Pop clip rect
+                    clip_stack.pop();
+
+                    // Start new batch with the restored clip rect
+                    current_batch = RenderBatch {
+                        clip_rect: clip_stack.last().copied(),
+                        solid_vertices: Vec::new(),
+                        text_vertices: Vec::new(),
+                        frames: Vec::new(),
+                    };
                 }
             }
         }
 
-        (solid_vertices, text_vertices, frames)
+        // Don't forget the final batch
+        if !current_batch.solid_vertices.is_empty()
+            || !current_batch.text_vertices.is_empty()
+            || !current_batch.frames.is_empty()
+        {
+            batches.push(current_batch);
+        }
+
+        batches
     }
 
     /// Convert a rect to 6 vertices (two triangles)
@@ -764,72 +834,121 @@ impl MetalRenderer {
             return;
         };
 
-        // Convert draw commands to vertices
-        let (solid_vertices, text_vertices, frames) = {
-            let _convert_span = info_span!("convert_draw_commands_to_vertices").entered();
-            self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system)
+        // Convert draw commands to batches (grouped by clip regions)
+        let batches = {
+            let _convert_span = info_span!("convert_draw_commands_to_batches").entered();
+            self.draw_list_to_batches(draw_list, screen_size, scale_factor, text_system)
         };
 
-        debug!(
-            "Converted to {} solid vertices, {} text vertices, {} frames",
-            solid_vertices.len(),
-            text_vertices.len(),
-            frames.len()
-        );
+        debug!("Converted draw list to {} batches", batches.len());
 
-        // Draw solid geometry first
-        if !solid_vertices.is_empty() {
-            let _solid_span =
-                info_span!("draw_solid_geometry", vertex_count = solid_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&solid_vertices);
-            encoder.set_render_pipeline_state(&pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
-            encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, solid_vertices.len() as u64);
-        }
+        // Physical viewport dimensions for scissor rect calculations
+        let physical_width = (screen_size.0 * scale_factor) as u64;
+        let physical_height = (screen_size.1 * scale_factor) as u64;
 
-        // Draw text geometry with texture
-        if !text_vertices.is_empty() {
-            let _text_span =
-                info_span!("draw_text_geometry", vertex_count = text_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&text_vertices);
-            let texture = text_system.atlas_texture();
-            encoder.set_render_pipeline_state(&text_pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
-            encoder.set_fragment_texture(0, Some(texture));
+        // Default scissor rect (full viewport)
+        let full_viewport_scissor = MTLScissorRect {
+            x: 0,
+            y: 0,
+            width: physical_width,
+            height: physical_height,
+        };
 
-            // Create and set sampler state
-            let sampler_descriptor = metal::SamplerDescriptor::new();
-            sampler_descriptor.set_min_filter(metal::MTLSamplerMinMagFilter::Linear);
-            sampler_descriptor.set_mag_filter(metal::MTLSamplerMinMagFilter::Linear);
-            let sampler_state = self.device.new_sampler(&sampler_descriptor);
-            encoder.set_fragment_sampler_state(0, Some(&sampler_state));
+        // Create text sampler once (reused for all text batches)
+        let sampler_descriptor = metal::SamplerDescriptor::new();
+        sampler_descriptor.set_min_filter(metal::MTLSamplerMinMagFilter::Linear);
+        sampler_descriptor.set_mag_filter(metal::MTLSamplerMinMagFilter::Linear);
+        let sampler_state = self.device.new_sampler(&sampler_descriptor);
 
-            encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, text_vertices.len() as u64);
-        }
+        // Render each batch with its scissor rect
+        for batch in batches {
+            // Set scissor rect for this batch
+            let scissor_rect = if let Some(clip_rect) = batch.clip_rect {
+                // Convert logical clip rect to physical pixel scissor rect
+                // Metal scissor uses top-left origin with Y going down
+                let x = (clip_rect.pos.x * scale_factor).max(0.0) as u64;
+                let y = (clip_rect.pos.y * scale_factor).max(0.0) as u64;
+                let width = (clip_rect.size.x * scale_factor).max(0.0) as u64;
+                let height = (clip_rect.size.y * scale_factor).max(0.0) as u64;
 
-        // Draw frames with SDF rendering
-        if !frames.is_empty() {
-            let _frames_span = info_span!("draw_frames", frame_count = frames.len()).entered();
-            encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
+                // Clamp to viewport bounds
+                MTLScissorRect {
+                    x: x.min(physical_width),
+                    y: y.min(physical_height),
+                    width: width.min(physical_width.saturating_sub(x)),
+                    height: height.min(physical_height.saturating_sub(y)),
+                }
+            } else {
+                full_viewport_scissor
+            };
 
-            for (rect, style) in frames {
-                // Create frame vertices with proper texture coordinates for SDF
-                let (vertices, uniforms) =
-                    self.frame_to_vertices(&rect, &style, screen_size, scale_factor);
-                let vertex_buffer = self.create_vertex_buffer(&vertices);
+            encoder.set_scissor_rect(scissor_rect);
 
-                // Create uniforms buffer
-                let uniforms_buffer = self.device.new_buffer_with_data(
-                    &uniforms as *const _ as *const _,
-                    std::mem::size_of::<FrameUniforms>() as u64,
-                    metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+            // Draw solid geometry
+            if !batch.solid_vertices.is_empty() {
+                let _solid_span = info_span!(
+                    "draw_solid_geometry",
+                    vertex_count = batch.solid_vertices.len()
+                )
+                .entered();
+                let buffer = self.create_vertex_buffer(&batch.solid_vertices);
+                encoder.set_render_pipeline_state(&pipeline_state);
+                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.draw_primitives(
+                    MTLPrimitiveType::Triangle,
+                    0,
+                    batch.solid_vertices.len() as u64,
                 );
+            }
 
-                encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
-                encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
-                encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+            // Draw text geometry with texture
+            if !batch.text_vertices.is_empty() {
+                let _text_span = info_span!(
+                    "draw_text_geometry",
+                    vertex_count = batch.text_vertices.len()
+                )
+                .entered();
+                let buffer = self.create_vertex_buffer(&batch.text_vertices);
+                let texture = text_system.atlas_texture();
+                encoder.set_render_pipeline_state(&text_pipeline_state);
+                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.set_fragment_texture(0, Some(texture));
+                encoder.set_fragment_sampler_state(0, Some(&sampler_state));
+                encoder.draw_primitives(
+                    MTLPrimitiveType::Triangle,
+                    0,
+                    batch.text_vertices.len() as u64,
+                );
+            }
+
+            // Draw frames with SDF rendering
+            if !batch.frames.is_empty() {
+                let _frames_span =
+                    info_span!("draw_frames", frame_count = batch.frames.len()).entered();
+                encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
+
+                for (rect, style) in &batch.frames {
+                    // Create frame vertices with proper texture coordinates for SDF
+                    let (vertices, uniforms) =
+                        self.frame_to_vertices(rect, style, screen_size, scale_factor);
+                    let vertex_buffer = self.create_vertex_buffer(&vertices);
+
+                    // Create uniforms buffer
+                    let uniforms_buffer = self.device.new_buffer_with_data(
+                        &uniforms as *const _ as *const _,
+                        std::mem::size_of::<FrameUniforms>() as u64,
+                        metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                    );
+
+                    encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
+                    encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
+                    encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+                }
             }
         }
+
+        // Reset scissor rect to full viewport
+        encoder.set_scissor_rect(full_viewport_scissor);
     }
 
     /// Legacy render method for backwards compatibility
