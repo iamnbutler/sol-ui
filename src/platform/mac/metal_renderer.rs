@@ -7,11 +7,10 @@ use crate::{
 };
 use glam::Vec2;
 use metal::{
-    Buffer, CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
-    MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
-    VertexDescriptor,
+    CommandBufferRef, CommandQueue, Device, Library, MTLLoadAction, MTLPrimitiveType,
+    MTLScissorRect, MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor,
+    RenderPipelineState, VertexDescriptor,
 };
-use std::ffi::c_void;
 use std::mem;
 use std::time::Instant;
 use tracing::{debug, info, info_span};
@@ -459,74 +458,6 @@ impl MetalRenderer {
         vertices
     }
 
-    /// Build vertices from UI draw commands
-    /// Convert draw list commands to vertex data
-    fn draw_list_to_vertices(
-        &self,
-        draw_list: &DrawList,
-        screen_size: (f32, f32),
-        scale_factor: f32,
-        text_system: &mut TextSystem,
-    ) -> (Vec<Vertex>, Vec<Vertex>, Vec<(Rect, ElementStyle)>) {
-        let _vertices_span = info_span!(
-            "draw_list_to_vertices",
-            command_count = draw_list.commands().len()
-        )
-        .entered();
-        let mut solid_vertices = Vec::new();
-        let mut text_vertices = Vec::new();
-        let mut frames = Vec::new();
-
-        for command in draw_list.commands() {
-            match command {
-                DrawCommand::Rect { rect, color } => {
-                    // Convert rect to vertices (two triangles)
-                    let vertices = self.rect_to_vertices(rect, *color, screen_size, scale_factor);
-                    solid_vertices.extend_from_slice(&vertices);
-                }
-                DrawCommand::Frame { rect, style } => {
-                    // Collect frames for separate rendering pass
-                    frames.push((*rect, style.clone()));
-                }
-                DrawCommand::Text {
-                    position,
-                    text,
-                    style,
-                } => {
-                    // Shape and render text
-                    let text_config = crate::text_system::TextConfig {
-                        font_stack: parley::FontStack::from("system-ui"),
-                        size: style.size,
-                        color: style.color.clone(),
-                        weight: parley::FontWeight::NORMAL,
-                        line_height: 1.2,
-                    };
-                    let shaped = {
-                        let _shape_span = info_span!("shape_text", text_len = text.len()).entered();
-                        text_system.shape_text(text, &text_config, None, scale_factor)
-                    };
-                    if let Ok(shaped) = shaped {
-                        let color = &style.color;
-                        let vertices = self.text_to_vertices(
-                            *position,
-                            &shaped,
-                            color,
-                            text_system,
-                            screen_size,
-                            scale_factor,
-                        );
-                        text_vertices.extend_from_slice(&vertices);
-                    }
-                }
-                DrawCommand::PushClip { .. } | DrawCommand::PopClip => {
-                    // TODO: Implement clipping
-                }
-            }
-        }
-
-        (solid_vertices, text_vertices, frames)
-    }
-
     /// Convert a rect to 6 vertices (two triangles)
     fn rect_to_vertices(
         &self,
@@ -582,168 +513,6 @@ impl MetalRenderer {
         ]
     }
 
-    /// Convert a frame rect to vertices with texture coordinates for SDF rendering
-    fn frame_to_vertices(
-        &self,
-        rect: &Rect,
-        style: &ElementStyle,
-        screen_size: (f32, f32),
-        scale_factor: f32,
-    ) -> ([Vertex; 6], FrameUniforms) {
-        // Expand bounds for shadow if present
-        let (shadow_expand_left, shadow_expand_right, shadow_expand_top, shadow_expand_bottom) =
-            if let Some(shadow) = &style.shadow {
-                // Expand by blur radius plus offset to ensure shadow is fully visible
-                let blur = shadow.blur;
-                (
-                    blur - shadow.offset.x.min(0.0), // left expansion
-                    blur + shadow.offset.x.max(0.0), // right expansion
-                    blur - shadow.offset.y.min(0.0), // top expansion
-                    blur + shadow.offset.y.max(0.0), // bottom expansion
-                )
-            } else {
-                (0.0, 0.0, 0.0, 0.0)
-            };
-
-        // Convert to clip space (-1 to 1) with shadow expansion
-        // Note: positions are in logical pixels, screen_size is in logical pixels
-        let physical_width = screen_size.0 * scale_factor;
-        let physical_height = screen_size.1 * scale_factor;
-        let x1 = ((rect.pos.x - shadow_expand_left) * scale_factor / physical_width) * 2.0 - 1.0;
-        let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) * scale_factor / physical_height) * 2.0;
-        let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) * scale_factor / physical_width)
-            * 2.0
-            - 1.0;
-        let y2 = 1.0
-            - ((rect.pos.y + rect.size.y + shadow_expand_bottom) * scale_factor / physical_height)
-                * 2.0;
-
-        // For frames, we use a dummy color since actual colors come from uniforms
-        let color_array = [1.0, 1.0, 1.0, 1.0];
-
-        // Calculate texture coordinates that map the expanded bounds correctly
-        // We need to map so that the original rect bounds are at the correct position
-        let u0 = -shadow_expand_left / rect.size.x;
-        let v0 = -shadow_expand_top / rect.size.y;
-        let u1 = 1.0 + shadow_expand_right / rect.size.x;
-        let v1 = 1.0 + shadow_expand_bottom / rect.size.y;
-
-        // Create vertices
-        let vertices = [
-            Vertex {
-                position: [x1, y1],
-                color: color_array,
-                tex_coord: [u0, v0],
-            },
-            Vertex {
-                position: [x2, y1],
-                color: color_array,
-                tex_coord: [u1, v0],
-            },
-            Vertex {
-                position: [x1, y2],
-                color: color_array,
-                tex_coord: [u0, v1],
-            },
-            Vertex {
-                position: [x2, y1],
-                color: color_array,
-                tex_coord: [u1, v0],
-            },
-            Vertex {
-                position: [x2, y2],
-                color: color_array,
-                tex_coord: [u1, v1],
-            },
-            Vertex {
-                position: [x1, y2],
-                color: color_array,
-                tex_coord: [u0, v1],
-            },
-        ];
-
-        // Create uniforms
-        let uniforms = FrameUniforms {
-            center: [
-                rect.pos.x + rect.size.x / 2.0,
-                rect.pos.y + rect.size.y / 2.0,
-            ],
-            half_size: [rect.size.x / 2.0, rect.size.y / 2.0],
-            radii: [
-                style.corner_radii.top_left,
-                style.corner_radii.top_right,
-                style.corner_radii.bottom_right,
-                style.corner_radii.bottom_left,
-            ],
-            border_width: style.border_width,
-            fill_type: match &style.fill {
-                Fill::Solid(_) => 0,
-                Fill::LinearGradient { .. } => 1,
-                Fill::RadialGradient { .. } => 2,
-            },
-            gradient_angle: if let Fill::LinearGradient { angle, .. } = &style.fill {
-                *angle
-            } else {
-                0.0
-            },
-            _padding: 0.0,
-            color1: match &style.fill {
-                Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
-                Fill::LinearGradient { start, .. } => {
-                    [start.red, start.green, start.blue, start.alpha]
-                }
-                Fill::RadialGradient { center, .. } => {
-                    [center.red, center.green, center.blue, center.alpha]
-                }
-            },
-            color2: match &style.fill {
-                Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
-                Fill::LinearGradient { end, .. } => [end.red, end.green, end.blue, end.alpha],
-                Fill::RadialGradient { edge, .. } => [edge.red, edge.green, edge.blue, edge.alpha],
-            },
-            border_color: [
-                style.border_color.red,
-                style.border_color.green,
-                style.border_color.blue,
-                style.border_color.alpha,
-            ],
-            shadow_offset: if let Some(shadow) = &style.shadow {
-                [shadow.offset.x, shadow.offset.y]
-            } else {
-                [0.0, 0.0]
-            },
-            shadow_blur: if let Some(shadow) = &style.shadow {
-                shadow.blur
-            } else {
-                0.0
-            },
-            _padding2: 0.0,
-            shadow_color: if let Some(shadow) = &style.shadow {
-                [
-                    shadow.color.red,
-                    shadow.color.green,
-                    shadow.color.blue,
-                    shadow.color.alpha,
-                ]
-            } else {
-                [0.0, 0.0, 0.0, 0.0]
-            },
-        };
-
-        (vertices, uniforms)
-    }
-
-    /// Create a vertex buffer from vertices
-    fn create_vertex_buffer(&self, vertices: &[Vertex]) -> Buffer {
-        let vertex_data = vertices.as_ptr() as *const c_void;
-        let vertex_data_size = (vertices.len() * mem::size_of::<Vertex>()) as u64;
-        self.device.new_buffer_with_data(
-            vertex_data,
-            vertex_data_size,
-            metal::MTLResourceOptions::CPUCacheModeDefaultCache,
-        )
-    }
-
     /// Render draw commands to an existing render encoder
     fn render_draw_list_with_encoder(
         &mut self,
@@ -754,6 +523,7 @@ impl MetalRenderer {
         text_system: &mut TextSystem,
     ) {
         let _encoder_span = info_span!("render_with_encoder").entered();
+
         // Get pipeline states
         let Some(pipeline_state) = &self.pipeline_state else {
             eprintln!("Pipeline state not initialized");
@@ -763,73 +533,232 @@ impl MetalRenderer {
             eprintln!("Text pipeline state not initialized");
             return;
         };
-
-        // Convert draw commands to vertices
-        let (solid_vertices, text_vertices, frames) = {
-            let _convert_span = info_span!("convert_draw_commands_to_vertices").entered();
-            self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system)
+        let Some(frame_pipeline_state) = &self.frame_pipeline_state else {
+            eprintln!("Frame pipeline state not initialized");
+            return;
         };
 
-        debug!(
-            "Converted to {} solid vertices, {} text vertices, {} frames",
-            solid_vertices.len(),
-            text_vertices.len(),
-            frames.len()
-        );
+        // Calculate physical dimensions for scissor rects
+        let physical_width = (screen_size.0 * scale_factor) as u64;
+        let physical_height = (screen_size.1 * scale_factor) as u64;
 
-        // Draw solid geometry first
-        if !solid_vertices.is_empty() {
-            let _solid_span =
-                info_span!("draw_solid_geometry", vertex_count = solid_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&solid_vertices);
-            encoder.set_render_pipeline_state(&pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
-            encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, solid_vertices.len() as u64);
-        }
+        // Set initial scissor to full screen
+        let full_screen_scissor = MTLScissorRect {
+            x: 0,
+            y: 0,
+            width: physical_width,
+            height: physical_height,
+        };
+        encoder.set_scissor_rect(full_screen_scissor);
 
-        // Draw text geometry with texture
-        if !text_vertices.is_empty() {
-            let _text_span =
-                info_span!("draw_text_geometry", vertex_count = text_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&text_vertices);
-            let texture = text_system.atlas_texture();
-            encoder.set_render_pipeline_state(&text_pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
-            encoder.set_fragment_texture(0, Some(texture));
+        // Track clip stack for nested clips
+        let mut clip_stack: Vec<Rect> = Vec::new();
 
-            // Create and set sampler state
-            let sampler_descriptor = metal::SamplerDescriptor::new();
-            sampler_descriptor.set_min_filter(metal::MTLSamplerMinMagFilter::Linear);
-            sampler_descriptor.set_mag_filter(metal::MTLSamplerMinMagFilter::Linear);
-            let sampler_state = self.device.new_sampler(&sampler_descriptor);
-            encoder.set_fragment_sampler_state(0, Some(&sampler_state));
+        // Accumulators for batching within same clip region
+        let mut solid_vertices: Vec<Vertex> = Vec::new();
+        let mut text_vertices: Vec<Vertex> = Vec::new();
+        let mut frames: Vec<(Rect, ElementStyle)> = Vec::new();
 
-            encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, text_vertices.len() as u64);
-        }
+        // Helper to convert logical rect to physical scissor rect
+        let to_scissor_rect = |rect: &Rect, scale: f32, ph: u64| -> MTLScissorRect {
+            let x = (rect.pos.x * scale).max(0.0) as u64;
+            let y = (rect.pos.y * scale).max(0.0) as u64;
+            let width = (rect.size.x * scale).max(0.0) as u64;
+            let height = (rect.size.y * scale).max(0.0) as u64;
+            // Clamp to screen bounds
+            let x = x.min(physical_width);
+            let y = y.min(ph);
+            let width = width.min(physical_width.saturating_sub(x));
+            let height = height.min(ph.saturating_sub(y));
+            MTLScissorRect {
+                x,
+                y,
+                width,
+                height,
+            }
+        };
 
-        // Draw frames with SDF rendering
-        if !frames.is_empty() {
-            let _frames_span = info_span!("draw_frames", frame_count = frames.len()).entered();
-            encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
-
-            for (rect, style) in frames {
-                // Create frame vertices with proper texture coordinates for SDF
-                let (vertices, uniforms) =
-                    self.frame_to_vertices(&rect, &style, screen_size, scale_factor);
-                let vertex_buffer = self.create_vertex_buffer(&vertices);
-
-                // Create uniforms buffer
-                let uniforms_buffer = self.device.new_buffer_with_data(
-                    &uniforms as *const _ as *const _,
-                    std::mem::size_of::<FrameUniforms>() as u64,
+        // Helper closure to flush accumulated geometry
+        let flush_batches = |encoder: &metal::RenderCommandEncoderRef,
+                             device: &Device,
+                             solid_vertices: &mut Vec<Vertex>,
+                             text_vertices: &mut Vec<Vertex>,
+                             frames: &mut Vec<(Rect, ElementStyle)>,
+                             pipeline_state: &RenderPipelineState,
+                             text_pipeline_state: &RenderPipelineState,
+                             frame_pipeline_state: &RenderPipelineState,
+                             text_system: &mut TextSystem,
+                             screen_size: (f32, f32),
+                             scale_factor: f32| {
+            // Draw solid geometry
+            if !solid_vertices.is_empty() {
+                let buffer = device.new_buffer_with_data(
+                    solid_vertices.as_ptr() as *const _,
+                    (solid_vertices.len() * mem::size_of::<Vertex>()) as u64,
                     metal::MTLResourceOptions::CPUCacheModeDefaultCache,
                 );
+                encoder.set_render_pipeline_state(pipeline_state);
+                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.draw_primitives(
+                    MTLPrimitiveType::Triangle,
+                    0,
+                    solid_vertices.len() as u64,
+                );
+                solid_vertices.clear();
+            }
 
-                encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
-                encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
-                encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+            // Draw text geometry
+            if !text_vertices.is_empty() {
+                let buffer = device.new_buffer_with_data(
+                    text_vertices.as_ptr() as *const _,
+                    (text_vertices.len() * mem::size_of::<Vertex>()) as u64,
+                    metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                );
+                let texture = text_system.atlas_texture();
+                encoder.set_render_pipeline_state(text_pipeline_state);
+                encoder.set_vertex_buffer(0, Some(&buffer), 0);
+                encoder.set_fragment_texture(0, Some(texture));
+
+                let sampler_descriptor = metal::SamplerDescriptor::new();
+                sampler_descriptor.set_min_filter(metal::MTLSamplerMinMagFilter::Linear);
+                sampler_descriptor.set_mag_filter(metal::MTLSamplerMinMagFilter::Linear);
+                let sampler_state = device.new_sampler(&sampler_descriptor);
+                encoder.set_fragment_sampler_state(0, Some(&sampler_state));
+
+                encoder.draw_primitives(
+                    MTLPrimitiveType::Triangle,
+                    0,
+                    text_vertices.len() as u64,
+                );
+                text_vertices.clear();
+            }
+
+            // Draw frames
+            if !frames.is_empty() {
+                encoder.set_render_pipeline_state(frame_pipeline_state);
+
+                for (rect, style) in frames.drain(..) {
+                    let (vertices, uniforms) =
+                        frame_to_vertices_static(&rect, &style, screen_size, scale_factor);
+                    let vertex_buffer = device.new_buffer_with_data(
+                        vertices.as_ptr() as *const _,
+                        (vertices.len() * mem::size_of::<Vertex>()) as u64,
+                        metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                    );
+                    let uniforms_buffer = device.new_buffer_with_data(
+                        &uniforms as *const _ as *const _,
+                        mem::size_of::<FrameUniforms>() as u64,
+                        metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                    );
+
+                    encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
+                    encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
+                    encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+                }
+            }
+        };
+
+        // Process commands in order
+        for command in draw_list.commands() {
+            match command {
+                DrawCommand::Rect { rect, color } => {
+                    let vertices = self.rect_to_vertices(rect, *color, screen_size, scale_factor);
+                    solid_vertices.extend_from_slice(&vertices);
+                }
+                DrawCommand::Frame { rect, style } => {
+                    frames.push((*rect, style.clone()));
+                }
+                DrawCommand::Text {
+                    position,
+                    text,
+                    style,
+                } => {
+                    let text_config = crate::text_system::TextConfig {
+                        font_stack: parley::FontStack::from("system-ui"),
+                        size: style.size,
+                        color: style.color.clone(),
+                        weight: parley::FontWeight::NORMAL,
+                        line_height: 1.2,
+                    };
+                    if let Ok(shaped) = text_system.shape_text(text, &text_config, None, scale_factor)
+                    {
+                        let vertices = self.text_to_vertices(
+                            *position,
+                            &shaped,
+                            &style.color,
+                            text_system,
+                            screen_size,
+                            scale_factor,
+                        );
+                        text_vertices.extend_from_slice(&vertices);
+                    }
+                }
+                DrawCommand::PushClip { rect } => {
+                    // Flush pending geometry before changing scissor
+                    flush_batches(
+                        encoder,
+                        &self.device,
+                        &mut solid_vertices,
+                        &mut text_vertices,
+                        &mut frames,
+                        pipeline_state,
+                        text_pipeline_state,
+                        frame_pipeline_state,
+                        text_system,
+                        screen_size,
+                        scale_factor,
+                    );
+
+                    // Push new clip rect (already intersected with parent in DrawList)
+                    clip_stack.push(*rect);
+                    let scissor = to_scissor_rect(rect, scale_factor, physical_height);
+                    encoder.set_scissor_rect(scissor);
+                    debug!("PushClip: {:?} -> scissor {:?}", rect, scissor);
+                }
+                DrawCommand::PopClip => {
+                    // Flush pending geometry before changing scissor
+                    flush_batches(
+                        encoder,
+                        &self.device,
+                        &mut solid_vertices,
+                        &mut text_vertices,
+                        &mut frames,
+                        pipeline_state,
+                        text_pipeline_state,
+                        frame_pipeline_state,
+                        text_system,
+                        screen_size,
+                        scale_factor,
+                    );
+
+                    // Pop clip rect and restore previous scissor
+                    clip_stack.pop();
+                    if let Some(rect) = clip_stack.last() {
+                        let scissor = to_scissor_rect(rect, scale_factor, physical_height);
+                        encoder.set_scissor_rect(scissor);
+                        debug!("PopClip: restored {:?} -> scissor {:?}", rect, scissor);
+                    } else {
+                        encoder.set_scissor_rect(full_screen_scissor);
+                        debug!("PopClip: restored full screen scissor");
+                    }
+                }
             }
         }
+
+        // Flush any remaining geometry
+        flush_batches(
+            encoder,
+            &self.device,
+            &mut solid_vertices,
+            &mut text_vertices,
+            &mut frames,
+            pipeline_state,
+            text_pipeline_state,
+            frame_pipeline_state,
+            text_system,
+            screen_size,
+            scale_factor,
+        );
     }
 
     /// Legacy render method for backwards compatibility
@@ -1062,4 +991,144 @@ impl MetalRenderer {
         encoder.end_encoding();
         info!("Fullscreen quad rendered");
     }
+}
+
+/// Static helper function for frame_to_vertices (used in closures)
+fn frame_to_vertices_static(
+    rect: &Rect,
+    style: &ElementStyle,
+    screen_size: (f32, f32),
+    scale_factor: f32,
+) -> ([Vertex; 6], FrameUniforms) {
+    // Expand bounds for shadow if present
+    let (shadow_expand_left, shadow_expand_right, shadow_expand_top, shadow_expand_bottom) =
+        if let Some(shadow) = &style.shadow {
+            let blur = shadow.blur;
+            (
+                blur - shadow.offset.x.min(0.0),
+                blur + shadow.offset.x.max(0.0),
+                blur - shadow.offset.y.min(0.0),
+                blur + shadow.offset.y.max(0.0),
+            )
+        } else {
+            (0.0, 0.0, 0.0, 0.0)
+        };
+
+    let physical_width = screen_size.0 * scale_factor;
+    let physical_height = screen_size.1 * scale_factor;
+    let x1 = ((rect.pos.x - shadow_expand_left) * scale_factor / physical_width) * 2.0 - 1.0;
+    let y1 = 1.0 - ((rect.pos.y - shadow_expand_top) * scale_factor / physical_height) * 2.0;
+    let x2 = ((rect.pos.x + rect.size.x + shadow_expand_right) * scale_factor / physical_width)
+        * 2.0
+        - 1.0;
+    let y2 = 1.0
+        - ((rect.pos.y + rect.size.y + shadow_expand_bottom) * scale_factor / physical_height)
+            * 2.0;
+
+    let color_array = [1.0, 1.0, 1.0, 1.0];
+
+    let u0 = -shadow_expand_left / rect.size.x;
+    let v0 = -shadow_expand_top / rect.size.y;
+    let u1 = 1.0 + shadow_expand_right / rect.size.x;
+    let v1 = 1.0 + shadow_expand_bottom / rect.size.y;
+
+    let vertices = [
+        Vertex {
+            position: [x1, y1],
+            color: color_array,
+            tex_coord: [u0, v0],
+        },
+        Vertex {
+            position: [x2, y1],
+            color: color_array,
+            tex_coord: [u1, v0],
+        },
+        Vertex {
+            position: [x1, y2],
+            color: color_array,
+            tex_coord: [u0, v1],
+        },
+        Vertex {
+            position: [x2, y1],
+            color: color_array,
+            tex_coord: [u1, v0],
+        },
+        Vertex {
+            position: [x2, y2],
+            color: color_array,
+            tex_coord: [u1, v1],
+        },
+        Vertex {
+            position: [x1, y2],
+            color: color_array,
+            tex_coord: [u0, v1],
+        },
+    ];
+
+    let uniforms = FrameUniforms {
+        center: [
+            rect.pos.x + rect.size.x / 2.0,
+            rect.pos.y + rect.size.y / 2.0,
+        ],
+        half_size: [rect.size.x / 2.0, rect.size.y / 2.0],
+        radii: [
+            style.corner_radii.top_left,
+            style.corner_radii.top_right,
+            style.corner_radii.bottom_right,
+            style.corner_radii.bottom_left,
+        ],
+        border_width: style.border_width,
+        fill_type: match &style.fill {
+            Fill::Solid(_) => 0,
+            Fill::LinearGradient { .. } => 1,
+            Fill::RadialGradient { .. } => 2,
+        },
+        gradient_angle: if let Fill::LinearGradient { angle, .. } = &style.fill {
+            *angle
+        } else {
+            0.0
+        },
+        _padding: 0.0,
+        color1: match &style.fill {
+            Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
+            Fill::LinearGradient { start, .. } => [start.red, start.green, start.blue, start.alpha],
+            Fill::RadialGradient { center, .. } => {
+                [center.red, center.green, center.blue, center.alpha]
+            }
+        },
+        color2: match &style.fill {
+            Fill::Solid(color) => [color.red, color.green, color.blue, color.alpha],
+            Fill::LinearGradient { end, .. } => [end.red, end.green, end.blue, end.alpha],
+            Fill::RadialGradient { edge, .. } => [edge.red, edge.green, edge.blue, edge.alpha],
+        },
+        border_color: [
+            style.border_color.red,
+            style.border_color.green,
+            style.border_color.blue,
+            style.border_color.alpha,
+        ],
+        shadow_offset: if let Some(shadow) = &style.shadow {
+            [shadow.offset.x, shadow.offset.y]
+        } else {
+            [0.0, 0.0]
+        },
+        shadow_blur: if let Some(shadow) = &style.shadow {
+            shadow.blur
+        } else {
+            0.0
+        },
+        _padding2: 0.0,
+        shadow_color: if let Some(shadow) = &style.shadow {
+            [
+                shadow.color.red,
+                shadow.color.green,
+                shadow.color.blue,
+                shadow.color.alpha,
+            ]
+        } else {
+            [0.0, 0.0, 0.0, 0.0]
+        },
+    };
+
+    (vertices, uniforms)
 }
