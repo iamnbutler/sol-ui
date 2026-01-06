@@ -932,11 +932,6 @@ impl MetalRenderer {
         size: Vec2,
         time: f32,
     ) {
-        info!(
-            "draw_fullscreen_quad called with size: {:?}, time: {}",
-            size, time
-        );
-
         // Combine vertex and fragment shaders
         let full_shader = format!(
             r#"
@@ -983,12 +978,8 @@ impl MetalRenderer {
 
         // Compile shader
         let options = metal::CompileOptions::new();
-        info!("Compiling shader...");
         let library = match self.device.new_library_with_source(&full_shader, &options) {
-            Ok(lib) => {
-                info!("Shader compiled successfully!");
-                lib
-            }
+            Ok(lib) => lib,
             Err(e) => {
                 eprintln!("Failed to compile custom shader: {}", e);
                 eprintln!("Full shader source:\n{}", full_shader);
@@ -1057,9 +1048,7 @@ impl MetalRenderer {
         encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
 
         // Draw fullscreen triangle
-        info!("Drawing fullscreen triangle...");
         encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, 3);
         encoder.end_encoding();
-        info!("Fullscreen quad rendered");
     }
 }

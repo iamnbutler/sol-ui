@@ -3,6 +3,7 @@
 
 pub mod app;
 pub mod color;
+pub mod debug;
 pub mod element;
 pub mod entity;
 pub mod geometry;
