@@ -87,34 +87,34 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 - [x] Simple quad rendering
 - [x] Event loop (input handling deferred)
 
-### Phase 2: Layer System (In Progress)
+### Phase 2: Layer System ✅
 
 - [x] Layer management and ordering
-- [ ] Render pass per layer (blocked - needs architecture change)
+- [x] Render pass per layer
 - [x] Raw layer implementation (direct shader access)
 - [x] UI layer scaffolding
-- [ ] Z-buffer handling between layers
+- [x] Input event routing between layers
 
-### Phase 3: Immediate Mode Core
+### Phase 3: Immediate Mode Core ✅
 
 - [x] Widget ID system
 - [x] Basic UI context struct
 - [x] Frame state management
-- [ ] Hot/active/focused widget tracking (deferred with input)
-- [ ] Taffy tree construction for UI layers (deferred)
-- [ ] Layout result caching (deferred)
-- [ ] Entity system for persistent state (deferred)
-- [ ] Entity lifetime management (deferred)
+- [x] Hot/active/focused widget tracking
+- [x] Taffy tree construction for UI layers
+- [x] Layout result caching
+- [x] Entity system for persistent state
+- [x] Entity lifetime management
 
-### Phase 4: Basic Widgets
+### Phase 4: Basic Widgets (In Progress)
 
 - [x] Container (group with background)
 - [x] Layout helpers (vertical/horizontal)
 - [x] Label (text rendering implemented)
-- [ ] Button (needs input handling)
-- [ ] Input field (needs input handling)
-- [ ] Slider (needs input handling)
-- [ ] Checkbox (needs input handling)
+- [x] Button (with hover/press states)
+- [x] Checkbox (with focus support)
+- [ ] Input field
+- [ ] Slider
 
 ### Phase 5: 3D Features
 
@@ -124,18 +124,20 @@ Building a Mac-only immediate mode UI framework with Metal rendering, supporting
 - [ ] Mixing 2D UI layers with 3D content
 - [ ] Basic lighting for 3D content
 
-### Phase 6: Advanced Features
+### Phase 6: Advanced Features (In Progress)
 
 - [x] Texture atlas management (for glyphs)
 - [x] Font atlas and text shaping (Core Text integration)
+- [x] Scrollable areas (scroll container with momentum)
+- [x] Keyboard shortcuts system
+- [x] Undo/redo system (Command pattern)
 - [ ] Animations and transitions
-- [ ] Scrollable areas
 - [ ] Nested UI layers
 - [ ] Advanced taffy layouts (grid)
 
-### Phase 7: Polish
+### Phase 7: Polish (In Progress)
 
-- [ ] Performance optimizations
+- [x] Performance optimizations (buffer pooling, text caching)
 - [ ] Memory management improvements
 - [ ] Debug overlay showing layers
 - [ ] Documentation
@@ -378,17 +380,19 @@ See [window_and_rendering.md](window_and_rendering.md) for detailed implementati
 - ✅ Basic UI elements (group, rect, layout helpers)
 - ✅ Color system with palette crate
 
-**Current Priority**: Fix layer system render pass management
+**Current Status**: Core UI framework functional with widgets, input handling, and performance optimizations
 
-### Current Phase: Layer System Completion
+### Completed Recently:
+- Keyboard shortcuts system with global/contextual scopes
+- Undo/redo system using Command pattern
+- Vertex buffer pooling for Metal renderer
+- Text measurement caching
+- Button and Checkbox widgets with focus support
+- Scroll container with momentum scrolling
 
-Working on fixing render pass management to properly support multiple layers. The foundation is implemented but the rendering architecture needs changes to support multiple render passes per frame.
-
-### Later Phases:
-
-- Coordinate system implementation (LogicalPixel/PhysicalPixel types)
-- Input handling and interactive widgets
-- Layer system for complex compositions
-- Entity system for stateful widgets
-- Taffy integration for advanced layout
-- 3D features and world-space UI
+### Remaining Work:
+- Input field and slider widgets
+- 3D features (transformations, camera, mesh rendering)
+- Animations and transitions
+- Advanced layouts (grid)
+- Documentation improvements

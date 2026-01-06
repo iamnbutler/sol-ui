@@ -7,16 +7,16 @@ A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 ### Basic Example
 
 ```rust
-use std::cell::RefCell;
-use std::rc::Rc;
 use sol_ui::{
-    app,
+    app::app,
     color::colors,
-    draw::TextStyle,
-    elements::{container, row, text},
+    element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
+    style::TextStyle,
 };
+use std::cell::RefCell;
+use std::rc::Rc;
 
 fn main() {
     // Shared state
