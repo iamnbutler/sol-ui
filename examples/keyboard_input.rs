@@ -42,21 +42,20 @@ fn main() {
                     let typed_text_clone2 = typed_text_clone.clone();
                     let focused_box_clone2 = focused_box_clone.clone();
 
-                    Box::new(
-                        container()
-                            .width_full()
-                            .height_full()
-                            .background(colors::GRAY_100)
-                            .flex_col()
-                            .items_center()
-                            .justify_center()
-                            .gap(20.0)
-                            .child(text("Keyboard Input Demo")
-                                .size(32.0)
-                                .color(colors::BLACK))
-                            .child(text("Press Tab to navigate between boxes, type to see input")
-                                .size(16.0)
-                                .color(colors::GRAY_600))
+                    container()
+                        .width_full()
+                        .height_full()
+                        .background(colors::GRAY_100)
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .gap(20.0)
+                        .child(text("Keyboard Input Demo")
+                            .size(32.0)
+                            .color(colors::BLACK))
+                        .child(text("Press Tab to navigate between boxes, type to see input")
+                            .size(16.0)
+                            .color(colors::GRAY_600))
                             // Status display
                             .child(
                                 column()
@@ -251,7 +250,6 @@ fn main() {
                             .child(text("Tips: Tab/Shift+Tab to navigate | Escape to clear | Type any key")
                                 .size(14.0)
                                 .color(colors::GRAY_500))
-                    )
                 },
             );
         })

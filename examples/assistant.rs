@@ -37,11 +37,10 @@ let ui_layer_options: LayerOptions = LayerOptions::default()
                 .with_input();
 
             layer_manager.add_ui_layer(10, ui_layer_options, move || {
-                Box::new(
-                    row().child(
-                        row().child(text("assistant"))
-                    ))
-          });
+                row().child(
+                    row().child(text("assistant"))
+                )
+            });
         })
         .run();
 }

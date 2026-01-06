@@ -38,139 +38,137 @@ fn main() {
                     let last_action_update = last_action_clone.clone();
                     let counter_update = counter_clone.clone();
 
-                    Box::new(
-                        container()
-                            .width_full()
-                            .height_full()
-                            .background(colors::GRAY_100)
-                            .flex_col()
-                            .items_center()
-                            .justify_center()
-                            .gap(24.0)
-                            // Title
-                            .child(text("Keyboard Shortcuts Demo")
-                                .size(32.0)
-                                .color(colors::GRAY_900))
-                            // Instructions
-                            .child(
-                                column()
-                                    .gap(8.0)
-                                    .items_center()
-                                    .child(text("Try these shortcuts:")
-                                        .size(16.0)
-                                        .color(colors::GRAY_600))
-                                    .child(shortcut_row("Cmd+S", "Save"))
-                                    .child(shortcut_row("Cmd+Z", "Undo"))
-                                    .child(shortcut_row("Shift+Cmd+Z", "Redo"))
-                                    .child(shortcut_row("Cmd+C", "Copy"))
-                                    .child(shortcut_row("Cmd+V", "Paste"))
-                                    .child(shortcut_row("Cmd+=", "Zoom In"))
-                                    .child(shortcut_row("Cmd+-", "Zoom Out"))
-                            )
-                            // Status display
-                            .child(
-                                container()
-                                    .width(400.0)
-                                    .padding(16.0)
-                                    .background(colors::WHITE)
-                                    .border(colors::GRAY_300, 1.0)
-                                    .corner_radius(8.0)
-                                    .flex_col()
-                                    .gap(8.0)
-                                    .child(text(format!("Last action: {}", last_action_val))
-                                        .size(18.0)
-                                        .color(colors::GRAY_800))
-                                    .child(text(format!("Counter: {}", counter_val))
-                                        .size(16.0)
-                                        .color(colors::GRAY_600))
-                            )
-                            // Interactive buttons demonstrating focused shortcuts
-                            .child(
-                                row()
-                                    .gap(16.0)
-                                    .child(
-                                        // Button with contextual shortcut
-                                        container()
-                                            .width(150.0)
-                                            .height(50.0)
-                                            .background(colors::BLUE_500)
-                                            .corner_radius(8.0)
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .child(text("Increment (+)")
-                                                .size(16.0)
-                                                .color(colors::WHITE))
-                                            .interactive()
-                                            .with_id(1)
-                                            .focusable_with_overlay(colors::BLUE_400.with_alpha(0.5))
-                                            .hover_overlay(colors::WHITE.with_alpha(0.1))
-                                            .on_click({
-                                                let counter = counter_update.clone();
-                                                let action = last_action_update.clone();
-                                                move |button, _, _| {
-                                                    if button == MouseButton::Left {
-                                                        *counter.borrow_mut() += 1;
-                                                        *action.borrow_mut() = "Increment (click)".to_string();
-                                                    }
+                    container()
+                        .width_full()
+                        .height_full()
+                        .background(colors::GRAY_100)
+                        .flex_col()
+                        .items_center()
+                        .justify_center()
+                        .gap(24.0)
+                        // Title
+                        .child(text("Keyboard Shortcuts Demo")
+                            .size(32.0)
+                            .color(colors::GRAY_900))
+                        // Instructions
+                        .child(
+                            column()
+                                .gap(8.0)
+                                .items_center()
+                                .child(text("Try these shortcuts:")
+                                    .size(16.0)
+                                    .color(colors::GRAY_600))
+                                .child(shortcut_row("Cmd+S", "Save"))
+                                .child(shortcut_row("Cmd+Z", "Undo"))
+                                .child(shortcut_row("Shift+Cmd+Z", "Redo"))
+                                .child(shortcut_row("Cmd+C", "Copy"))
+                                .child(shortcut_row("Cmd+V", "Paste"))
+                                .child(shortcut_row("Cmd+=", "Zoom In"))
+                                .child(shortcut_row("Cmd+-", "Zoom Out"))
+                        )
+                        // Status display
+                        .child(
+                            container()
+                                .width(400.0)
+                                .padding(16.0)
+                                .background(colors::WHITE)
+                                .border(colors::GRAY_300, 1.0)
+                                .corner_radius(8.0)
+                                .flex_col()
+                                .gap(8.0)
+                                .child(text(format!("Last action: {}", last_action_val))
+                                    .size(18.0)
+                                    .color(colors::GRAY_800))
+                                .child(text(format!("Counter: {}", counter_val))
+                                    .size(16.0)
+                                    .color(colors::GRAY_600))
+                        )
+                        // Interactive buttons demonstrating focused shortcuts
+                        .child(
+                            row()
+                                .gap(16.0)
+                                .child(
+                                    // Button with contextual shortcut
+                                    container()
+                                        .width(150.0)
+                                        .height(50.0)
+                                        .background(colors::BLUE_500)
+                                        .corner_radius(8.0)
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .child(text("Increment (+)")
+                                            .size(16.0)
+                                            .color(colors::WHITE))
+                                        .interactive()
+                                        .with_id(1)
+                                        .focusable_with_overlay(colors::BLUE_400.with_alpha(0.5))
+                                        .hover_overlay(colors::WHITE.with_alpha(0.1))
+                                        .on_click({
+                                            let counter = counter_update.clone();
+                                            let action = last_action_update.clone();
+                                            move |button, _, _| {
+                                                if button == MouseButton::Left {
+                                                    *counter.borrow_mut() += 1;
+                                                    *action.borrow_mut() = "Increment (click)".to_string();
                                                 }
-                                            })
-                                            .on_key_down({
-                                                let counter = counter_update.clone();
-                                                let action = last_action_update.clone();
-                                                move |key, modifiers, _, _| {
-                                                    // When focused, + key increments
-                                                    if key == Key::Equal && !modifiers.cmd {
-                                                        *counter.borrow_mut() += 1;
-                                                        *action.borrow_mut() = "Increment (+ key)".to_string();
-                                                    }
+                                            }
+                                        })
+                                        .on_key_down({
+                                            let counter = counter_update.clone();
+                                            let action = last_action_update.clone();
+                                            move |key, modifiers, _, _| {
+                                                // When focused, + key increments
+                                                if key == Key::Equal && !modifiers.cmd {
+                                                    *counter.borrow_mut() += 1;
+                                                    *action.borrow_mut() = "Increment (+ key)".to_string();
                                                 }
-                                            })
-                                    )
-                                    .child(
-                                        // Button with contextual shortcut
-                                        container()
-                                            .width(150.0)
-                                            .height(50.0)
-                                            .background(colors::RED_500)
-                                            .corner_radius(8.0)
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .child(text("Decrement (-)")
-                                                .size(16.0)
-                                                .color(colors::WHITE))
-                                            .interactive()
-                                            .with_id(2)
-                                            .focusable_with_overlay(colors::RED_400.with_alpha(0.5))
-                                            .hover_overlay(colors::WHITE.with_alpha(0.1))
-                                            .on_click({
-                                                let counter = counter_update.clone();
-                                                let action = last_action_update.clone();
-                                                move |button, _, _| {
-                                                    if button == MouseButton::Left {
-                                                        *counter.borrow_mut() -= 1;
-                                                        *action.borrow_mut() = "Decrement (click)".to_string();
-                                                    }
+                                            }
+                                        })
+                                )
+                                .child(
+                                    // Button with contextual shortcut
+                                    container()
+                                        .width(150.0)
+                                        .height(50.0)
+                                        .background(colors::RED_500)
+                                        .corner_radius(8.0)
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .child(text("Decrement (-)")
+                                            .size(16.0)
+                                            .color(colors::WHITE))
+                                        .interactive()
+                                        .with_id(2)
+                                        .focusable_with_overlay(colors::RED_400.with_alpha(0.5))
+                                        .hover_overlay(colors::WHITE.with_alpha(0.1))
+                                        .on_click({
+                                            let counter = counter_update.clone();
+                                            let action = last_action_update.clone();
+                                            move |button, _, _| {
+                                                if button == MouseButton::Left {
+                                                    *counter.borrow_mut() -= 1;
+                                                    *action.borrow_mut() = "Decrement (click)".to_string();
                                                 }
-                                            })
-                                            .on_key_down({
-                                                let counter = counter_update.clone();
-                                                let action = last_action_update.clone();
-                                                move |key, modifiers, _, _| {
-                                                    // When focused, - key decrements
-                                                    if key == Key::Minus && !modifiers.cmd {
-                                                        *counter.borrow_mut() -= 1;
-                                                        *action.borrow_mut() = "Decrement (- key)".to_string();
-                                                    }
+                                            }
+                                        })
+                                        .on_key_down({
+                                            let counter = counter_update.clone();
+                                            let action = last_action_update.clone();
+                                            move |key, modifiers, _, _| {
+                                                // When focused, - key decrements
+                                                if key == Key::Minus && !modifiers.cmd {
+                                                    *counter.borrow_mut() -= 1;
+                                                    *action.borrow_mut() = "Decrement (- key)".to_string();
                                                 }
-                                            })
-                                    )
-                            )
-                            .child(text("Tab to switch focus between buttons | +/- keys work when focused")
-                                .size(14.0)
-                                .color(colors::GRAY_500))
-                    )
+                                            }
+                                        })
+                                )
+                        )
+                        .child(text("Tab to switch focus between buttons | +/- keys work when focused")
+                            .size(14.0)
+                            .color(colors::GRAY_500))
                 },
             );
         })

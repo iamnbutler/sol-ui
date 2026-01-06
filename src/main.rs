@@ -30,122 +30,116 @@ fn main() {
             // Layer 1: Basic text layout
             info!("Setting up Layer 1: Basic text layout");
             layer_manager.add_ui_layer(0, LayerOptions::default(), || {
-                Box::new(
-                    column()
-                        .padding(20.0)
-                        .gap(10.0)
-                        .child(text("Hello from Taffy!")
-                            .size(24.0)
-                            .color(Srgba::new(0.0, 0.0, 0.0, 1.0)))
-                        .child(text("This is a column layout with padding and gap.")
-                            .size(16.0)
-                            .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
-                        .child(
-                            row()
-                                .gap(15.0)
-                                .child(text("Row item 1")
-                                    .size(14.0)
-                                    .color(Srgba::new(0.0, 0.5, 0.0, 1.0)))
-                                .child(text("Row item 2")
-                                    .size(14.0)
-                                    .color(Srgba::new(0.0, 0.0, 0.5, 1.0)))
-                                .child(text("Row item 3")
-                                    .size(14.0)
-                                    .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
-                        ),
-                )
+                column()
+                    .padding(20.0)
+                    .gap(10.0)
+                    .child(text("Hello from Taffy!")
+                        .size(24.0)
+                        .color(Srgba::new(0.0, 0.0, 0.0, 1.0)))
+                    .child(text("This is a column layout with padding and gap.")
+                        .size(16.0)
+                        .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
+                    .child(
+                        row()
+                            .gap(15.0)
+                            .child(text("Row item 1")
+                                .size(14.0)
+                                .color(Srgba::new(0.0, 0.5, 0.0, 1.0)))
+                            .child(text("Row item 2")
+                                .size(14.0)
+                                .color(Srgba::new(0.0, 0.0, 0.5, 1.0)))
+                            .child(text("Row item 3")
+                                .size(14.0)
+                                .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
+                    )
             });
 
             // Layer 2: Centered content with background
             info!("Setting up Layer 2: Centered content with background");
             layer_manager.add_ui_layer(1, LayerOptions::default(), || {
-                Box::new(
-                    container()
-                        .width_full()
-                        .height_full()
-                        .justify_center()
-                        .items_center()
-                        .child(
-                            container()
-                                .background(Srgba::new(0.9, 0.9, 0.9, 0.95))
-                                .padding(30.0)
-                                .child(
-                                    column()
-                                        .gap(20.0)
-                                        .child(text("Centered Content")
-                                            .size(28.0)
-                                            .color(Srgba::new(0.2, 0.2, 0.2, 1.0)))
-                                        .child(text("This div is centered in the window")
-                                            .size(16.0)
-                                            .color(Srgba::new(0.4, 0.4, 0.4, 1.0)))
-                                        .child(
-                                            container()
-                                                .background(Srgba::new(0.2, 0.3, 0.8, 1.0))
-                                                .size(200.0, 50.0)
-                                                .justify_center()
-                                                .items_center()
-                                                .child(text("Button-like div")
-                                                    .size(16.0)
-                                                    .color(Srgba::new(1.0, 1.0, 1.0, 1.0))),
-                                        ),
-                                ),
-                        ),
-                )
+                container()
+                    .width_full()
+                    .height_full()
+                    .justify_center()
+                    .items_center()
+                    .child(
+                        container()
+                            .background(Srgba::new(0.9, 0.9, 0.9, 0.95))
+                            .padding(30.0)
+                            .child(
+                                column()
+                                    .gap(20.0)
+                                    .child(text("Centered Content")
+                                        .size(28.0)
+                                        .color(Srgba::new(0.2, 0.2, 0.2, 1.0)))
+                                    .child(text("This div is centered in the window")
+                                        .size(16.0)
+                                        .color(Srgba::new(0.4, 0.4, 0.4, 1.0)))
+                                    .child(
+                                        container()
+                                            .background(Srgba::new(0.2, 0.3, 0.8, 1.0))
+                                            .size(200.0, 50.0)
+                                            .justify_center()
+                                            .items_center()
+                                            .child(text("Button-like div")
+                                                .size(16.0)
+                                                .color(Srgba::new(1.0, 1.0, 1.0, 1.0))),
+                                    ),
+                            ),
+                    )
             });
 
             // Layer 3: Complex layout example
             info!("Setting up Layer 3: Complex layout example");
             layer_manager.add_ui_layer(2, LayerOptions::default(), || {
-                Box::new(
-                    container()
-                        .flex_col()
-                        .padding(20.0)
-                        .gap(20.0)
-                        .child(
-                            container()
-                                .background(Srgba::new(0.95, 0.95, 0.95, 0.9))
-                                .padding(20.0)
-                                .width(600.0)
-                                .child(
-                                    column()
-                                        .gap(15.0)
-                                        .child(text("Complex Layout Example")
-                                            .size(24.0)
-                                            .color(Srgba::new(0.1, 0.1, 0.1, 1.0)))
-                                        .child(text("This demonstrates nested layouts with the builder pattern.")
-                                            .size(16.0)
-                                            .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
-                                        .child(
-                                            row()
-                                                .gap(10.0)
-                                                .child(
-                                                    container()
-                                                        .background(Srgba::new(1.0, 0.8, 0.8, 1.0))
-                                                        .padding(10.0)
-                                                        .child(text("Card 1")
-                                                            .size(14.0)
-                                                            .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
-                                                )
-                                                .child(
-                                                    container()
-                                                        .background(Srgba::new(0.8, 1.0, 0.8, 1.0))
-                                                        .padding(10.0)
-                                                        .child(text("Card 2")
-                                                            .size(14.0)
-                                                            .color(Srgba::new(0.0, 0.5, 0.0, 1.0))),
-                                                )
-                                                .child(
-                                                    container()
-                                                        .background(Srgba::new(0.8, 0.8, 1.0, 1.0))
-                                                        .padding(10.0)
-                                                        .child(text("Card 3")
-                                                            .size(14.0)
-                                                            .color(Srgba::new(0.0, 0.0, 0.5, 1.0))),
-                                                ),
-                                        ),
-                                ),
-                        ),
-                )
+                container()
+                    .flex_col()
+                    .padding(20.0)
+                    .gap(20.0)
+                    .child(
+                        container()
+                            .background(Srgba::new(0.95, 0.95, 0.95, 0.9))
+                            .padding(20.0)
+                            .width(600.0)
+                            .child(
+                                column()
+                                    .gap(15.0)
+                                    .child(text("Complex Layout Example")
+                                        .size(24.0)
+                                        .color(Srgba::new(0.1, 0.1, 0.1, 1.0)))
+                                    .child(text("This demonstrates nested layouts with the builder pattern.")
+                                        .size(16.0)
+                                        .color(Srgba::new(0.3, 0.3, 0.3, 1.0)))
+                                    .child(
+                                        row()
+                                            .gap(10.0)
+                                            .child(
+                                                container()
+                                                    .background(Srgba::new(1.0, 0.8, 0.8, 1.0))
+                                                    .padding(10.0)
+                                                    .child(text("Card 1")
+                                                        .size(14.0)
+                                                        .color(Srgba::new(0.5, 0.0, 0.0, 1.0))),
+                                            )
+                                            .child(
+                                                container()
+                                                    .background(Srgba::new(0.8, 1.0, 0.8, 1.0))
+                                                    .padding(10.0)
+                                                    .child(text("Card 2")
+                                                        .size(14.0)
+                                                        .color(Srgba::new(0.0, 0.5, 0.0, 1.0))),
+                                            )
+                                            .child(
+                                                container()
+                                                    .background(Srgba::new(0.8, 0.8, 1.0, 1.0))
+                                                    .padding(10.0)
+                                                    .child(text("Card 3")
+                                                        .size(14.0)
+                                                        .color(Srgba::new(0.0, 0.0, 0.5, 1.0))),
+                                            ),
+                                    ),
+                            ),
+                    )
             });
 
             // Layer 4: Performance test with many elements
@@ -183,7 +177,7 @@ fn main() {
                     );
                 }
 
-                Box::new(root_container)
+                root_container
             });
             info!("All layers setup complete");
         })

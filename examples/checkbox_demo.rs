@@ -51,17 +51,16 @@ fn main() {
                     let notifications_update = notifications_clone.clone();
                     let dark_mode_update = dark_mode_clone.clone();
 
-                    Box::new(
-                        container()
-                            .width_full()
-                            .height_full()
-                            .background(colors::GRAY_100)
-                            .flex_col()
-                            .padding(40.0)
-                            .gap(30.0)
-                            .child(text("Checkbox Demo")
-                                .size(28.0)
-                                .color(colors::BLACK))
+                    container()
+                        .width_full()
+                        .height_full()
+                        .background(colors::GRAY_100)
+                        .flex_col()
+                        .padding(40.0)
+                        .gap(30.0)
+                        .child(text("Checkbox Demo")
+                            .size(28.0)
+                            .color(colors::BLACK))
                             // Basic checkboxes section
                             .child(
                                 column()
@@ -207,7 +206,6 @@ fn main() {
                                         .size(14.0)
                                         .color(colors::GRAY_600))
                             )
-                    )
                 },
             );
         })

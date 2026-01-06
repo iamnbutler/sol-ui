@@ -239,9 +239,9 @@ where
 }
 
 /// A UI layer that uses Taffy for layout
-pub struct UiLayer<F> {
+pub struct UiLayer {
     options: LayerOptions,
-    render_fn: F,
+    render_fn: Box<dyn Fn() -> Box<dyn Element>>,
     layout_engine: TaffyLayoutEngine,
     root_element: Option<Box<dyn Element>>,
     interaction_system: InteractionSystem,
@@ -252,15 +252,16 @@ pub struct UiLayer<F> {
     last_size: Option<Vec2>,
 }
 
-impl<F> UiLayer<F>
-where
-    F: Fn() -> Box<dyn Element> + 'static,
-{
+impl UiLayer {
     /// Create a new Taffy UI layer
-    pub fn new(options: LayerOptions, render_fn: F) -> Self {
+    pub fn new<F, E>(options: LayerOptions, render_fn: F) -> Self
+    where
+        F: Fn() -> E + 'static,
+        E: Element + 'static,
+    {
         Self {
             options,
-            render_fn,
+            render_fn: Box::new(move || Box::new(render_fn()) as Box<dyn Element>),
             layout_engine: TaffyLayoutEngine::new(),
             root_element: None,
             interaction_system: InteractionSystem::new(),
@@ -271,10 +272,7 @@ where
     }
 }
 
-impl<F> Layer for UiLayer<F>
-where
-    F: Fn() -> Box<dyn Element> + 'static,
-{
+impl Layer for UiLayer {
     fn z_index(&self) -> i32 {
         self.options.z_index
     }
@@ -472,9 +470,14 @@ impl LayerManager {
     }
 
     /// Add a UI layer
-    pub fn add_ui_layer<F>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
+    ///
+    /// The render function can return any type that implements `Element`.
+    /// The boxing is handled internally, so you don't need to wrap your
+    /// return value in `Box::new()`.
+    pub fn add_ui_layer<F, E>(&mut self, z_index: i32, options: LayerOptions, render_fn: F)
     where
-        F: Fn() -> Box<dyn Element> + Any + 'static,
+        F: Fn() -> E + 'static,
+        E: Element + 'static,
     {
         let layer = UiLayer::new(options.with_z_index(z_index), render_fn);
         self.add_layer(Box::new(layer));

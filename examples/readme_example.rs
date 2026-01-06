@@ -63,67 +63,66 @@ fn main() {
             layers.add_ui_layer(1, LayerOptions::default().with_input(), move || {
                 let count = *counter_clone.borrow();
 
-                Box::new(
-                    container()
-                        .width_full()
-                        .height_full()
-                        .flex_col()
-                        .items_center()
-                        .justify_center()
-                        .gap(20.0)
-                        .child(text("Toy UI Demo")
-                            .size(24.0)
-                            .color(colors::WHITE))
-                        .child(text(format!("Count: {}", count))
-                            .size(20.0)
-                            .color(colors::GRAY_200))
-                        .child(
-                            row()
-                                .gap(10.0)
-                                .child(
-                                    container()
-                                        .width(40.0)
-                                        .height(40.0)
-                                        .border(colors::GRAY_900, 1.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .child(text("+")
-                                            .size(12.0)
-                                            .color(colors::WHITE))
-                                        .interactive()
-                                        .with_id(1)
-                                        .on_click({
-                                            let counter = counter_clone.clone();
-                                            move |button, _, _| {
-                                                if button == MouseButton::Left {
-                                                    *counter.borrow_mut() += 1;
-                                                }
+                container()
+                    .width_full()
+                    .height_full()
+                    .flex_col()
+                    .items_center()
+                    .justify_center()
+                    .gap(20.0)
+                    .child(text("Toy UI Demo")
+                        .size(24.0)
+                        .color(colors::WHITE))
+                    .child(text(format!("Count: {}", count))
+                        .size(20.0)
+                        .color(colors::GRAY_200))
+                    .child(
+                        row()
+                            .gap(10.0)
+                            .child(
+                                container()
+                                    .width(40.0)
+                                    .height(40.0)
+                                    .border(colors::GRAY_900, 1.0)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(text("+")
+                                        .size(12.0)
+                                        .color(colors::WHITE))
+                                    .interactive()
+                                    .with_id(1)
+                                    .on_click({
+                                        let counter = counter_clone.clone();
+                                        move |button, _, _| {
+                                            if button == MouseButton::Left {
+                                                *counter.borrow_mut() += 1;
                                             }
-                                        }),
-                                )
-                                .child(
-                                    container()
-                                        .width(160.0)
-                                        .height(40.0)
-                                        .border(colors::GRAY_900, 1.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .child(text("Reset")
-                                            .size(12.0)
-                                            .color(colors::WHITE))
-                                        .interactive()
-                                        .with_id(2)
-                                        .on_click({
-                                            let counter = counter_clone.clone();
-                                            move |button, _, _| {
-                                                if button == MouseButton::Left {
-                                                    *counter.borrow_mut() = 0;
-                                                }
+                                        }
+                                    }),
+                            )
+                            .child(
+                                container()
+                                    .width(160.0)
+                                    .height(40.0)
+                                    .border(colors::GRAY_900, 1.0)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(text("Reset")
+                                        .size(12.0)
+                                        .color(colors::WHITE))
+                                    .interactive()
+                                    .with_id(2)
+                                    .on_click({
+                                        let counter = counter_clone.clone();
+                                        move |button, _, _| {
+                                            if button == MouseButton::Left {
+                                                *counter.borrow_mut() = 0;
                                             }
-                                        }),
-                                )
+                                        }
+                                    }),
+                            )
                             .child(
                                 container()
                                     .width(40.0)
@@ -146,8 +145,7 @@ fn main() {
                                         }
                                     }),
                             )
-                        ),
-                )
+                    )
             });
         })
         .run();
