@@ -65,6 +65,15 @@ pub struct Button {
     /// Whether the button is disabled
     disabled: bool,
 
+    /// Explicit width (None = auto-size to content)
+    width: Option<taffy::Dimension>,
+
+    /// Explicit height (None = auto-size to content)
+    height: Option<taffy::Dimension>,
+
+    /// Flex grow factor
+    flex_grow: f32,
+
     /// Cached layout node ID
     node_id: Option<NodeId>,
 }
@@ -90,6 +99,9 @@ impl Button {
             padding_h: 16.0,
             padding_v: 8.0,
             disabled: false,
+            width: None,
+            height: None,
+            flex_grow: 0.0,
             node_id: None,
         }
     }
@@ -194,6 +206,43 @@ impl Button {
         self
     }
 
+    /// Set explicit width
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = Some(taffy::Dimension::length(width));
+        self
+    }
+
+    /// Set explicit height
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(taffy::Dimension::length(height));
+        self
+    }
+
+    /// Set both width and height
+    pub fn size(mut self, width: f32, height: f32) -> Self {
+        self.width = Some(taffy::Dimension::length(width));
+        self.height = Some(taffy::Dimension::length(height));
+        self
+    }
+
+    /// Set width to 100%
+    pub fn width_full(mut self) -> Self {
+        self.width = Some(taffy::Dimension::percent(1.0));
+        self
+    }
+
+    /// Set height to 100%
+    pub fn height_full(mut self) -> Self {
+        self.height = Some(taffy::Dimension::percent(1.0));
+        self
+    }
+
+    /// Set flex grow factor
+    pub fn flex_grow(mut self, factor: f32) -> Self {
+        self.flex_grow = factor;
+        self
+    }
+
     /// Set the click handler
     pub fn on_click<F>(self, handler: F) -> Self
     where
@@ -238,7 +287,7 @@ impl Button {
 
 impl Element for Button {
     fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
-        // Create style with padding
+        // Create style with padding and optional size constraints
         let style = Style {
             padding: taffy::Rect {
                 left: LengthPercentage::length(self.padding_h),
@@ -246,6 +295,11 @@ impl Element for Button {
                 top: LengthPercentage::length(self.padding_v),
                 bottom: LengthPercentage::length(self.padding_v),
             },
+            size: taffy::Size {
+                width: self.width.unwrap_or(taffy::Dimension::auto()),
+                height: self.height.unwrap_or(taffy::Dimension::auto()),
+            },
+            flex_grow: self.flex_grow,
             ..Default::default()
         };
 
