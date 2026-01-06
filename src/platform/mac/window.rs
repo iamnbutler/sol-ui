@@ -203,17 +203,20 @@ impl Window {
 
             // Handle different event types
             match event_type {
-                1 => self.handle_mouse_down(event),   // NSEventTypeLeftMouseDown
-                2 => self.handle_mouse_up(event),     // NSEventTypeLeftMouseUp
-                3 => self.handle_mouse_down(event),   // NSEventTypeRightMouseDown
-                4 => self.handle_mouse_up(event),     // NSEventTypeRightMouseUp
-                5 => self.handle_mouse_moved(event),  // NSEventTypeMouseMoved
-                6 => self.handle_mouse_moved(event),  // NSEventTypeLeftMouseDragged
-                7 => self.handle_mouse_moved(event),  // NSEventTypeRightMouseDragged
-                10 => self.handle_key_down(event),    // NSEventTypeKeyDown
-                11 => self.handle_key_up(event),      // NSEventTypeKeyUp
+                1 => self.handle_mouse_down(event),    // NSEventTypeLeftMouseDown
+                2 => self.handle_mouse_up(event),      // NSEventTypeLeftMouseUp
+                3 => self.handle_mouse_down(event),    // NSEventTypeRightMouseDown
+                4 => self.handle_mouse_up(event),      // NSEventTypeRightMouseUp
+                5 => self.handle_mouse_moved(event),   // NSEventTypeMouseMoved
+                6 => self.handle_mouse_moved(event),   // NSEventTypeLeftMouseDragged
+                7 => self.handle_mouse_moved(event),   // NSEventTypeRightMouseDragged
+                10 => self.handle_key_down(event),     // NSEventTypeKeyDown
+                11 => self.handle_key_up(event),       // NSEventTypeKeyUp
                 12 => self.handle_flags_changed(event), // NSEventTypeFlagsChanged
                 22 => self.handle_scroll_wheel(event), // NSEventTypeScrollWheel
+                25 => self.handle_mouse_down(event),   // NSEventTypeOtherMouseDown (middle)
+                26 => self.handle_mouse_up(event),     // NSEventTypeOtherMouseUp (middle)
+                27 => self.handle_mouse_moved(event),  // NSEventTypeOtherMouseDragged (middle)
                 _ => {}
             }
 
@@ -242,12 +245,11 @@ impl Window {
     fn handle_mouse_down(&self, event: *mut Object) {
         let location = self.get_mouse_location(event);
         let event_type: u64 = unsafe { msg_send![event, type] };
-        let button = if event_type == 1 {
-            MouseButton::Left
-        } else if event_type == 3 {
-            MouseButton::Right
-        } else {
-            MouseButton::Middle
+        let button = match event_type {
+            1 => MouseButton::Left,   // NSEventTypeLeftMouseDown
+            3 => MouseButton::Right,  // NSEventTypeRightMouseDown
+            25 => MouseButton::Middle, // NSEventTypeOtherMouseDown
+            _ => MouseButton::Left,   // Fallback
         };
 
         PENDING_EVENTS.with(|events| {
@@ -261,12 +263,11 @@ impl Window {
     fn handle_mouse_up(&self, event: *mut Object) {
         let location = self.get_mouse_location(event);
         let event_type: u64 = unsafe { msg_send![event, type] };
-        let button = if event_type == 2 {
-            MouseButton::Left
-        } else if event_type == 4 {
-            MouseButton::Right
-        } else {
-            MouseButton::Middle
+        let button = match event_type {
+            2 => MouseButton::Left,   // NSEventTypeLeftMouseUp
+            4 => MouseButton::Right,  // NSEventTypeRightMouseUp
+            26 => MouseButton::Middle, // NSEventTypeOtherMouseUp
+            _ => MouseButton::Left,   // Fallback
         };
 
         PENDING_EVENTS.with(|events| {
