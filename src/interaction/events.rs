@@ -1,6 +1,6 @@
 //! Interaction event types and state
 
-use super::ElementId;
+use super::{ElementId, ShortcutId};
 use crate::layer::{Key, Modifiers, MouseButton};
 use glam::Vec2;
 
@@ -81,6 +81,16 @@ pub enum InteractionEvent {
 
     /// Element lost focus
     FocusOut { element_id: ElementId },
+
+    // --- Shortcut Events ---
+
+    /// A keyboard shortcut was triggered
+    ShortcutTriggered {
+        /// The shortcut ID that was triggered
+        shortcut_id: ShortcutId,
+        /// The action name (e.g., "copy", "save")
+        action_name: String,
+    },
 }
 
 /// Current interaction state of an element
@@ -359,6 +369,9 @@ impl EventHandlers {
                 if let Some(handler) = &mut self.on_focus_out {
                     handler();
                 }
+            }
+            InteractionEvent::ShortcutTriggered { .. } => {
+                // Shortcut events are handled at the application level, not element level
             }
         }
     }
