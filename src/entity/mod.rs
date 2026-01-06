@@ -16,6 +16,7 @@
 
 pub mod context;
 pub mod derived;
+pub mod state_cell;
 pub mod store;
 pub mod subscription;
 
@@ -24,6 +25,7 @@ pub use context::{
     with_entity_store,
 };
 pub use derived::{derive, derive_from, derive_from2, Memo};
+pub use state_cell::StateCell;
 pub use store::EntityStore;
 pub use subscription::SubscriptionManager;
 
@@ -77,6 +79,56 @@ impl<T: 'static> Entity<T> {
     /// Get the entity's ID
     pub fn id(&self) -> EntityId {
         self.id
+    }
+
+    /// Observe entity state (read with automatic re-render on change)
+    ///
+    /// Like `read`, but also registers interest in this entity's state.
+    /// If the entity is later mutated via `update`, the system will
+    /// automatically request a re-render.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    ///
+    /// # Panics
+    /// Panics if called outside of a render context.
+    ///
+    /// # Example
+    /// ```ignore
+    /// let count = counter.observe(|s| s.value).unwrap_or(0);
+    /// ```
+    pub fn observe<R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
+        observe(self, f)
+    }
+
+    /// Read entity state immutably (without reactive subscription)
+    ///
+    /// Use this when you just need the current value without triggering
+    /// re-renders when the state changes.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    ///
+    /// # Panics
+    /// Panics if called outside of a render context.
+    pub fn read<R>(&self, f: impl FnOnce(&T) -> R) -> Option<R> {
+        read_entity(self, f)
+    }
+
+    /// Update entity state mutably
+    ///
+    /// This automatically marks the entity as dirty, which will trigger
+    /// a re-render if the entity is being observed.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    ///
+    /// # Panics
+    /// Panics if called outside of a render context.
+    ///
+    /// # Example
+    /// ```ignore
+    /// counter.update(|s| s.value += 1);
+    /// ```
+    pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> Option<R> {
+        update_entity(self, f)
     }
 }
 
