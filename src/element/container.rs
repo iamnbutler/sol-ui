@@ -235,15 +235,99 @@ impl Container {
         self
     }
 
+    // --- Justify Content (main axis) ---
+
+    /// Align items to the start of the main axis
+    pub fn justify_start(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::Start);
+        self
+    }
+
+    /// Align items to the end of the main axis
+    pub fn justify_end(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::End);
+        self
+    }
+
     /// Center items on main axis
     pub fn justify_center(mut self) -> Self {
         self.style.justify_content = Some(JustifyContent::Center);
         self
     }
 
+    /// Distribute items with equal space between them
+    pub fn justify_between(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceBetween);
+        self
+    }
+
+    /// Distribute items with equal space around them
+    pub fn justify_around(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceAround);
+        self
+    }
+
+    /// Distribute items with equal space between and around them
+    pub fn justify_evenly(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceEvenly);
+        self
+    }
+
+    // --- Align Items (cross axis) ---
+
+    /// Align items to the start of the cross axis
+    pub fn items_start(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Start);
+        self
+    }
+
+    /// Align items to the end of the cross axis
+    pub fn items_end(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::End);
+        self
+    }
+
     /// Center items on cross axis
     pub fn items_center(mut self) -> Self {
         self.style.align_items = Some(AlignItems::Center);
+        self
+    }
+
+    /// Stretch items to fill the cross axis
+    pub fn items_stretch(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Stretch);
+        self
+    }
+
+    /// Align items along their baseline
+    pub fn items_baseline(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Baseline);
+        self
+    }
+
+    // --- Align Self (override parent's align-items for this element) ---
+
+    /// Override alignment for this item to start
+    pub fn align_self_start(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Start);
+        self
+    }
+
+    /// Override alignment for this item to end
+    pub fn align_self_end(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::End);
+        self
+    }
+
+    /// Override alignment for this item to center
+    pub fn align_self_center(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Center);
+        self
+    }
+
+    /// Override alignment for this item to stretch
+    pub fn align_self_stretch(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Stretch);
         self
     }
 }
