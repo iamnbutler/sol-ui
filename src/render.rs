@@ -178,17 +178,6 @@ pub struct PaintText {
     pub style: TextStyle,
 }
 
-/// An image to be rendered
-#[derive(Clone, Debug)]
-pub struct PaintImage {
-    /// The bounds of the image
-    pub bounds: Rect,
-    /// Path or identifier for the image
-    pub source: String,
-    /// Corner radii for rounded images
-    pub corner_radii: Corners,
-}
-
 /// A draw command represents a single drawing operation
 #[derive(Debug, Clone)]
 pub enum DrawCommand {
