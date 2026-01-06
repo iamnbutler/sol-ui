@@ -5,12 +5,14 @@ mod checkbox;
 mod container;
 mod scroll;
 mod text;
+mod text_input;
 
 pub use button::{Button, button};
 pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
 pub use container::{Container, column, container, row};
 pub use scroll::{ScrollContainer, ScrollState, scroll};
 pub use text::{Text, text};
+pub use text_input::{TextInput, TextInputState, text_input, text_input_with_value};
 
 use crate::{
     geometry::Rect,
