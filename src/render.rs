@@ -82,7 +82,7 @@ impl<'a> PaintContext<'a> {
         }
     }
 
-    /// Paint text
+    /// Paint text with accurate bounds measurement
     pub fn paint_text(&mut self, text: PaintText) {
         self.draw_list
             .add_text(text.position, &text.text, text.style, text.measured_size);

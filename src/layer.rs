@@ -13,7 +13,7 @@ use crate::{
 use glam::Vec2;
 use metal::CommandBufferRef;
 use std::any::Any;
-use tracing::{debug, info, info_span};
+use tracing::{debug, info_span};
 
 /// Options for configuring a layer
 #[derive(Debug, Clone)]
@@ -300,7 +300,6 @@ where
         // Track if size changed (useful for debugging and future optimizations)
         let size_changed = self.last_size != Some(size);
         if size_changed {
-            info!("Viewport size changed: {:?} -> {:?}", self.last_size, size);
             self.last_size = Some(size);
         }
 

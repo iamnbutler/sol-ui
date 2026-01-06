@@ -38,7 +38,7 @@ pub struct Checkbox {
     /// Whether the checkbox is currently checked
     checked: bool,
     /// Size of the checkbox box (width and height)
-    size: f32,
+    box_size: f32,
     /// Optional label text
     label: Option<String>,
     /// Label text style
@@ -65,6 +65,12 @@ pub struct Checkbox {
     element_id: ElementId,
     /// Event handlers for interaction
     handlers: Rc<RefCell<EventHandlers>>,
+    /// Explicit layout width (None = auto)
+    layout_width: Option<taffy::Dimension>,
+    /// Explicit layout height (None = auto)
+    layout_height: Option<taffy::Dimension>,
+    /// Flex grow factor
+    flex_grow: f32,
     /// Cached layout node ID
     node_id: Option<NodeId>,
     /// Child label element (created during layout)
@@ -82,7 +88,7 @@ impl Checkbox {
     pub fn new(checked: bool) -> Self {
         Self {
             checked,
-            size: DEFAULT_SIZE,
+            box_size: DEFAULT_SIZE,
             label: None,
             label_style: TextStyle {
                 color: colors::BLACK,
@@ -101,15 +107,63 @@ impl Checkbox {
             // Use auto() for now, will be overridden when label() or with_key() is called
             element_id: ElementId::auto(),
             handlers: Rc::new(RefCell::new(EventHandlers::new())),
+            layout_width: None,
+            layout_height: None,
+            flex_grow: 0.0,
             node_id: None,
             label_element: None,
             label_node_id: None,
         }
     }
 
-    /// Set the checkbox size
+    /// Set the checkbox box size (the clickable square)
+    /// Note: This sets the box size, not the overall layout size.
+    /// Use `width()`, `height()`, or `layout_size()` for layout sizing.
     pub fn size(mut self, size: f32) -> Self {
-        self.size = size;
+        self.box_size = size;
+        self
+    }
+
+    /// Set the checkbox box size (alias for size())
+    pub fn box_size(mut self, size: f32) -> Self {
+        self.box_size = size;
+        self
+    }
+
+    /// Set explicit layout width
+    pub fn width(mut self, width: f32) -> Self {
+        self.layout_width = Some(taffy::Dimension::length(width));
+        self
+    }
+
+    /// Set explicit layout height
+    pub fn height(mut self, height: f32) -> Self {
+        self.layout_height = Some(taffy::Dimension::length(height));
+        self
+    }
+
+    /// Set both layout width and height
+    pub fn layout_size(mut self, width: f32, height: f32) -> Self {
+        self.layout_width = Some(taffy::Dimension::length(width));
+        self.layout_height = Some(taffy::Dimension::length(height));
+        self
+    }
+
+    /// Set width to 100%
+    pub fn width_full(mut self) -> Self {
+        self.layout_width = Some(taffy::Dimension::percent(1.0));
+        self
+    }
+
+    /// Set height to 100%
+    pub fn height_full(mut self) -> Self {
+        self.layout_height = Some(taffy::Dimension::percent(1.0));
+        self
+    }
+
+    /// Set flex grow factor
+    pub fn flex_grow(mut self, factor: f32) -> Self {
+        self.flex_grow = factor;
         self
     }
 
@@ -238,13 +292,13 @@ impl Checkbox {
         // Since we can only draw axis-aligned rectangles, we'll approximate
         // with a simplified checkmark using small rectangles
 
-        let inset = self.size * 0.25;
+        let inset = self.box_size * 0.25;
         let check_bounds = Rect::from_pos_size(
             bounds.pos + Vec2::splat(inset),
             bounds.size - Vec2::splat(inset * 2.0),
         );
 
-        let stroke_width = (self.size * 0.15).max(2.0);
+        let stroke_width = (self.box_size * 0.15).max(2.0);
 
         // Short stroke (bottom-left part of check): goes down and slightly right
         // Position: left side, middle-to-bottom
@@ -303,14 +357,14 @@ impl Element for Checkbox {
         // Calculate total width (checkbox + gap + label if present)
         let checkbox_style = Style {
             size: Size {
-                width: Dimension::length(self.size),
-                height: Dimension::length(self.size),
+                width: Dimension::length(self.box_size),
+                height: Dimension::length(self.box_size),
             },
             ..Default::default()
         };
 
         if label_node.is_some() {
-            // Container style with row layout
+            // Container style with row layout and optional size constraints
             let container_style = Style {
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
@@ -319,6 +373,11 @@ impl Element for Checkbox {
                     width: LengthPercentage::length(self.label_gap),
                     height: LengthPercentage::length(0.0),
                 },
+                size: taffy::Size {
+                    width: self.layout_width.unwrap_or(taffy::Dimension::auto()),
+                    height: self.layout_height.unwrap_or(taffy::Dimension::auto()),
+                },
+                flex_grow: self.flex_grow,
                 ..Default::default()
             };
 
@@ -336,8 +395,16 @@ impl Element for Checkbox {
             self.node_id = Some(node_id);
             node_id
         } else {
-            // Just the checkbox box
-            let node_id = ctx.request_layout(checkbox_style);
+            // Just the checkbox box with optional size constraints
+            let checkbox_style_with_layout = Style {
+                size: Size {
+                    width: self.layout_width.unwrap_or(Dimension::length(self.box_size)),
+                    height: self.layout_height.unwrap_or(Dimension::length(self.box_size)),
+                },
+                flex_grow: self.flex_grow,
+                ..Default::default()
+            };
+            let node_id = ctx.request_layout(checkbox_style_with_layout);
             self.node_id = Some(node_id);
             node_id
         }
@@ -359,7 +426,7 @@ impl Element for Checkbox {
         // Calculate checkbox box bounds
         let checkbox_bounds = Rect::from_pos_size(
             bounds.pos,
-            Vec2::new(self.size, self.size),
+            Vec2::new(self.box_size, self.box_size),
         );
 
         // Paint focus ring if focused (paint before checkbox so it appears behind)
@@ -412,7 +479,7 @@ impl Element for Checkbox {
         {
             let label_layout_bounds = ctx.layout_engine.layout_bounds(label_node_id);
             let label_bounds = Rect::from_pos_size(
-                bounds.pos + Vec2::new(self.size + self.label_gap, label_layout_bounds.pos.y),
+                bounds.pos + Vec2::new(self.box_size + self.label_gap, label_layout_bounds.pos.y),
                 label_layout_bounds.size,
             );
             label_element.paint(label_bounds, ctx);
