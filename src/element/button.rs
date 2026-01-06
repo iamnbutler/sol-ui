@@ -16,12 +16,75 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use taffy::prelude::*;
 
-/// Create a new button element with the given label
+/// Create a new button element with the given label.
+///
+/// This is a convenience function equivalent to [`Button::new()`].
+///
+/// # Examples
+///
+/// ```
+/// use sol_ui::element::button;
+///
+/// let btn = button("Click me")
+///     .with_id("my_button")
+///     .on_click_simple(|| println!("Clicked!"));
+/// ```
 pub fn button(label: impl Into<String>) -> Button {
     Button::new(label)
 }
 
-/// A clickable button element with text label
+/// A clickable button element with text label and visual states.
+///
+/// Buttons automatically handle hover, press, focus, and disabled states
+/// with appropriate visual feedback. Use the builder pattern to customize
+/// appearance and behavior.
+///
+/// # Examples
+///
+/// ## Basic Button
+///
+/// ```
+/// use sol_ui::element::button;
+///
+/// let btn = button("Submit")
+///     .with_id("submit_btn")
+///     .on_click_simple(|| println!("Submitted!"));
+/// ```
+///
+/// ## Styled Button
+///
+/// ```
+/// use sol_ui::element::button;
+/// use sol_ui::color::colors;
+///
+/// let danger_btn = button("Delete")
+///     .with_id("delete_btn")
+///     .background(colors::RED_500)
+///     .hover_background(colors::RED_400)
+///     .press_background(colors::RED_600)
+///     .corner_radius(8.0);
+/// ```
+///
+/// ## Disabled Button
+///
+/// ```
+/// use sol_ui::element::button;
+///
+/// let btn = button("Unavailable").disabled(true);
+/// ```
+///
+/// # Visual States
+///
+/// The button displays different backgrounds based on state:
+/// - **Normal**: `background` color (default: blue)
+/// - **Hovered**: `hover_background` color
+/// - **Pressed**: `press_background` color
+/// - **Focused**: Shows focus ring around button
+/// - **Disabled**: `disabled_background` color (gray)
+///
+/// # Keyboard Support
+///
+/// When focused, buttons respond to Enter and Space keys.
 pub struct Button {
     /// Button text label
     label: String,
