@@ -66,6 +66,10 @@ path = "examples/dropdown_demo.rs"
 name = "button_demo"
 path = "examples/button_demo.rs"
 
+[[example]]
+name = "drag_drop_demo"
+path = "examples/drag_drop_demo.rs"
+
 [features]
 # Enable testing utilities for use in other crates
 testing = []
