@@ -139,6 +139,7 @@ fn main() {
                                         color: text_color,
                                         size: 28.0,
                                         line_height: 1.2,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -149,6 +150,7 @@ fn main() {
                                         color: if current.dark_mode { colors::GRAY_400 } else { colors::GRAY_600 },
                                         size: 12.0,
                                         line_height: 1.2,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -163,6 +165,7 @@ fn main() {
                                                 color: secondary_color,
                                                 size: 18.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -173,6 +176,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .with_id(1)
                                             .on_change(move |new_state| {
@@ -189,6 +193,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::GREEN_500)
                                             .with_id(2)
@@ -206,6 +211,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::PURPLE_500)
                                             .with_id(3)
@@ -223,6 +229,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::BLUE_500)
                                             .with_id(4)
@@ -243,6 +250,7 @@ fn main() {
                                                 color: secondary_color,
                                                 size: 18.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -257,7 +265,7 @@ fn main() {
                                                     .press_background(colors::RED_600)
                                                     .text_color(colors::WHITE)
                                                     .corner_radius(8.0)
-                                                    .padding(16.0, 8.0)
+                                                    .padding_xy(16.0, 8.0)
                                                     .with_id(10)
                                                     .on_click_simple(move || {
                                                         dec_settings.borrow_mut().counter -= 1;
@@ -281,6 +289,7 @@ fn main() {
                                                                 color: text_color,
                                                                 size: 20.0,
                                                                 line_height: 1.2,
+                                                                ..Default::default()
                                                             },
                                                         )
                                                     )
@@ -292,7 +301,7 @@ fn main() {
                                                     .press_background(colors::GREEN_600)
                                                     .text_color(colors::WHITE)
                                                     .corner_radius(8.0)
-                                                    .padding(16.0, 8.0)
+                                                    .padding_xy(16.0, 8.0)
                                                     .with_id(11)
                                                     .on_click_simple(move || {
                                                         inc_settings.borrow_mut().counter += 1;
@@ -353,6 +362,7 @@ fn main() {
                                                 color: if current.dark_mode { colors::GRAY_300 } else { colors::GRAY_600 },
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
