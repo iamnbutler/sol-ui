@@ -477,23 +477,27 @@ impl Element for ConfirmDialog {
         let title_style = TextStyle {
             size: 18.0,
             color: colors::GRAY_900,
+            ..Default::default()
         };
 
         // Message text style
         let message_style = TextStyle {
             size: 14.0,
             color: colors::GRAY_600,
+            ..Default::default()
         };
 
         // Button text style
         let button_text_style = TextStyle {
             size: 14.0,
             color: colors::WHITE,
+            ..Default::default()
         };
 
         let cancel_text_style = TextStyle {
             size: 14.0,
             color: colors::GRAY_700,
+            ..Default::default()
         };
 
         // Title node
@@ -717,7 +721,9 @@ impl Element for ConfirmDialog {
                     style: TextStyle {
                         size: 18.0,
                         color: colors::GRAY_900,
+                        ..Default::default()
                     },
+                    measured_size: None,
                 });
             }
 
@@ -731,7 +737,9 @@ impl Element for ConfirmDialog {
                     style: TextStyle {
                         size: 14.0,
                         color: colors::GRAY_600,
+                        ..Default::default()
                     },
+                    measured_size: None,
                 });
             }
 
@@ -772,7 +780,9 @@ impl Element for ConfirmDialog {
                         style: TextStyle {
                             size: 14.0,
                             color: colors::GRAY_700,
+                            ..Default::default()
                         },
+                        measured_size: None,
                     });
 
                     ctx.register_hit_test(self.cancel_button_id, cancel_bounds, 20);
@@ -814,7 +824,9 @@ impl Element for ConfirmDialog {
                         style: TextStyle {
                             size: 14.0,
                             color: colors::WHITE,
+                            ..Default::default()
                         },
+                        measured_size: None,
                     });
 
                     ctx.register_hit_test(self.confirm_button_id, confirm_bounds, 20);

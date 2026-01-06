@@ -6,7 +6,7 @@ use crate::{
         registry::{get_element_state, register_element},
         ElementId, EventHandlers,
     },
-    layer::MouseButton,
+    layer::{Key, MouseButton},
     render::{PaintQuad, PaintText},
     style::TextStyle,
 };
@@ -94,6 +94,7 @@ impl Button {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
             disabled_text_color: colors::GRAY_600,
             padding_h: 16.0,
@@ -243,7 +244,7 @@ impl Button {
         self
     }
 
-    /// Set the click handler
+    /// Set the click handler (also triggers on Enter/Space when focused)
     pub fn on_click<F>(self, handler: F) -> Self
     where
         F: FnMut(MouseButton, Vec2, Vec2) + 'static,
@@ -253,11 +254,29 @@ impl Button {
     }
 
     /// Set a simple click handler that doesn't need position info
-    pub fn on_click_simple<F>(self, mut handler: F) -> Self
+    /// This also triggers on Enter/Space when the button is focused.
+    pub fn on_click_simple<F>(self, handler: F) -> Self
     where
         F: FnMut() + 'static,
     {
-        self.handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _| handler()));
+        // Use Rc<RefCell> to share the handler between click and keyboard events
+        let handler = Rc::new(RefCell::new(handler));
+        let click_handler = handler.clone();
+        let key_handler = handler;
+
+        let mut handlers = self.handlers.borrow_mut();
+        handlers.on_click = Some(Box::new(move |_, _, _| {
+            (click_handler.borrow_mut())();
+        }));
+
+        // Also trigger on Enter or Space key
+        handlers.on_key_down = Some(Box::new(move |key, _, _, is_repeat| {
+            if !is_repeat && (key == Key::Return || key == Key::Space) {
+                (key_handler.borrow_mut())();
+            }
+        }));
+
+        drop(handlers);
         self
     }
 
@@ -284,6 +303,13 @@ impl Button {
         self.id
     }
 }
+
+/// Focus ring color for buttons
+const FOCUS_RING_COLOR: Color = colors::BLUE_400;
+/// Focus ring width
+const FOCUS_RING_WIDTH: f32 = 2.0;
+/// Focus ring offset from element bounds
+const FOCUS_RING_OFFSET: f32 = 2.0;
 
 impl Element for Button {
     fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
@@ -321,6 +347,21 @@ impl Element for Button {
 
         // Get current interaction state
         let state = get_element_state(self.id).unwrap_or_default();
+
+        // Paint focus ring if focused (paint before background so it appears behind)
+        if state.is_focused && !self.disabled {
+            let focus_bounds = Rect::from_pos_size(
+                bounds.pos - Vec2::splat(FOCUS_RING_OFFSET),
+                bounds.size + Vec2::splat(FOCUS_RING_OFFSET * 2.0),
+            );
+            ctx.paint_quad(PaintQuad {
+                bounds: focus_bounds,
+                fill: colors::TRANSPARENT,
+                corner_radii: Corners::all(self.corner_radius + FOCUS_RING_OFFSET),
+                border_widths: Edges::all(FOCUS_RING_WIDTH),
+                border_color: FOCUS_RING_COLOR,
+            });
+        }
 
         // Determine background color based on state
         let bg_color = if self.disabled {
@@ -373,11 +414,12 @@ impl Element for Button {
                 color: text_color,
                 ..self.text_style.clone()
             },
+            measured_size: Some(text_size),
         });
 
-        // Register for hit testing if not disabled
+        // Register as focusable for hit testing if not disabled
         if !self.disabled {
-            ctx.register_hit_test(self.id, bounds, 0);
+            ctx.register_focusable(self.id, bounds, 0);
         }
     }
 }

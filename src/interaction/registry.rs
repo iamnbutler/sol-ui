@@ -65,6 +65,7 @@ impl ElementRegistry {
 
     /// Dispatch an event to the appropriate element
     pub fn dispatch_event(&mut self, event: &InteractionEvent) -> bool {
+        // ShortcutTriggered events are handled at the application level, not dispatched to elements
         let element_id = match event {
             InteractionEvent::MouseEnter { element_id }
             | InteractionEvent::MouseLeave { element_id }
@@ -77,6 +78,10 @@ impl ElementRegistry {
             | InteractionEvent::KeyUp { element_id, .. }
             | InteractionEvent::FocusIn { element_id }
             | InteractionEvent::FocusOut { element_id } => *element_id,
+            InteractionEvent::ShortcutTriggered { .. } => {
+                // Shortcut events aren't dispatched to specific elements
+                return true;
+            }
         };
 
         // Update states based on event type

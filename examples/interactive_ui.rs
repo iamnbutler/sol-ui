@@ -93,6 +93,7 @@ fn main() {
                                             )
                                             .interactive()
                                             .with_id(1) // Stable ID for increment button
+                                            .focusable_with_overlay(colors::BLUE_400.with_alpha(0.4))
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
@@ -136,6 +137,7 @@ fn main() {
                                             )
                                             .interactive()
                                             .with_id(2) // Stable ID for decrement button
+                                            .focusable_with_overlay(colors::RED_400.with_alpha(0.4))
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
@@ -179,6 +181,7 @@ fn main() {
                                             )
                                             .interactive()
                                             .with_id(3) // Stable ID for reset button
+                                            .focusable_with_overlay(colors::GRAY_400.with_alpha(0.4))
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
@@ -232,6 +235,7 @@ fn main() {
                                                     .interactive()
                                                     .with_id(4) // Stable ID for bottom layer
                                                     .z_index(0)
+                                                    .focusable_with_overlay(colors::GREEN_400.with_alpha(0.4))
                                                     .hover_overlay(colors::BLACK.with_alpha(0.1))
                                                     .on_click(|_, _, _| {
                                                         println!("Bottom layer clicked!");
@@ -260,6 +264,7 @@ fn main() {
                                                     .interactive()
                                                     .with_id(5) // Stable ID for top layer
                                                     .z_index(10)
+                                                    .focusable_with_overlay(colors::PURPLE_400.with_alpha(0.4))
                                                     .hover_overlay(colors::WHITE.with_alpha(0.2))
                                                     .on_click(|_, _, _| {
                                                         println!("Top layer clicked! (This should take precedence)");
@@ -292,6 +297,15 @@ fn main() {
                                     .on_click(|_, _, _| {
                                         println!("This should never be called!");
                                     })
+                            )
+                            .child(
+                                text(
+                                    "Press Tab to navigate between focusable elements",
+                                    TextStyle {
+                                        color: colors::GRAY_500,
+                                        size: 14.0,
+                                    },
+                                )
                             )
                     )
                 },

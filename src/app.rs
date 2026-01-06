@@ -1,7 +1,7 @@
 use crate::{
     entity::EntityStore,
     layer::LayerManager,
-    platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
+    platform::{create_app_menu, mac::metal_renderer::MetalRenderer, MenuBar, Window},
     task::{TaskRunner, clear_task_runner, set_task_runner},
     text_system::TextSystem,
 };
@@ -33,6 +33,7 @@ pub struct AppBuilder {
     height: f64,
     title: String,
     layer_setup: Box<dyn FnOnce(&mut LayerManager)>,
+    menu_setup: Option<Box<dyn FnOnce(&str) -> MenuBar>>,
 }
 
 pub fn app() -> AppBuilder {
@@ -46,6 +47,7 @@ impl AppBuilder {
             height: 600.0,
             title: "Toy UI App".to_string(),
             layer_setup: Box::new(|_| {}),
+            menu_setup: None,
         }
     }
 
@@ -68,6 +70,34 @@ impl AppBuilder {
         self
     }
 
+    /// Configure a custom menu bar for the application.
+    ///
+    /// The closure receives the app title and should return a configured MenuBar.
+    /// If not called, a default app menu with just Quit is created.
+    ///
+    /// # Example
+    /// ```ignore
+    /// app()
+    ///     .title("My App")
+    ///     .with_menu_bar(|title| {
+    ///         MenuBar::new(title)
+    ///             .with_app_menu()
+    ///             .menu(Menu::new("File")
+    ///                 .item(MenuItem::action("New")
+    ///                     .shortcut(KeyboardShortcut::cmd("n"))
+    ///                     .build()))
+    ///             .with_edit_menu()
+    ///     })
+    ///     .run();
+    /// ```
+    pub fn with_menu_bar<F>(mut self, setup: F) -> Self
+    where
+        F: FnOnce(&str) -> MenuBar + 'static,
+    {
+        self.menu_setup = Some(Box::new(setup));
+        self
+    }
+
     pub fn run(mut self) {
         let layer_setup = std::mem::replace(&mut self.layer_setup, Box::new(|_| {}));
         let app = self.build();
@@ -87,7 +117,12 @@ impl AppBuilder {
 
         // Create app menu
         let start = Instant::now();
-        create_app_menu();
+        if let Some(menu_setup) = self.menu_setup {
+            let menu_bar = menu_setup(&self.title);
+            menu_bar.build();
+        } else {
+            create_app_menu();
+        }
         info!("App menu created in {:?}", start.elapsed());
 
         // Create Metal device and command queue

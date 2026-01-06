@@ -126,7 +126,9 @@ impl BoundsOverlay {
                 style: TextStyle {
                     size: 10.0,
                     color: entry.color,
+                    ..Default::default()
                 },
+                measured_size: None,
             });
         }
 

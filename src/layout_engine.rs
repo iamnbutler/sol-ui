@@ -122,6 +122,12 @@ impl TaffyLayoutEngine {
     pub fn children(&self, id: NodeId) -> Result<Vec<NodeId>, taffy::TaffyError> {
         self.taffy.children(id)
     }
+
+    /// Get mutable access to the underlying taffy tree (for testing)
+    #[cfg(any(test, feature = "testing"))]
+    pub fn taffy_mut(&mut self) -> &mut TaffyTree<ElementData> {
+        &mut self.taffy
+    }
 }
 
 /// Measure function for elements that contain text
@@ -144,7 +150,7 @@ fn measure_element(
                 size: style.size,
                 weight: parley::FontWeight::NORMAL,
                 color: style.color.clone(),
-                line_height: 1.2,
+                line_height: style.line_height,
             };
 
             let measured_size =

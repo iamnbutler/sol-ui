@@ -15,3 +15,8 @@ pub mod render;
 pub mod style;
 pub mod task;
 pub mod text_system;
+pub mod undo;
+
+/// Test utilities for layout, interaction, and render testing
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;

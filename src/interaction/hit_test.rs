@@ -17,6 +17,9 @@ pub struct HitTestEntry {
 
     /// Layer index this element belongs to
     pub layer_index: usize,
+
+    /// Whether this element can receive keyboard focus
+    pub focusable: bool,
 }
 
 impl HitTestEntry {
@@ -26,7 +29,13 @@ impl HitTestEntry {
             bounds,
             z_index,
             layer_index,
+            focusable: false,
         }
+    }
+
+    pub fn with_focusable(mut self, focusable: bool) -> Self {
+        self.focusable = focusable;
+        self
     }
 }
 
@@ -54,11 +63,21 @@ pub struct HitTestBuilder {
 }
 
 impl HitTestBuilder {
+    /// Create a new HitTestBuilder with specified layer index and z-base
     pub fn new(layer_index: usize, z_base: i32) -> Self {
         Self {
             entries: Vec::new(),
             current_z_base: z_base,
             layer_index,
+        }
+    }
+
+    /// Create a new HitTestBuilder with defaults (for testing)
+    pub fn default_for_testing() -> Self {
+        Self {
+            entries: Vec::new(),
+            current_z_base: 0,
+            layer_index: 0,
         }
     }
 
@@ -70,6 +89,18 @@ impl HitTestBuilder {
             self.current_z_base + relative_z,
             self.layer_index,
         );
+        self.entries.push(entry);
+    }
+
+    /// Add a focusable hit test entry
+    pub fn add_focusable_entry(&mut self, element_id: ElementId, bounds: Rect, relative_z: i32) {
+        let entry = HitTestEntry::new(
+            element_id,
+            bounds,
+            self.current_z_base + relative_z,
+            self.layer_index,
+        )
+        .with_focusable(true);
         self.entries.push(entry);
     }
 
@@ -93,6 +124,16 @@ impl HitTestBuilder {
                 .then_with(|| b.layer_index.cmp(&a.layer_index))
         });
         self.entries.clone()
+    }
+
+    /// Get a reference to the current entries (for testing)
+    pub fn entries(&self) -> &[HitTestEntry] {
+        &self.entries
+    }
+
+    /// Clear all entries
+    pub fn clear(&mut self) {
+        self.entries.clear();
     }
 }
 

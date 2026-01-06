@@ -84,25 +84,8 @@ impl<'a> PaintContext<'a> {
 
     /// Paint text with accurate bounds measurement
     pub fn paint_text(&mut self, text: PaintText) {
-        // Measure text for accurate culling bounds
-        let text_config = crate::text_system::TextConfig {
-            font_stack: parley::FontStack::from("system-ui"),
-            size: text.style.size,
-            weight: parley::FontWeight::NORMAL,
-            color: text.style.color,
-            line_height: 1.2,
-        };
-
-        let measured_size =
-            self.text_system
-                .measure_text(&text.text, &text_config, None, self.scale_factor);
-
-        self.draw_list.add_text_with_bounds(
-            text.position,
-            &text.text,
-            text.style,
-            measured_size,
-        );
+        self.draw_list
+            .add_text(text.position, &text.text, text.style, text.measured_size);
     }
 
     /// Paint a shadow
@@ -132,7 +115,7 @@ impl<'a> PaintContext<'a> {
     }
 
     /// Create a child paint context with updated offset
-    pub fn child_context(&mut self, offset: Vec2) -> PaintContext {
+    pub fn child_context(&mut self, offset: Vec2) -> PaintContext<'_> {
         PaintContext {
             draw_list: self.draw_list,
             text_system: self.text_system,
@@ -148,6 +131,16 @@ impl<'a> PaintContext<'a> {
         if let Some(builder) = &self.hit_test_builder {
             // bounds are already in screen coordinates (absolute position)
             builder.borrow_mut().add_entry(element_id, bounds, z_index);
+        }
+    }
+
+    /// Register a focusable element for hit testing and focus management
+    pub fn register_focusable(&mut self, element_id: ElementId, bounds: Rect, z_index: i32) {
+        if let Some(builder) = &self.hit_test_builder {
+            // bounds are already in screen coordinates (absolute position)
+            builder
+                .borrow_mut()
+                .add_focusable_entry(element_id, bounds, z_index);
         }
     }
 }
@@ -189,6 +182,8 @@ pub struct PaintText {
     pub text: String,
     /// Text styling
     pub style: TextStyle,
+    /// Pre-measured text size for accurate culling (None = use estimation)
+    pub measured_size: Option<Vec2>,
 }
 
 /// A shadow to be rendered
@@ -377,23 +372,30 @@ impl DrawList {
         self.commands.push(DrawCommand::Rect { rect, color });
     }
 
-    /// Add text to the draw list with known bounds (preferred for accuracy)
+    /// Add text to the draw list
     ///
-    /// Use this method when you have access to text measurement. The bounds
-    /// are used for viewport culling to determine if the text is visible.
-    pub fn add_text_with_bounds(
+    /// If `measured_size` is provided, it will be used for accurate culling.
+    /// Otherwise, a rough estimate based on character count is used.
+    pub fn add_text(
         &mut self,
         position: Vec2,
         text: impl Into<String>,
         style: TextStyle,
-        bounds: Vec2,
+        measured_size: Option<Vec2>,
     ) {
         let text = text.into();
         if text.is_empty() {
             return;
         }
 
-        let text_rect = Rect::from_pos_size(position, bounds);
+        // Use measured size if available, otherwise estimate
+        let text_size = measured_size.unwrap_or_else(|| {
+            // Fallback estimation: assumes average character width ~0.6x font size
+            let approx_width = text.len() as f32 * style.size * 0.6;
+            let approx_height = style.size * style.line_height;
+            Vec2::new(approx_width, approx_height)
+        });
+        let text_rect = Rect::from_pos_size(position, text_size);
 
         // Skip if not visible (viewport culling)
         if !self.is_visible(&text_rect) {
@@ -420,33 +422,6 @@ impl DrawList {
             text,
             style,
         });
-    }
-
-    /// Add text to the draw list with approximate bounds
-    ///
-    /// This uses a rough estimate for text bounds based on character count.
-    /// The approximation uses:
-    /// - Width: 0.6 × font_size × character_count (conservative for proportional fonts)
-    /// - Height: 1.2 × font_size (typical line height)
-    ///
-    /// This may under-estimate width for wide characters (W, M, @) or CJK text,
-    /// potentially causing visible text to be incorrectly culled. For accurate
-    /// culling, use `add_text_with_bounds` with measured text dimensions.
-    pub fn add_text(&mut self, position: Vec2, text: impl Into<String>, style: TextStyle) {
-        let text = text.into();
-        if text.is_empty() {
-            return;
-        }
-
-        // Approximate text bounds for culling (documented estimate)
-        // Uses conservative 0.6 average character width ratio
-        // Add 20% safety margin to reduce false culling
-        let char_width_ratio = 0.6;
-        let safety_margin = 1.2; // 20% extra to avoid false culling
-        let approx_width = text.len() as f32 * style.size * char_width_ratio * safety_margin;
-        let approx_height = style.size * 1.2;
-
-        self.add_text_with_bounds(position, text, style, Vec2::new(approx_width, approx_height));
     }
 
     /// Push a clipping rectangle

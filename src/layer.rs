@@ -246,6 +246,10 @@ pub struct UiLayer<F> {
     root_element: Option<Box<dyn Element>>,
     interaction_system: InteractionSystem,
     element_registry: std::rc::Rc<std::cell::RefCell<ElementRegistry>>,
+    /// Tracks if the layer needs to rebuild its element tree
+    needs_rebuild: bool,
+    /// Last viewport size used for layout
+    last_size: Option<Vec2>,
 }
 
 impl<F> UiLayer<F>
@@ -261,6 +265,8 @@ where
             root_element: None,
             interaction_system: InteractionSystem::new(),
             element_registry: std::rc::Rc::new(std::cell::RefCell::new(ElementRegistry::new())),
+            needs_rebuild: true, // Always rebuild on first frame
+            last_size: None,
         }
     }
 }
@@ -290,6 +296,18 @@ where
         _elapsed_time: f32,
     ) {
         let _render_span = info_span!("taffy_ui_layer_render").entered();
+
+        // Track if size changed (useful for debugging and future optimizations)
+        let size_changed = self.last_size != Some(size);
+        if size_changed {
+            self.last_size = Some(size);
+        }
+
+        // Currently we rebuild every frame (immediate mode pattern).
+        // The needs_rebuild flag and size tracking are in place for future optimizations.
+        // When needs_rebuild is false and size unchanged, we could potentially skip
+        // layout recomputation, but this requires state change detection.
+        self.needs_rebuild = false;
 
         // Clear layout engine every frame
         self.layout_engine.clear();
@@ -404,6 +422,10 @@ where
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
     }
+
+    fn invalidate(&mut self) {
+        self.needs_rebuild = true;
+    }
 }
 
 /// Manages all layers and handles rendering order
@@ -502,10 +524,12 @@ impl LayerManager {
         }
 
         // Clear thread-local and cleanup entities at frame boundary
+        // cleanup() returns true if any observed entity was mutated
         clear_entity_store();
-        entity_store.cleanup();
+        let needs_reactive_render = entity_store.cleanup();
 
-        animation_frame_requested
+        // Request animation frame if explicitly requested OR if reactive state changed
+        animation_frame_requested || needs_reactive_render
     }
 
     /// Handle input, starting from the topmost layer that accepts input

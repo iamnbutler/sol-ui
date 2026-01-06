@@ -4,8 +4,11 @@ use crate::{
     color::{Color, colors},
     element::{Element, LayoutContext, PaintContext, text, Text},
     geometry::{Corners, Edges, Rect},
-    interaction::{ElementId, Interactable, InteractiveElement},
-    layer::MouseButton,
+    interaction::{
+        ElementId, EventHandlers, Interactable, InteractiveElement,
+        registry::{get_element_state, register_element},
+    },
+    layer::{Key, MouseButton},
     render::PaintQuad,
     style::TextStyle,
 };
@@ -18,6 +21,12 @@ use taffy::prelude::*;
 const DEFAULT_SIZE: f32 = 20.0;
 /// Default gap between checkbox and label
 const DEFAULT_LABEL_GAP: f32 = 8.0;
+/// Focus ring color for checkboxes
+const FOCUS_RING_COLOR: Color = colors::BLUE_400;
+/// Focus ring width
+const FOCUS_RING_WIDTH: f32 = 2.0;
+/// Focus ring offset from element bounds
+const FOCUS_RING_OFFSET: f32 = 2.0;
 
 /// Create a new checkbox element
 pub fn checkbox(checked: bool) -> Checkbox {
@@ -54,6 +63,8 @@ pub struct Checkbox {
     on_change: Option<Rc<RefCell<Box<dyn FnMut(bool)>>>>,
     /// Element ID for interaction
     element_id: ElementId,
+    /// Event handlers for interaction
+    handlers: Rc<RefCell<EventHandlers>>,
     /// Explicit layout width (None = auto)
     layout_width: Option<taffy::Dimension>,
     /// Explicit layout height (None = auto)
@@ -78,6 +89,7 @@ impl Checkbox {
             label_style: TextStyle {
                 color: colors::BLACK,
                 size: 14.0,
+                ..Default::default()
             },
             label_gap: DEFAULT_LABEL_GAP,
             disabled: false,
@@ -89,6 +101,7 @@ impl Checkbox {
             check_color: colors::WHITE,
             on_change: None,
             element_id: ElementId::auto(),
+            handlers: Rc::new(RefCell::new(EventHandlers::new())),
             layout_width: None,
             layout_height: None,
             flex_grow: 0.0,
@@ -215,12 +228,35 @@ impl Checkbox {
         self
     }
 
-    /// Set the on_change callback
+    /// Set the on_change callback.
+    /// This also handles click and keyboard (Space) activation.
     pub fn on_change<F>(mut self, handler: F) -> Self
     where
         F: FnMut(bool) + 'static,
     {
-        self.on_change = Some(Rc::new(RefCell::new(Box::new(handler))));
+        let handler = Rc::new(RefCell::new(handler));
+        self.on_change = Some(Rc::new(RefCell::new({
+            let handler = handler.clone();
+            Box::new(move |new_state| (handler.borrow_mut())(new_state)) as Box<dyn FnMut(bool)>
+        })));
+
+        // Set up click handler to toggle state
+        let checked = self.checked;
+        let click_handler = handler.clone();
+        self.handlers.borrow_mut().on_click = Some(Box::new(move |button, _, _| {
+            if button == MouseButton::Left {
+                (click_handler.borrow_mut())(!checked);
+            }
+        }));
+
+        // Set up keyboard handler (Space to toggle)
+        let key_handler = handler;
+        self.handlers.borrow_mut().on_key_down = Some(Box::new(move |key, _, _, is_repeat| {
+            if !is_repeat && key == Key::Space {
+                (key_handler.borrow_mut())(!checked);
+            }
+        }));
+
         self
     }
 
@@ -359,11 +395,34 @@ impl Element for Checkbox {
             return;
         }
 
+        // Register for interaction if not disabled
+        if !self.disabled {
+            register_element(self.element_id, self.handlers.clone());
+        }
+
+        // Get current interaction state
+        let state = get_element_state(self.element_id).unwrap_or_default();
+
         // Calculate checkbox box bounds
         let checkbox_bounds = Rect::from_pos_size(
             bounds.pos,
             Vec2::new(self.box_size, self.box_size),
         );
+
+        // Paint focus ring if focused (paint before checkbox so it appears behind)
+        if state.is_focused && !self.disabled {
+            let focus_bounds = Rect::from_pos_size(
+                checkbox_bounds.pos - Vec2::splat(FOCUS_RING_OFFSET),
+                checkbox_bounds.size + Vec2::splat(FOCUS_RING_OFFSET * 2.0),
+            );
+            ctx.paint_quad(PaintQuad {
+                bounds: focus_bounds,
+                fill: colors::TRANSPARENT,
+                corner_radii: Corners::all(self.corner_radius + FOCUS_RING_OFFSET),
+                border_widths: Edges::all(FOCUS_RING_WIDTH),
+                border_color: FOCUS_RING_COLOR,
+            });
+        }
 
         // Determine colors based on state
         let (bg_color, border_color) = if self.disabled {
@@ -404,6 +463,12 @@ impl Element for Checkbox {
                 label_layout_bounds.size,
             );
             label_element.paint(label_bounds, ctx);
+        }
+
+        // Register as focusable for hit testing if not disabled
+        // Use full bounds (including label) as hit area
+        if !self.disabled {
+            ctx.register_focusable(self.element_id, bounds, 0);
         }
     }
 }

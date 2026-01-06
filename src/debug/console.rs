@@ -192,7 +192,9 @@ impl DebugConsole {
             style: TextStyle {
                 size: 11.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
+            measured_size: None,
         });
 
         if self.collapsed {
@@ -233,7 +235,9 @@ impl DebugConsole {
                 style: TextStyle {
                     size: 10.0,
                     color: entry.level.color(),
+                    ..Default::default()
                 },
+                measured_size: None,
             });
         }
     }

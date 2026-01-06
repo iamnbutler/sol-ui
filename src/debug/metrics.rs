@@ -211,7 +211,9 @@ impl PerformanceMetrics {
             style: TextStyle {
                 size: 14.0,
                 color: fps_color,
+                ..Default::default()
             },
+            measured_size: None,
         });
 
         // Detailed stats
@@ -239,7 +241,9 @@ impl PerformanceMetrics {
                         style: TextStyle {
                             size: 10.0,
                             color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+                            ..Default::default()
                         },
+                        measured_size: None,
                     });
                     y += line_height;
                 }
