@@ -235,6 +235,44 @@ impl Container {
         self
     }
 
+    // --- Min/Max Size Constraints ---
+
+    /// Set minimum width
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.style.min_size.width = Dimension::length(width);
+        self
+    }
+
+    /// Set maximum width
+    pub fn max_width(mut self, width: f32) -> Self {
+        self.style.max_size.width = Dimension::length(width);
+        self
+    }
+
+    /// Set minimum height
+    pub fn min_height(mut self, height: f32) -> Self {
+        self.style.min_size.height = Dimension::length(height);
+        self
+    }
+
+    /// Set maximum height
+    pub fn max_height(mut self, height: f32) -> Self {
+        self.style.max_size.height = Dimension::length(height);
+        self
+    }
+
+    /// Set minimum width to 100%
+    pub fn min_width_full(mut self) -> Self {
+        self.style.min_size.width = Dimension::percent(1.0);
+        self
+    }
+
+    /// Set minimum height to 100%
+    pub fn min_height_full(mut self) -> Self {
+        self.style.min_size.height = Dimension::percent(1.0);
+        self
+    }
+
     // --- Justify Content (main axis) ---
 
     /// Align items to the start of the main axis
