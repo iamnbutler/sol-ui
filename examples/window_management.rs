@@ -165,6 +165,7 @@ fn main() {
                                     TextStyle {
                                         color: colors::BLACK,
                                         size: 32.0,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -183,6 +184,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_800,
                                                 size: 20.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -192,6 +194,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -201,6 +204,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -210,6 +214,7 @@ fn main() {
                                             TextStyle {
                                                 color: status_color,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -219,6 +224,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -228,6 +234,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -247,6 +254,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::WHITE,
                                                 size: 18.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -256,6 +264,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::WHITE,
                                                 size: 14.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -265,6 +274,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::WHITE,
                                                 size: 14.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -274,6 +284,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::WHITE,
                                                 size: 14.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -293,6 +304,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 16.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -302,6 +314,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_600,
                                                 size: 12.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )

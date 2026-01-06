@@ -317,20 +317,27 @@ impl IconButton {
     }
 
     /// Set the click handler
+    /// Handler receives: (button, click_type, position, local_position, modifiers)
     pub fn on_click<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(
+                crate::layer::MouseButton,
+                crate::layer::ClickType,
+                glam::Vec2,
+                glam::Vec2,
+                crate::layer::Modifiers,
+            ) + 'static,
     {
         self.handlers.borrow_mut().on_click = Some(Box::new(handler));
         self
     }
 
-    /// Set a simple click handler
+    /// Set a simple click handler that doesn't need position info
     pub fn on_click_simple<F>(self, mut handler: F) -> Self
     where
         F: FnMut() + 'static,
     {
-        self.handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _| handler()));
+        self.handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _, _, _| handler()));
         self
     }
 }
