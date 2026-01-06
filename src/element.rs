@@ -8,6 +8,7 @@ mod scroll;
 mod text;
 mod text_input;
 mod toast;
+mod tooltip;
 
 pub use button::{Button, button};
 pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
@@ -17,6 +18,7 @@ pub use scroll::{ScrollContainer, ScrollState, scroll};
 pub use text::{Text, text};
 pub use text_input::{TextInput, TextInputState, text_input, text_input_with_value};
 pub use toast::{Toast, ToastPosition, ToastSeverity, toast};
+pub use tooltip::{Tooltip, TooltipPosition, tooltip};
 
 use crate::{
     geometry::Rect,
