@@ -268,6 +268,7 @@ impl TextInput {
             text_style: TextStyle {
                 color: colors::BLACK,
                 size: 14.0,
+                ..Default::default()
             },
             placeholder: None,
             placeholder_color: colors::GRAY_400,
@@ -563,6 +564,7 @@ impl Element for TextInput {
                 color: text_color,
                 ..self.text_style.clone()
             },
+            measured_size: Some(text_size),
         });
 
         // Paint cursor if focused and visible

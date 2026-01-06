@@ -360,6 +360,7 @@ impl Element for Button {
                 color: text_color,
                 ..self.text_style.clone()
             },
+            measured_size: Some(text_size),
         });
 
         // Register as focusable for hit testing if not disabled

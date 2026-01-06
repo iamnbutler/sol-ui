@@ -129,7 +129,9 @@ impl LayoutInspector {
             style: TextStyle {
                 size: 12.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
+            measured_size: None,
         });
 
         // Tree items
@@ -174,7 +176,9 @@ impl LayoutInspector {
                     } else {
                         Color::rgba(0.8, 0.8, 0.8, 1.0)
                     },
+                    ..Default::default()
                 },
+                measured_size: None,
             });
 
             y += line_height;
@@ -199,7 +203,9 @@ impl LayoutInspector {
             style: TextStyle {
                 size: 12.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
+            measured_size: None,
         });
 
         // Details
@@ -230,7 +236,9 @@ impl LayoutInspector {
                 style: TextStyle {
                     size: 10.0,
                     color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+                    ..Default::default()
                 },
+                measured_size: None,
             });
 
             y += line_height;

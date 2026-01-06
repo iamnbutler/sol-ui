@@ -44,6 +44,7 @@ impl Element for Text {
             position: bounds.pos,
             text: self.content.clone(),
             style: self.style.clone(),
+            measured_size: Some(bounds.size),
         });
     }
 }

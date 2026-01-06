@@ -277,7 +277,9 @@ impl<'a> DebugOverlayElement<'a> {
             style: crate::style::TextStyle {
                 size: 11.0,
                 color: colors::GREEN,
+                ..Default::default()
             },
+            measured_size: None,
         });
     }
 }
