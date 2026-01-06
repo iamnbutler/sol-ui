@@ -11,7 +11,9 @@ use metal::{
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
     VertexDescriptor,
 };
+use std::collections::HashMap;
 use std::ffi::c_void;
+use std::hash::{Hash, Hasher};
 use std::mem;
 use std::time::Instant;
 use tracing::{debug, info, info_span};
@@ -48,6 +50,8 @@ pub struct MetalRenderer {
     pipeline_state: Option<RenderPipelineState>,
     text_pipeline_state: Option<RenderPipelineState>,
     frame_pipeline_state: Option<RenderPipelineState>,
+    /// Cache for fullscreen quad shader pipelines (keyed by shader source hash)
+    fullscreen_shader_cache: HashMap<u64, RenderPipelineState>,
 }
 
 impl MetalRenderer {
@@ -57,6 +61,7 @@ impl MetalRenderer {
             pipeline_state: None,
             text_pipeline_state: None,
             frame_pipeline_state: None,
+            fullscreen_shader_cache: HashMap::new(),
         }
     }
 
@@ -937,88 +942,108 @@ impl MetalRenderer {
             size, time
         );
 
-        // Combine vertex and fragment shaders
-        let full_shader = format!(
-            r#"
-            #include <metal_stdlib>
-            using namespace metal;
-
-            struct VertexOut {{
-                float4 position [[position]];
-                float2 uv;
-            }};
-
-            struct Uniforms {{
-                float2 resolution;
-                float time;
-                float _padding;
-            }};
-
-            vertex VertexOut fullscreen_vertex(uint vid [[vertex_id]]) {{
-                VertexOut out;
-
-                // Generate fullscreen triangle
-                float2 positions[3] = {{
-                    float2(-1.0, -1.0),
-                    float2( 3.0, -1.0),
-                    float2(-1.0,  3.0)
-                }};
-
-                out.position = float4(positions[vid], 0.0, 1.0);
-                out.uv = (positions[vid] + 1.0) * 0.5;
-                out.uv.y = 1.0 - out.uv.y; // Flip Y
-
-                return out;
-            }}
-
-            {}
-
-            fragment float4 custom_fragment(VertexOut in [[stage_in]],
-                                          constant Uniforms &uniforms [[buffer(0)]]) {{
-                return shader_main(in.uv, uniforms.resolution, uniforms.time);
-            }}
-            "#,
-            shader_source
-        );
-
-        // Compile shader
-        let options = metal::CompileOptions::new();
-        info!("Compiling shader...");
-        let library = match self.device.new_library_with_source(&full_shader, &options) {
-            Ok(lib) => {
-                info!("Shader compiled successfully!");
-                lib
-            }
-            Err(e) => {
-                eprintln!("Failed to compile custom shader: {}", e);
-                eprintln!("Full shader source:\n{}", full_shader);
-                return;
-            }
+        // Compute hash of shader source for cache lookup
+        let shader_hash = {
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            shader_source.hash(&mut hasher);
+            hasher.finish()
         };
 
-        // Create pipeline state
-        let vert_func = library.get_function("fullscreen_vertex", None).unwrap();
-        let frag_func = library.get_function("custom_fragment", None).unwrap();
+        // Check cache first - avoid expensive shader compilation
+        let pipeline_state = if let Some(cached) = self.fullscreen_shader_cache.get(&shader_hash) {
+            debug!("Using cached shader pipeline (hash: {})", shader_hash);
+            cached.clone()
+        } else {
+            info!("Compiling new shader (hash: {})...", shader_hash);
 
-        let pipeline_descriptor = RenderPipelineDescriptor::new();
-        pipeline_descriptor.set_vertex_function(Some(&vert_func));
-        pipeline_descriptor.set_fragment_function(Some(&frag_func));
+            // Combine vertex and fragment shaders
+            let full_shader = format!(
+                r#"
+                #include <metal_stdlib>
+                using namespace metal;
 
-        let attachment = pipeline_descriptor
-            .color_attachments()
-            .object_at(0)
-            .unwrap();
-        attachment.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
-        attachment.set_blending_enabled(true);
-        attachment.set_source_rgb_blend_factor(metal::MTLBlendFactor::SourceAlpha);
-        attachment.set_destination_rgb_blend_factor(metal::MTLBlendFactor::OneMinusSourceAlpha);
+                struct VertexOut {{
+                    float4 position [[position]];
+                    float2 uv;
+                }};
 
-        let pipeline_state = match self.device.new_render_pipeline_state(&pipeline_descriptor) {
-            Ok(state) => state,
-            Err(e) => {
-                eprintln!("Failed to create pipeline state: {}", e);
-                return;
-            }
+                struct Uniforms {{
+                    float2 resolution;
+                    float time;
+                    float _padding;
+                }};
+
+                vertex VertexOut fullscreen_vertex(uint vid [[vertex_id]]) {{
+                    VertexOut out;
+
+                    // Generate fullscreen triangle
+                    float2 positions[3] = {{
+                        float2(-1.0, -1.0),
+                        float2( 3.0, -1.0),
+                        float2(-1.0,  3.0)
+                    }};
+
+                    out.position = float4(positions[vid], 0.0, 1.0);
+                    out.uv = (positions[vid] + 1.0) * 0.5;
+                    out.uv.y = 1.0 - out.uv.y; // Flip Y
+
+                    return out;
+                }}
+
+                {}
+
+                fragment float4 custom_fragment(VertexOut in [[stage_in]],
+                                              constant Uniforms &uniforms [[buffer(0)]]) {{
+                    return shader_main(in.uv, uniforms.resolution, uniforms.time);
+                }}
+                "#,
+                shader_source
+            );
+
+            // Compile shader
+            let options = metal::CompileOptions::new();
+            let library = match self.device.new_library_with_source(&full_shader, &options) {
+                Ok(lib) => {
+                    info!("Shader compiled successfully!");
+                    lib
+                }
+                Err(e) => {
+                    eprintln!("Failed to compile custom shader: {}", e);
+                    eprintln!("Full shader source:\n{}", full_shader);
+                    return;
+                }
+            };
+
+            // Create pipeline state
+            let vert_func = library.get_function("fullscreen_vertex", None).unwrap();
+            let frag_func = library.get_function("custom_fragment", None).unwrap();
+
+            let pipeline_descriptor = RenderPipelineDescriptor::new();
+            pipeline_descriptor.set_vertex_function(Some(&vert_func));
+            pipeline_descriptor.set_fragment_function(Some(&frag_func));
+
+            let attachment = pipeline_descriptor
+                .color_attachments()
+                .object_at(0)
+                .unwrap();
+            attachment.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+            attachment.set_blending_enabled(true);
+            attachment.set_source_rgb_blend_factor(metal::MTLBlendFactor::SourceAlpha);
+            attachment.set_destination_rgb_blend_factor(metal::MTLBlendFactor::OneMinusSourceAlpha);
+
+            let pipeline_state = match self.device.new_render_pipeline_state(&pipeline_descriptor) {
+                Ok(state) => state,
+                Err(e) => {
+                    eprintln!("Failed to create pipeline state: {}", e);
+                    return;
+                }
+            };
+
+            // Cache the compiled pipeline
+            self.fullscreen_shader_cache.insert(shader_hash, pipeline_state.clone());
+            info!("Shader cached (total cached: {})", self.fullscreen_shader_cache.len());
+
+            pipeline_state
         };
 
         // Create uniforms
