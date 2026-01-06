@@ -6,7 +6,7 @@ use parley::{
     FontContext, FontStack, FontWeight, GlyphRun, Layout, LayoutContext, LineHeight,
     PositionedLayoutItem, StyleProperty,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use swash::FontRef;
 use swash::scale::{Render, ScaleContext, Source};
 
@@ -282,6 +282,10 @@ struct ShapedTextCacheKey {
     scale_factor: u32,
 }
 
+/// Maximum number of entries in the shaped text cache before eviction.
+/// Sized to handle typical UI text while preventing unbounded growth.
+const SHAPED_TEXT_CACHE_MAX_SIZE: usize = 1024;
+
 /// Text system that manages fonts, shaping, and atlas
 pub struct TextSystem {
     font_context: FontContext,
@@ -291,8 +295,10 @@ pub struct TextSystem {
     /// Cache of font data to ID mappings
     font_id_cache: HashMap<Vec<u8>, u64>,
     next_font_id: u64,
-    /// Cache of shaped text
+    /// Cache of shaped text (bounded LRU-style cache)
     shaped_text_cache: HashMap<ShapedTextCacheKey, ShapedText>,
+    /// Tracks insertion order for FIFO eviction when cache is full
+    shaped_text_cache_order: VecDeque<ShapedTextCacheKey>,
     /// Frame-based cache for text measurements to avoid duplicate work
     measurement_cache: HashMap<MeasurementCacheKey, Vec2>,
 }
@@ -344,6 +350,7 @@ impl TextSystem {
             font_id_cache: HashMap::new(),
             next_font_id: 1,
             shaped_text_cache: HashMap::new(),
+            shaped_text_cache_order: VecDeque::new(),
             measurement_cache: HashMap::new(),
         })
     }
@@ -536,7 +543,18 @@ impl TextSystem {
             size: Vec2::new(layout.width(), layout.height()),
         };
 
-        // Store in cache
+        // Store in cache with bounded eviction
+        if !self.shaped_text_cache.contains_key(&cache_key) {
+            // Evict oldest entries if cache is full
+            while self.shaped_text_cache.len() >= SHAPED_TEXT_CACHE_MAX_SIZE {
+                if let Some(old_key) = self.shaped_text_cache_order.pop_front() {
+                    self.shaped_text_cache.remove(&old_key);
+                } else {
+                    break;
+                }
+            }
+            self.shaped_text_cache_order.push_back(cache_key.clone());
+        }
         self.shaped_text_cache
             .insert(cache_key, shaped_text.clone());
 
