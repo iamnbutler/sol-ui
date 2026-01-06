@@ -29,6 +29,7 @@ pub use text_input::{
 use crate::{
     geometry::Rect,
     layout_engine::{ElementData, TaffyLayoutEngine},
+    layout_id::LayoutId,
     render::PaintContext,
     style::TextStyle,
     text_system::TextSystem,
@@ -100,5 +101,56 @@ impl<'a> LayoutContext<'a> {
 
         self.text_system
             .measure_text(text, &text_config, max_width, self.scale_factor)
+    }
+
+    // --- Cached/Retained Mode Methods ---
+
+    /// Request layout with a stable ID for caching across frames.
+    ///
+    /// Elements with stable LayoutIds will have their Taffy nodes reused
+    /// when style and children haven't changed.
+    pub fn request_layout_cached(
+        &mut self,
+        layout_id: &LayoutId,
+        style: Style,
+        child_ids: &[LayoutId],
+        child_nodes: &[NodeId],
+    ) -> NodeId {
+        self.engine.request_layout_cached(
+            layout_id,
+            style,
+            ElementData::default(),
+            child_ids,
+            child_nodes,
+        )
+    }
+
+    /// Request layout for a text element with a stable ID for caching.
+    pub fn request_text_layout_cached(
+        &mut self,
+        layout_id: &LayoutId,
+        style: Style,
+        text: &str,
+        text_style: &TextStyle,
+    ) -> NodeId {
+        let data = ElementData {
+            text: Some((text.to_string(), text_style.clone())),
+            background: None,
+        };
+        self.engine
+            .request_layout_cached(layout_id, style, data, &[], &[])
+    }
+
+    /// Request layout with custom data and a stable ID for caching.
+    pub fn request_layout_with_data_cached(
+        &mut self,
+        layout_id: &LayoutId,
+        style: Style,
+        data: ElementData,
+        child_ids: &[LayoutId],
+        child_nodes: &[NodeId],
+    ) -> NodeId {
+        self.engine
+            .request_layout_cached(layout_id, style, data, child_ids, child_nodes)
     }
 }

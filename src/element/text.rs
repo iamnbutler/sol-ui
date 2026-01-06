@@ -1,6 +1,7 @@
 use crate::{
     element::{Element, LayoutContext, PaintContext},
     geometry::Rect,
+    layout_id::LayoutId,
     render::PaintText,
     style::TextStyle,
 };
@@ -16,6 +17,8 @@ pub struct Text {
     content: String,
     style: TextStyle,
     node_id: Option<NodeId>,
+    /// Stable layout ID for caching across frames
+    layout_id: Option<LayoutId>,
 }
 
 impl Text {
@@ -24,13 +27,26 @@ impl Text {
             content: content.into(),
             style,
             node_id: None,
+            layout_id: None,
         }
+    }
+
+    /// Set a stable layout ID for caching across frames.
+    pub fn layout_id(mut self, id: impl Into<LayoutId>) -> Self {
+        self.layout_id = Some(id.into());
+        self
     }
 }
 
 impl Element for Text {
     fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
-        let node_id = ctx.request_text_layout(Style::default(), &self.content, &self.style);
+        let node_id = if let Some(ref layout_id) = self.layout_id {
+            // Use cached layout
+            ctx.request_text_layout_cached(layout_id, Style::default(), &self.content, &self.style)
+        } else {
+            // Immediate mode
+            ctx.request_text_layout(Style::default(), &self.content, &self.style)
+        };
         self.node_id = Some(node_id);
         node_id
     }

@@ -2,6 +2,7 @@ use crate::{
     color::Color,
     element::{Element, LayoutContext, PaintContext},
     geometry::{Corners, Edges, Rect},
+    layout_id::LayoutId,
     render::PaintQuad,
 };
 use taffy::prelude::*;
@@ -30,6 +31,8 @@ pub struct Container {
     corner_radius: f32,
     children: Vec<Box<dyn Element>>,
     child_nodes: Vec<NodeId>,
+    /// Stable layout ID for caching across frames
+    layout_id: Option<LayoutId>,
 }
 
 impl Container {
@@ -42,7 +45,24 @@ impl Container {
             corner_radius: 0.0,
             children: Vec::new(),
             child_nodes: Vec::new(),
+            layout_id: None,
         }
+    }
+
+    /// Set a stable layout ID for caching across frames.
+    ///
+    /// Elements with layout IDs will have their Taffy nodes reused
+    /// when style and children haven't changed, improving performance.
+    ///
+    /// # Example
+    /// ```ignore
+    /// container()
+    ///     .layout_id("sidebar")
+    ///     .child(button("Save"))
+    /// ```
+    pub fn layout_id(mut self, id: impl Into<LayoutId>) -> Self {
+        self.layout_id = Some(id.into());
+        self
     }
 
     /// Set the background color
@@ -213,8 +233,23 @@ impl Element for Container {
             self.child_nodes.push(child_node);
         }
 
-        // Request layout with children
-        ctx.request_layout_with_children(self.style.clone(), &self.child_nodes)
+        // Use cached layout if we have a stable ID
+        if let Some(ref layout_id) = self.layout_id {
+            // Generate positional IDs for children (for change detection)
+            let child_ids: Vec<LayoutId> = (0..self.child_nodes.len())
+                .map(|i| layout_id.child(i as u32))
+                .collect();
+
+            ctx.request_layout_cached(
+                layout_id,
+                self.style.clone(),
+                &child_ids,
+                &self.child_nodes,
+            )
+        } else {
+            // Fallback to immediate mode (no caching)
+            ctx.request_layout_with_children(self.style.clone(), &self.child_nodes)
+        }
     }
 
     fn paint(&mut self, bounds: Rect, ctx: &mut PaintContext) {

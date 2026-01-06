@@ -7,6 +7,7 @@ use crate::{
         ElementId, EventHandlers,
     },
     layer::{Key, MouseButton},
+    layout_id::LayoutId,
     render::{PaintQuad, PaintText},
     style::TextStyle,
 };
@@ -76,6 +77,9 @@ pub struct Button {
 
     /// Cached layout node ID
     node_id: Option<NodeId>,
+
+    /// Stable layout ID for caching across frames
+    layout_id: Option<LayoutId>,
 }
 
 impl Button {
@@ -107,12 +111,19 @@ impl Button {
             height: None,
             flex_grow: 0.0,
             node_id: None,
+            layout_id: None,
         }
     }
 
     /// Set the element ID (useful for stable targeting)
     pub fn with_id(mut self, id: impl Into<ElementId>) -> Self {
         self.id = id.into();
+        self
+    }
+
+    /// Set a stable layout ID for caching across frames.
+    pub fn layout_id(mut self, id: impl Into<LayoutId>) -> Self {
+        self.layout_id = Some(id.into());
         self
     }
 
@@ -352,7 +363,11 @@ impl Element for Button {
         };
 
         // Request text layout (button sizes to fit text + padding)
-        let node_id = ctx.request_text_layout(style, &self.label, &self.text_style);
+        let node_id = if let Some(ref layout_id) = self.layout_id {
+            ctx.request_text_layout_cached(layout_id, style, &self.label, &self.text_style)
+        } else {
+            ctx.request_text_layout(style, &self.label, &self.text_style)
+        };
         self.node_id = Some(node_id);
         node_id
     }
