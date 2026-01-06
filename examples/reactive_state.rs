@@ -1,9 +1,9 @@
 //! Reactive State Demo
 //!
 //! Demonstrates the entity subscription system for automatic UI updates:
-//! - Using `observe()` to read state and subscribe to changes
-//! - Using `update_entity()` to modify state (triggers automatic re-render)
-//! - Using `derive()` for computed values
+//! - Using `StateCell` for lazy entity initialization
+//! - Using `entity.observe()` to read state and subscribe to changes
+//! - Using `entity.update()` to modify state (triggers automatic re-render)
 //! - Batched updates within a single frame
 //!
 //! This example shows a counter app where clicking buttons updates entity
@@ -13,7 +13,7 @@ use sol_ui::{
     app::app,
     color::colors,
     element::{button, container, row, text, Element},
-    entity::{new_entity, observe, update_entity, Entity},
+    entity::StateCell,
     layer::LayerOptions,
     style::TextStyle,
 };
@@ -33,40 +33,23 @@ fn main() {
         .title("Reactive State Demo")
         .size(500.0, 400.0)
         .with_layers(|layers| {
-            // Create counter entity (will be cloned into the render closure)
-            let counter: Option<Entity<CounterState>> = None;
-            let counter = std::cell::RefCell::new(counter);
-
-            // Create click tracker entity
-            let tracker: Option<Entity<ClickTracker>> = None;
-            let tracker = std::cell::RefCell::new(tracker);
+            // Create state cells for lazy entity initialization
+            let counter = StateCell::new();
+            let tracker = StateCell::new();
 
             layers.add_ui_layer(
                 0,
                 LayerOptions::default().with_input().with_clear(),
                 move || {
-                    // Initialize entities on first render
-                    let counter_entity = {
-                        let mut c = counter.borrow_mut();
-                        if c.is_none() {
-                            *c = Some(new_entity(CounterState { value: 0 }));
-                        }
-                        c.clone().unwrap()
-                    };
-
-                    let tracker_entity = {
-                        let mut t = tracker.borrow_mut();
-                        if t.is_none() {
-                            *t = Some(new_entity(ClickTracker { total_clicks: 0 }));
-                        }
-                        t.clone().unwrap()
-                    };
+                    // Initialize entities on first render (StateCell handles the lazy init)
+                    let counter_entity = counter.get_or_init(|| CounterState { value: 0 });
+                    let tracker_entity = tracker.get_or_init(|| ClickTracker { total_clicks: 0 });
 
                     // Use observe() to read state - this registers for reactive updates
-                    // When update_entity() is called on an observed entity, the UI
+                    // When update() is called on an observed entity, the UI
                     // automatically re-renders
-                    let count = observe(&counter_entity, |s| s.value).unwrap_or(0);
-                    let total = observe(&tracker_entity, |s| s.total_clicks).unwrap_or(0);
+                    let count = counter_entity.observe(|s| s.value).unwrap_or(0);
+                    let total = tracker_entity.observe(|s| s.total_clicks).unwrap_or(0);
 
                     // Derived/computed value
                     let status_text = if count == 0 {
@@ -102,14 +85,16 @@ fn main() {
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 28.0,
+                                    line_height: 1.2,
                                 },
                             ))
                             // Explanation
                             .child(text(
-                                "Uses observe() + update_entity() for automatic re-renders",
+                                "Uses StateCell + entity.observe() for automatic re-renders",
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 14.0,
+                                    line_height: 1.2,
                                 },
                             ))
                             // Counter display
@@ -127,6 +112,7 @@ fn main() {
                                                 colors::RED_600
                                             },
                                             size: 64.0,
+                                            line_height: 1.2,
                                         },
                                     )),
                             )
@@ -136,6 +122,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_700,
                                     size: 16.0,
+                                    line_height: 1.2,
                                 },
                             ))
                             // Button row
@@ -153,10 +140,10 @@ fn main() {
                                             )
                                             .text_size(20.0)
                                             .on_click_simple(move || {
-                                                // update_entity marks entity dirty
+                                                // update() marks entity dirty
                                                 // Since we observe() this entity, UI re-renders
-                                                update_entity(&counter_dec, |s| s.value -= 1);
-                                                update_entity(&tracker_dec, |s| s.total_clicks += 1);
+                                                counter_dec.update(|s| s.value -= 1);
+                                                tracker_dec.update(|s| s.total_clicks += 1);
                                             }),
                                     )
                                     .child(
@@ -170,8 +157,8 @@ fn main() {
                                             )
                                             .text_size(16.0)
                                             .on_click_simple(move || {
-                                                update_entity(&counter_reset, |s| s.value = 0);
-                                                update_entity(&tracker_reset, |s| s.total_clicks += 1);
+                                                counter_reset.update(|s| s.value = 0);
+                                                tracker_reset.update(|s| s.total_clicks += 1);
                                             }),
                                     )
                                     .child(
@@ -185,8 +172,8 @@ fn main() {
                                             )
                                             .text_size(20.0)
                                             .on_click_simple(move || {
-                                                update_entity(&counter_inc, |s| s.value += 1);
-                                                update_entity(&tracker_inc, |s| s.total_clicks += 1);
+                                                counter_inc.update(|s| s.value += 1);
+                                                tracker_inc.update(|s| s.total_clicks += 1);
                                             }),
                                     ),
                             )
@@ -205,9 +192,9 @@ fn main() {
                                         // Multiple updates in same handler are batched
                                         // Only one re-render happens at frame end
                                         for _ in 0..10 {
-                                            update_entity(&counter_add10, |s| s.value += 1);
+                                            counter_add10.update(|s| s.value += 1);
                                         }
-                                        update_entity(&tracker_add10, |s| s.total_clicks += 1);
+                                        tracker_add10.update(|s| s.total_clicks += 1);
                                     }),
                             )
                             // Total clicks display
@@ -216,6 +203,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_500,
                                     size: 12.0,
+                                    line_height: 1.2,
                                 },
                             )),
                     ) as Box<dyn Element>
