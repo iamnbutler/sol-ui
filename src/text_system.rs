@@ -73,6 +73,14 @@ struct Shelf {
     next_x: u32,
 }
 
+/// Padding in pixels added around each glyph in the atlas.
+///
+/// Bilinear texture filtering samples a 2x2 texel neighborhood, which can bleed
+/// colors from adjacent glyphs if they're packed too tightly. Adding 1px padding
+/// on each side (2px total per dimension) ensures the filter kernel never samples
+/// neighboring glyph data.
+const GLYPH_ATLAS_PADDING: u32 = 1;
+
 /// Glyph atlas that manages glyph textures
 pub struct GlyphAtlas {
     texture: Texture,
@@ -211,18 +219,17 @@ impl GlyphAtlas {
 
     /// Find a position for a glyph using shelf packing
     fn find_position(&mut self, width: u32, height: u32) -> Result<(u32, u32), String> {
-        // Add 1px padding on each side (2px total) to prevent texture bleeding
-        // when sampling adjacent glyphs due to bilinear filtering
-        let padded_width = width + 2;
-        let padded_height = height + 2;
+        // Add padding on each side to prevent texture bleeding during bilinear filtering
+        let padded_width = width + GLYPH_ATLAS_PADDING * 2;
+        let padded_height = height + GLYPH_ATLAS_PADDING * 2;
 
         // Try to fit in an existing shelf
         for shelf in &mut self.shelves {
             if shelf.height >= padded_height && shelf.next_x + padded_width <= self.width {
                 let x = shelf.next_x;
                 shelf.next_x += padded_width;
-                // +1 to skip the padding pixel at the start of the allocation
-                return Ok((x + 1, shelf.y + 1));
+                // Skip the padding at the start of the allocation
+                return Ok((x + GLYPH_ATLAS_PADDING, shelf.y + GLYPH_ATLAS_PADDING));
             }
         }
 
@@ -243,8 +250,8 @@ impl GlyphAtlas {
             next_x: padded_width,
         });
 
-        // +1 to skip the padding pixel at the start of the allocation
-        Ok((1, next_y + 1))
+        // Skip the padding at the start of the allocation
+        Ok((GLYPH_ATLAS_PADDING, next_y + GLYPH_ATLAS_PADDING))
     }
 }
 
