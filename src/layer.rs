@@ -4,7 +4,7 @@ use crate::{
     interaction::{
         InteractionSystem,
         hit_test::HitTestBuilder,
-        registry::{ElementRegistry, clear_current_registry, set_current_registry},
+        registry::ElementRegistry,
     },
     layout_engine::TaffyLayoutEngine,
     platform::mac::metal_renderer::MetalRenderer,
@@ -112,6 +112,7 @@ pub trait Layer: Any {
         size: Vec2,
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
+        entity_store: &mut EntityStore,
         is_first_layer: bool,
         animation_frame_requested: &mut bool,
         elapsed_time: f32,
@@ -211,6 +212,7 @@ where
         size: Vec2,
         _scale_factor: f32,
         _text_system: &mut crate::text_system::TextSystem,
+        _entity_store: &mut EntityStore,
         _is_first_layer: bool,
         animation_frame_requested: &mut bool,
         elapsed_time: f32,
@@ -291,6 +293,7 @@ where
         size: Vec2,
         scale_factor: f32,
         text_system: &mut crate::text_system::TextSystem,
+        entity_store: &mut EntityStore,
         is_first_layer: bool,
         _animation_frame_requested: &mut bool,
         _elapsed_time: f32,
@@ -316,10 +319,12 @@ where
         self.root_element = Some((self.render_fn)());
 
         // Phase 1: Layout
+        // Entity store is passed through context for compile-time phase safety
         let layout_start = std::time::Instant::now();
         let mut layout_ctx = LayoutContext {
             engine: &mut self.layout_engine,
             text_system,
+            entity_store,
             scale_factor,
         };
 
@@ -347,19 +352,22 @@ where
         let mut draw_list =
             DrawList::with_viewport(crate::geometry::Rect::from_pos_size(Vec2::ZERO, size));
 
-        // Clear and set the current element registry for this paint phase
+        // Clear element registry for this paint phase
         self.element_registry.borrow_mut().clear();
-        set_current_registry(self.element_registry.clone());
 
         // Create hit test builder for this layer
         let hit_test_builder = std::rc::Rc::new(std::cell::RefCell::new(HitTestBuilder::new(
             0,
             self.z_index(),
         )));
+
+        // Entity store and registry are passed through context for compile-time phase safety
         let mut paint_ctx = PaintContext {
             draw_list: &mut draw_list,
             text_system,
             layout_engine: &self.layout_engine,
+            entity_store,
+            element_registry: self.element_registry.clone(),
             scale_factor,
             parent_offset: Vec2::ZERO,
             hit_test_builder: Some(hit_test_builder.clone()),
@@ -375,9 +383,6 @@ where
         // Update hit test results in interaction system
         let hit_test_entries = hit_test_builder.borrow_mut().build();
         self.interaction_system.update_hit_test(hit_test_entries);
-
-        // Clear the current registry after painting
-        clear_current_registry();
 
         // Determine load action and clear color
         let (load_action, clear_color) = if is_first_layer {
@@ -507,7 +512,10 @@ impl LayerManager {
             info_span!("layer_manager_render_all", layer_count = self.layers.len()).entered();
         debug!("Rendering {} layers", self.layers.len());
 
-        // Set thread-local entity store for this render frame
+        // Set thread-local entity store for backward compatibility during transition.
+        // This allows old code using global functions to still work while we migrate
+        // to context-based entity operations.
+        // TODO: Remove this once all elements use ctx.new_entity() etc.
         set_entity_store(entity_store);
 
         let mut animation_frame_requested = false;
@@ -516,6 +524,7 @@ impl LayerManager {
             let _layer_span =
                 info_span!("render_layer", layer_index = i, z_index = layer.z_index()).entered();
             let is_first_layer = i == 0;
+            // Pass entity_store directly to layer for compile-time phase safety
             layer.render(
                 renderer,
                 command_buffer,
@@ -523,15 +532,19 @@ impl LayerManager {
                 size,
                 scale_factor,
                 text_system,
+                entity_store,
                 is_first_layer,
                 &mut animation_frame_requested,
                 elapsed_time,
             );
         }
 
-        // Clear thread-local and cleanup entities at frame boundary
-        // cleanup() returns true if any observed entity was mutated
+        // Clear thread-local (for backward compatibility)
+        // TODO: Remove this once all elements use ctx.new_entity() etc.
         clear_entity_store();
+
+        // Cleanup entities at frame boundary
+        // cleanup() returns true if any observed entity was mutated
         let needs_reactive_render = entity_store.cleanup();
 
         // Request animation frame if explicitly requested OR if reactive state changed

@@ -4,8 +4,11 @@ use std::{cell::RefCell, rc::Rc};
 
 use crate::{
     color::{Color, ColorExt},
+    entity::{Entity, EntityStore},
     geometry::{Corners, Edges, Rect},
-    interaction::{ElementId, HitTestBuilder},
+    interaction::{
+        registry::ElementRegistry, ElementId, EventHandlers, HitTestBuilder, InteractionState,
+    },
     layout_engine::TaffyLayoutEngine,
     style::{ElementStyle, Fill, TextStyle},
     text_system::TextSystem,
@@ -14,10 +17,16 @@ use glam::Vec2;
 use taffy::NodeId;
 
 /// Context for the paint phase
+///
+/// This context provides access to paint operations, entity state management,
+/// and element registry operations. By requiring this context, we ensure
+/// compile-time safety that these operations are only used during the paint phase.
 pub struct PaintContext<'a> {
     pub(crate) draw_list: &'a mut DrawList,
     pub(crate) text_system: &'a mut TextSystem,
     pub(crate) layout_engine: &'a TaffyLayoutEngine,
+    pub(crate) entity_store: &'a mut EntityStore,
+    pub(crate) element_registry: Rc<RefCell<ElementRegistry>>,
     pub(crate) scale_factor: f32,
     pub(crate) parent_offset: Vec2,
     pub(crate) hit_test_builder: Option<Rc<RefCell<HitTestBuilder>>>,
@@ -120,6 +129,8 @@ impl<'a> PaintContext<'a> {
             draw_list: self.draw_list,
             text_system: self.text_system,
             layout_engine: self.layout_engine,
+            entity_store: self.entity_store,
+            element_registry: self.element_registry.clone(),
             scale_factor: self.scale_factor,
             parent_offset: self.parent_offset + offset,
             hit_test_builder: self.hit_test_builder.clone(),
@@ -142,6 +153,81 @@ impl<'a> PaintContext<'a> {
                 .borrow_mut()
                 .add_focusable_entry(element_id, bounds, z_index);
         }
+    }
+
+    // =========================================================================
+    // Entity operations - compile-time safe access during paint phase
+    // =========================================================================
+
+    /// Create a new entity with the given initial state.
+    ///
+    /// While entities are typically created during layout, this method allows
+    /// creation during paint if needed for lazy initialization.
+    pub fn new_entity<T: 'static>(&mut self, value: T) -> Entity<T> {
+        self.entity_store.create(value)
+    }
+
+    /// Read entity state immutably.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn read_entity<T: 'static, R>(
+        &self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&T) -> R,
+    ) -> Option<R> {
+        self.entity_store.read(entity, f)
+    }
+
+    /// Update entity state mutably.
+    ///
+    /// This automatically marks the entity as dirty, which will trigger a re-render
+    /// if the entity is being observed.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn update_entity<T: 'static, R>(
+        &mut self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Option<R> {
+        self.entity_store.update(entity, f)
+    }
+
+    /// Observe entity state (read with automatic re-render on change).
+    ///
+    /// Like `read_entity`, but also registers interest in this entity's state.
+    /// If the entity is later mutated, the UI will automatically re-render.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn observe<T: 'static, R>(
+        &mut self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&T) -> R,
+    ) -> Option<R> {
+        self.entity_store.observe(entity, f)
+    }
+
+    // =========================================================================
+    // Registry operations - ONLY available during paint phase
+    // =========================================================================
+
+    /// Register an element's event handlers with the registry.
+    ///
+    /// This is only available during the paint phase, ensuring compile-time
+    /// safety that registry operations happen at the right time.
+    pub fn register_element(&self, id: ElementId, handlers: Rc<RefCell<EventHandlers>>) {
+        self.element_registry.borrow_mut().register(id, handlers);
+    }
+
+    /// Get the interaction state for an element.
+    ///
+    /// Returns the current hover/press/focus state for the element.
+    pub fn get_element_state(&self, id: ElementId) -> Option<InteractionState> {
+        self.element_registry.borrow().get_state(id).cloned()
+    }
+
+    /// Register an element as focusable in the registry.
+    pub fn register_element_focusable(&self, id: ElementId) {
+        self.element_registry.borrow_mut().register_focusable(id);
     }
 }
 

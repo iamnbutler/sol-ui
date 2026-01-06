@@ -3,7 +3,8 @@
 use crate::{
     color::{Color, ColorExt},
     element::{Element, LayoutContext},
-    entity::{Entity, new_entity, read_entity, update_entity},
+    // Entity type + global functions for event handlers (outside render context)
+    entity::{Entity, read_entity, update_entity},
     geometry::{Corners, Edges, Rect},
     layout_id::LayoutId,
     render::{PaintContext, PaintQuad},
@@ -259,8 +260,9 @@ impl Default for ScrollContainer {
 impl Element for ScrollContainer {
     fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
         // Initialize state entity if not already done
+        // Using ctx.new_entity() for compile-time phase safety
         if self.state.is_none() {
-            self.state = Some(new_entity(ScrollState::new()));
+            self.state = Some(ctx.new_entity(ScrollState::new()));
         }
 
         // Layout all children first
@@ -305,10 +307,10 @@ impl Element for ScrollContainer {
             });
         }
 
-        // Get scroll offset from state
+        // Get scroll offset from state using ctx.read_entity() for compile-time safety
         let scroll_offset = self.state
             .as_ref()
-            .and_then(|s| read_entity(s, |state| state.offset))
+            .and_then(|s| ctx.read_entity(s, |state| state.offset))
             .unwrap_or(Vec2::ZERO);
 
         // Push clip rect to confine children to this container's bounds
@@ -342,9 +344,9 @@ impl Element for ScrollContainer {
 
         let content_size = Vec2::new(bounds.size.x, content_height);
 
-        // Update state with current sizes
+        // Update state with current sizes using ctx.update_entity() for compile-time safety
         if let Some(ref state) = self.state {
-            update_entity(state, |s| {
+            ctx.update_entity(state, |s| {
                 s.viewport_size = bounds.size;
                 s.content_size = content_size;
                 s.clamp_offset();

@@ -29,6 +29,7 @@ pub use text_input::{
 };
 
 use crate::{
+    entity::{Entity, EntityStore},
     geometry::Rect,
     layout_engine::{ElementData, TaffyLayoutEngine},
     layout_id::LayoutId,
@@ -49,9 +50,14 @@ pub trait Element {
 }
 
 /// Context for the layout phase
+///
+/// This context provides access to layout operations and entity state management.
+/// Entity operations can only be called through this context, ensuring compile-time
+/// safety that they're only used during the layout phase.
 pub struct LayoutContext<'a> {
     pub(crate) engine: &'a mut TaffyLayoutEngine,
     pub(crate) text_system: &'a mut TextSystem,
+    pub(crate) entity_store: &'a mut EntityStore,
     pub(crate) scale_factor: f32,
 }
 
@@ -154,5 +160,66 @@ impl<'a> LayoutContext<'a> {
     ) -> NodeId {
         self.engine
             .request_layout_cached(layout_id, style, data, child_ids, child_nodes)
+    }
+
+    // =========================================================================
+    // Entity operations - compile-time safe access during layout phase
+    // =========================================================================
+
+    /// Create a new entity with the given initial state.
+    ///
+    /// This is the compile-time safe version of entity creation. By requiring
+    /// a LayoutContext, we guarantee this is only called during the layout phase.
+    ///
+    /// # Example
+    /// ```ignore
+    /// fn layout(&mut self, ctx: &mut LayoutContext) -> NodeId {
+    ///     if self.state.is_none() {
+    ///         self.state = Some(ctx.new_entity(MyState::default()));
+    ///     }
+    ///     // ...
+    /// }
+    /// ```
+    pub fn new_entity<T: 'static>(&mut self, value: T) -> Entity<T> {
+        self.entity_store.create(value)
+    }
+
+    /// Read entity state immutably.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn read_entity<T: 'static, R>(
+        &self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&T) -> R,
+    ) -> Option<R> {
+        self.entity_store.read(entity, f)
+    }
+
+    /// Update entity state mutably.
+    ///
+    /// This automatically marks the entity as dirty, which will trigger a re-render
+    /// if the entity is being observed.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn update_entity<T: 'static, R>(
+        &mut self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&mut T) -> R,
+    ) -> Option<R> {
+        self.entity_store.update(entity, f)
+    }
+
+    /// Observe entity state (read with automatic re-render on change).
+    ///
+    /// Like `read_entity`, but also registers interest in this entity's state.
+    /// If the entity is later mutated, the UI will automatically re-render.
+    ///
+    /// Returns None if the entity is stale or doesn't exist.
+    pub fn observe<T: 'static, R>(
+        &mut self,
+        entity: &Entity<T>,
+        f: impl FnOnce(&T) -> R,
+    ) -> Option<R> {
+        self.entity_store.observe(entity, f)
     }
 }
