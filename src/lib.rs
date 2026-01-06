@@ -4,6 +4,7 @@
 pub mod app;
 pub mod color;
 pub mod element;
+pub mod entity;
 pub mod geometry;
 pub mod interaction;
 pub mod layer;

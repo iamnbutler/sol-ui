@@ -1,4 +1,5 @@
 use crate::{
+    entity::EntityStore,
     layer::LayerManager,
     platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
     text_system::TextSystem,
@@ -19,6 +20,7 @@ pub struct App {
     renderer: MetalRenderer,
     layer_manager: LayerManager,
     text_system: TextSystem,
+    entity_store: EntityStore,
     last_window_size: Option<(f32, f32)>,
     animation_frame_requested: bool,
     start_time: Instant,
@@ -129,6 +131,9 @@ impl AppBuilder {
 
         info!("Total app build time: {:?}", build_start.elapsed());
 
+        // Create entity store
+        let entity_store = EntityStore::new();
+
         App {
             window,
             device,
@@ -136,6 +141,7 @@ impl AppBuilder {
             renderer,
             layer_manager: _layer_manager,
             text_system,
+            entity_store,
             last_window_size: None,
             animation_frame_requested: false,
             start_time: Instant::now(),
@@ -291,6 +297,7 @@ impl App {
                 &drawable,
                 (size.0, size.1).into(),
                 &mut self.text_system,
+                &mut self.entity_store,
                 scale_factor,
                 elapsed_time,
             );

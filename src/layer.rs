@@ -1,5 +1,6 @@
 use crate::{
     element::{Element, LayoutContext},
+    entity::{EntityStore, clear_entity_store, set_entity_store},
     interaction::{
         InteractionSystem,
         hit_test::HitTestBuilder,
@@ -493,12 +494,16 @@ impl LayerManager {
         drawable: &metal::MetalDrawableRef,
         size: Vec2,
         text_system: &mut crate::text_system::TextSystem,
+        entity_store: &mut EntityStore,
         scale_factor: f32,
         elapsed_time: f32,
     ) -> bool {
         let _render_all_span =
             info_span!("layer_manager_render_all", layer_count = self.layers.len()).entered();
         debug!("Rendering {} layers", self.layers.len());
+
+        // Set thread-local entity store for this render frame
+        set_entity_store(entity_store);
 
         let mut animation_frame_requested = false;
 
@@ -518,6 +523,10 @@ impl LayerManager {
                 elapsed_time,
             );
         }
+
+        // Clear thread-local and cleanup entities at frame boundary
+        clear_entity_store();
+        entity_store.cleanup();
 
         animation_frame_requested
     }
