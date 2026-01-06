@@ -348,13 +348,28 @@ impl TextSystem {
         })
     }
 
-    /// Clear frame-based caches - should be called at the start of each frame
+    /// Called at the start of each frame - maintains caches
     pub fn begin_frame(&mut self) {
-        self.measurement_cache.clear();
-        debug!(
-            "Cleared {} cached measurements",
-            self.measurement_cache.len()
-        );
+        // Text measurements are deterministic and can persist across frames.
+        // Only clear if cache gets too large to prevent unbounded memory growth.
+        const MAX_MEASUREMENT_CACHE_SIZE: usize = 1000;
+        if self.measurement_cache.len() > MAX_MEASUREMENT_CACHE_SIZE {
+            debug!(
+                "Measurement cache exceeded {} entries, clearing",
+                MAX_MEASUREMENT_CACHE_SIZE
+            );
+            self.measurement_cache.clear();
+        }
+
+        // Similarly for shaped text cache
+        const MAX_SHAPED_TEXT_CACHE_SIZE: usize = 500;
+        if self.shaped_text_cache.len() > MAX_SHAPED_TEXT_CACHE_SIZE {
+            debug!(
+                "Shaped text cache exceeded {} entries, clearing",
+                MAX_SHAPED_TEXT_CACHE_SIZE
+            );
+            self.shaped_text_cache.clear();
+        }
     }
 
     /// Measure text with the given configuration
