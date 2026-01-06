@@ -57,3 +57,7 @@ path = "examples/keyboard_input.rs"
 [[example]]
 name = "async_tasks"
 path = "examples/async_tasks.rs"
+
+[[example]]
+name = "dropdown_demo"
+path = "examples/dropdown_demo.rs"
