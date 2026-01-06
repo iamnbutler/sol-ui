@@ -122,6 +122,30 @@ impl Container {
         self
     }
 
+    /// Set flex grow factor.
+    ///
+    /// Determines how much this item should grow relative to siblings
+    /// when there's extra space. Default is 0 (don't grow).
+    pub fn flex_grow(mut self, grow: f32) -> Self {
+        self.style.flex_grow = grow;
+        self
+    }
+
+    /// Set flex shrink factor.
+    ///
+    /// Determines how much this item should shrink relative to siblings
+    /// when there's not enough space. Default is 1.
+    pub fn flex_shrink(mut self, shrink: f32) -> Self {
+        self.style.flex_shrink = shrink;
+        self
+    }
+
+    /// Set flex grow to 1 (shorthand for common case).
+    pub fn grow(mut self) -> Self {
+        self.style.flex_grow = 1.0;
+        self
+    }
+
     /// Set gap between flex items
     pub fn gap(mut self, gap: f32) -> Self {
         self.style.gap = Size {
