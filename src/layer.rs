@@ -538,8 +538,24 @@ impl LayerManager {
 pub enum InputEvent {
     // Mouse events
     MouseMove { position: Vec2 },
-    MouseDown { position: Vec2, button: MouseButton },
-    MouseUp { position: Vec2, button: MouseButton },
+    /// Mouse button pressed
+    MouseDown {
+        position: Vec2,
+        button: MouseButton,
+        /// Click count: 1 = single, 2 = double, 3 = triple click
+        click_count: u8,
+        /// Modifier keys held during click
+        modifiers: Modifiers,
+    },
+    /// Mouse button released
+    MouseUp {
+        position: Vec2,
+        button: MouseButton,
+        /// Click count: 1 = single, 2 = double, 3 = triple click
+        click_count: u8,
+        /// Modifier keys held during release
+        modifiers: Modifiers,
+    },
     MouseLeave,
     /// Scroll wheel event (positive delta = scroll up/left, negative = scroll down/right)
     ScrollWheel { position: Vec2, delta: Vec2 },

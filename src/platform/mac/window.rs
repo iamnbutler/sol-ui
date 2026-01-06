@@ -216,6 +216,9 @@ impl Window {
                 11 => self.handle_key_up(event),      // NSEventTypeKeyUp
                 12 => self.handle_flags_changed(event), // NSEventTypeFlagsChanged
                 22 => self.handle_scroll_wheel(event), // NSEventTypeScrollWheel
+                25 => self.handle_mouse_down(event),  // NSEventTypeOtherMouseDown (middle button)
+                26 => self.handle_mouse_up(event),    // NSEventTypeOtherMouseUp (middle button)
+                27 => self.handle_mouse_moved(event), // NSEventTypeOtherMouseDragged
                 _ => {}
             }
 
@@ -279,18 +282,25 @@ impl Window {
     fn handle_mouse_down(&self, event: *mut Object) {
         let location = self.get_mouse_location(event);
         let event_type: u64 = unsafe { msg_send![event, type] };
-        let button = if event_type == 1 {
-            MouseButton::Left
-        } else if event_type == 3 {
-            MouseButton::Right
-        } else {
-            MouseButton::Middle
+        let button = match event_type {
+            1 => MouseButton::Left,   // NSEventTypeLeftMouseDown
+            3 => MouseButton::Right,  // NSEventTypeRightMouseDown
+            25 => MouseButton::Middle, // NSEventTypeOtherMouseDown
+            _ => MouseButton::Left,   // fallback
         };
+
+        // Get click count for double/triple click detection
+        let click_count: i64 = unsafe { msg_send![event, clickCount] };
+
+        // Get modifier flags
+        let modifiers = self.get_modifiers_from_event(event);
 
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseDown {
                 position: glam::Vec2::new(location.0 as f32, location.1 as f32),
                 button,
+                click_count: click_count as u8,
+                modifiers,
             });
         });
     }
@@ -298,18 +308,25 @@ impl Window {
     fn handle_mouse_up(&self, event: *mut Object) {
         let location = self.get_mouse_location(event);
         let event_type: u64 = unsafe { msg_send![event, type] };
-        let button = if event_type == 2 {
-            MouseButton::Left
-        } else if event_type == 4 {
-            MouseButton::Right
-        } else {
-            MouseButton::Middle
+        let button = match event_type {
+            2 => MouseButton::Left,   // NSEventTypeLeftMouseUp
+            4 => MouseButton::Right,  // NSEventTypeRightMouseUp
+            26 => MouseButton::Middle, // NSEventTypeOtherMouseUp
+            _ => MouseButton::Left,   // fallback
         };
+
+        // Get click count for double/triple click detection
+        let click_count: i64 = unsafe { msg_send![event, clickCount] };
+
+        // Get modifier flags
+        let modifiers = self.get_modifiers_from_event(event);
 
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseUp {
                 position: glam::Vec2::new(location.0 as f32, location.1 as f32),
                 button,
+                click_count: click_count as u8,
+                modifiers,
             });
         });
     }

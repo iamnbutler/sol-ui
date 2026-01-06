@@ -254,12 +254,12 @@ impl InteractionSystem {
                 events.extend(self.handle_mouse_move(*position));
             }
 
-            InputEvent::MouseDown { position, button } => {
+            InputEvent::MouseDown { position, button, .. } => {
                 self.mouse_position = *position;
                 events.extend(self.handle_mouse_down(*position, *button));
             }
 
-            InputEvent::MouseUp { position, button } => {
+            InputEvent::MouseUp { position, button, .. } => {
                 self.mouse_position = *position;
                 events.extend(self.handle_mouse_up(*position, *button));
             }
