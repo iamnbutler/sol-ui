@@ -15,7 +15,7 @@ use sol_ui::{
         checkbox, column, container, row, scroll, text, text_input,
         CheckboxInteractable, TextInputInteractable, TextInputState,
     },
-    entity::{new_entity, StateCell},
+    entity::StateCell,
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
     style::TextStyle,
@@ -126,6 +126,7 @@ impl TodoAppState {
 fn main() {
     // Shared app state - StateCell handles lazy initialization
     let app_state = StateCell::new();
+    let input_state_cell = StateCell::new();
 
     app()
         .title("Todo App - sol-ui")
@@ -135,8 +136,9 @@ fn main() {
                 0,
                 LayerOptions::default().with_input().with_clear(),
                 move || {
-                    // Initialize entity on first frame (StateCell handles this)
+                    // Initialize entities on first frame (StateCell handles this)
                     let state_entity = app_state.get_or_init(TodoAppState::default);
+                    let input_state = input_state_cell.get_or_init(TextInputState::default);
 
                     // Read current state using method syntax
                     let (todos, filter, active_count, completed_count) =
@@ -153,10 +155,7 @@ fn main() {
                         })
                         .unwrap_or_default();
 
-                    // Create input state for new todo
-                    let input_state = new_entity(TextInputState::default());
-
-                    // Clone state entity for callbacks
+                    // Clone entities for callbacks
                     let state_for_add = state_entity.clone();
                     let input_for_add = input_state.clone();
 
