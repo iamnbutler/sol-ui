@@ -137,6 +137,7 @@ impl HitTestVisualization {
                     style: TextStyle {
                         size: 9.0,
                         color: border_color,
+                        line_height: 1.2,
                     },
                 });
             }

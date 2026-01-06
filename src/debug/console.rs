@@ -192,6 +192,7 @@ impl DebugConsole {
             style: TextStyle {
                 size: 11.0,
                 color: colors::WHITE,
+                line_height: 1.2,
             },
         });
 
@@ -233,6 +234,7 @@ impl DebugConsole {
                 style: TextStyle {
                     size: 10.0,
                     color: entry.level.color(),
+                    line_height: 1.2,
                 },
             });
         }

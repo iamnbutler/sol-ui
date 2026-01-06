@@ -268,6 +268,7 @@ impl TextInput {
             text_style: TextStyle {
                 color: colors::BLACK,
                 size: 14.0,
+                line_height: 1.2,
             },
             placeholder: None,
             placeholder_color: colors::GRAY_400,

@@ -129,6 +129,7 @@ impl LayoutInspector {
             style: TextStyle {
                 size: 12.0,
                 color: colors::WHITE,
+                line_height: 1.2,
             },
         });
 
@@ -174,6 +175,7 @@ impl LayoutInspector {
                     } else {
                         Color::rgba(0.8, 0.8, 0.8, 1.0)
                     },
+                    line_height: 1.2,
                 },
             });
 
@@ -199,6 +201,7 @@ impl LayoutInspector {
             style: TextStyle {
                 size: 12.0,
                 color: colors::WHITE,
+                line_height: 1.2,
             },
         });
 
@@ -230,6 +233,7 @@ impl LayoutInspector {
                 style: TextStyle {
                     size: 10.0,
                     color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+                    line_height: 1.2,
                 },
             });
 

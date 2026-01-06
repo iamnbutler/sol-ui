@@ -211,6 +211,7 @@ impl PerformanceMetrics {
             style: TextStyle {
                 size: 14.0,
                 color: fps_color,
+                line_height: 1.2,
             },
         });
 
@@ -239,6 +240,7 @@ impl PerformanceMetrics {
                         style: TextStyle {
                             size: 10.0,
                             color: Color::rgba(0.8, 0.8, 0.8, 1.0),
+                            line_height: 1.2,
                         },
                     });
                     y += line_height;

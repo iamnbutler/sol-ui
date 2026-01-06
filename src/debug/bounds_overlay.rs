@@ -126,6 +126,7 @@ impl BoundsOverlay {
                 style: TextStyle {
                     size: 10.0,
                     color: entry.color,
+                    line_height: 1.2,
                 },
             });
         }
