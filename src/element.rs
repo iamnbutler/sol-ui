@@ -1,8 +1,10 @@
 //! Two-phase element rendering system
 //!
+mod button;
 mod container;
 mod text;
 
+pub use button::{Button, button};
 pub use container::{Container, column, container, row};
 pub use text::{Text, text};
 
