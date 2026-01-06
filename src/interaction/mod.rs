@@ -317,6 +317,10 @@ impl InteractionSystem {
                 self.mouse_position = *position;
                 events.extend(self.handle_scroll_wheel(*position, *delta));
             }
+
+            InputEvent::WindowResize { .. } => {
+                // Window resize is handled at the app level, not interaction level
+            }
         }
 
         events

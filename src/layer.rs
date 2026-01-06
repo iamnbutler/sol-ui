@@ -547,6 +547,10 @@ impl LayerManager {
 /// Input events from the platform layer
 #[derive(Debug, Clone)]
 pub enum InputEvent {
+    // Window events
+    /// Window was resized - metal layer drawable size already updated
+    WindowResize { size: Vec2 },
+
     // Mouse events
     MouseMove { position: Vec2 },
     MouseDown { position: Vec2, button: MouseButton },
