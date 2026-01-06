@@ -858,6 +858,29 @@ impl From<i32> for ElementId {
     }
 }
 
+impl From<&str> for ElementId {
+    /// Create an element ID from a string by hashing it.
+    ///
+    /// This allows using readable string IDs like:
+    /// ```
+    /// .with_id("increment_button")
+    /// .with_id("submit_form")
+    /// ```
+    fn from(s: &str) -> Self {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        Self::new(hasher.finish())
+    }
+}
+
+impl From<String> for ElementId {
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
