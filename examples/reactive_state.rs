@@ -3,7 +3,7 @@
 //! Demonstrates the entity subscription system for automatic UI updates:
 //! - Using `observe()` to read state and subscribe to changes
 //! - Using `update_entity()` to modify state (triggers automatic re-render)
-//! - Using `derive()` for computed values
+//! - Using `LazyEntity` for simplified state initialization
 //! - Batched updates within a single frame
 //!
 //! This example shows a counter app where clicking buttons updates entity
@@ -13,7 +13,7 @@ use sol_ui::{
     app::app,
     color::colors,
     element::{styled_text, button, container, row, Element},
-    entity::{new_entity, observe, update_entity, Entity},
+    entity::{LazyEntity, observe, update_entity},
     layer::LayerOptions,
     style::TextStyle,
 };
@@ -33,34 +33,18 @@ fn main() {
         .title("Reactive State Demo")
         .size(500.0, 400.0)
         .with_layers(|layers| {
-            // Create counter entity (will be cloned into the render closure)
-            let counter: Option<Entity<CounterState>> = None;
-            let counter = std::cell::RefCell::new(counter);
-
-            // Create click tracker entity
-            let tracker: Option<Entity<ClickTracker>> = None;
-            let tracker = std::cell::RefCell::new(tracker);
+            // Use LazyEntity for simplified state initialization
+            // (replaces verbose Option<Entity<T>> + RefCell pattern)
+            let counter = LazyEntity::new();
+            let tracker = LazyEntity::new();
 
             layers.add_ui_layer(
                 0,
                 LayerOptions::default().with_input().with_clear(),
                 move || {
-                    // Initialize entities on first render
-                    let counter_entity = {
-                        let mut c = counter.borrow_mut();
-                        if c.is_none() {
-                            *c = Some(new_entity(CounterState { value: 0 }));
-                        }
-                        c.clone().unwrap()
-                    };
-
-                    let tracker_entity = {
-                        let mut t = tracker.borrow_mut();
-                        if t.is_none() {
-                            *t = Some(new_entity(ClickTracker { total_clicks: 0 }));
-                        }
-                        t.clone().unwrap()
-                    };
+                    // get_or_init creates entity on first render, returns same entity after
+                    let counter_entity = counter.get_or_init(|| CounterState { value: 0 });
+                    let tracker_entity = tracker.get_or_init(|| ClickTracker { total_clicks: 0 });
 
                     // Use observe() to read state - this registers for reactive updates
                     // When update_entity() is called on an observed entity, the UI

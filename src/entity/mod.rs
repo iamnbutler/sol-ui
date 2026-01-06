@@ -12,6 +12,20 @@
 //! - When `update_entity` mutates observed state, the UI automatically re-renders
 //! - Updates within a frame are batched to prevent excessive re-renders
 //!
+//! ## Lazy Initialization
+//!
+//! Use [`LazyEntity`] to simplify entity initialization in render closures:
+//!
+//! ```ignore
+//! let counter = LazyEntity::new();
+//!
+//! layers.add_ui_layer(0, opts, move || {
+//!     let entity = counter.get_or_init(|| CounterState { value: 0 });
+//!     let count = observe(&entity, |s| s.value).unwrap_or(0);
+//!     // ...
+//! });
+//! ```
+//!
 //! See the `subscription` module for details.
 
 pub mod context;
@@ -27,6 +41,7 @@ pub use derived::{derive, derive_from, derive_from2, Memo};
 pub use store::EntityStore;
 pub use subscription::SubscriptionManager;
 
+use std::cell::RefCell;
 use std::marker::PhantomData;
 
 /// Unique identifier for an entity with generation for staleness detection
@@ -107,6 +122,80 @@ impl<T: 'static> Drop for Entity<T> {
 // The actual data lives in EntityStore which handles synchronization
 unsafe impl<T: Send> Send for Entity<T> {}
 unsafe impl<T: Sync> Sync for Entity<T> {}
+
+/// A lazy-initialized entity for use in render closures.
+///
+/// `LazyEntity` simplifies the common pattern of initializing entity state
+/// the first time a render closure runs. Instead of manually managing
+/// `Option<Entity<T>>` with `RefCell`, use `LazyEntity`:
+///
+/// ## Before (verbose)
+/// ```ignore
+/// let counter: Option<Entity<CounterState>> = None;
+/// let counter = RefCell::new(counter);
+///
+/// layers.add_ui_layer(0, opts, move || {
+///     let entity = {
+///         let mut c = counter.borrow_mut();
+///         if c.is_none() {
+///             *c = Some(new_entity(CounterState { value: 0 }));
+///         }
+///         c.clone().unwrap()
+///     };
+///     // use entity...
+/// });
+/// ```
+///
+/// ## After (simple)
+/// ```ignore
+/// let counter = LazyEntity::new();
+///
+/// layers.add_ui_layer(0, opts, move || {
+///     let entity = counter.get_or_init(|| CounterState { value: 0 });
+///     let count = observe(&entity, |s| s.value).unwrap_or(0);
+///     // use entity...
+/// });
+/// ```
+pub struct LazyEntity<T: 'static> {
+    cell: RefCell<Option<Entity<T>>>,
+}
+
+impl<T: 'static> LazyEntity<T> {
+    /// Create a new lazy entity holder.
+    ///
+    /// The actual entity is not created until `get_or_init` is called.
+    pub fn new() -> Self {
+        Self {
+            cell: RefCell::new(None),
+        }
+    }
+
+    /// Get the entity, initializing it with the provided function if needed.
+    ///
+    /// On first call, creates a new entity with the initial state from `init()`.
+    /// On subsequent calls, returns the same entity.
+    ///
+    /// # Panics
+    /// Panics if called outside of a render context (same as `new_entity`).
+    pub fn get_or_init(&self, init: impl FnOnce() -> T) -> Entity<T> {
+        let mut opt = self.cell.borrow_mut();
+        if opt.is_none() {
+            *opt = Some(new_entity(init()));
+        }
+        opt.clone().unwrap()
+    }
+
+    /// Check if the entity has been initialized.
+    pub fn is_initialized(&self) -> bool {
+        self.cell.borrow().is_some()
+    }
+}
+
+impl<T: 'static> Default for LazyEntity<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[cfg(test)]
 mod tests {
