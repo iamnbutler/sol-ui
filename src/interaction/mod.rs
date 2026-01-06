@@ -45,6 +45,10 @@ pub struct InteractionSystem {
 
     /// Whether mouse is currently over the window
     mouse_in_window: bool,
+
+    /// Stack of focus traps (for modal dialogs)
+    /// Each trap contains the element IDs that form the trap boundary
+    focus_trap_stack: Vec<Vec<ElementId>>,
 }
 
 impl InteractionSystem {
@@ -59,6 +63,7 @@ impl InteractionSystem {
             last_hit_test: Vec::new(),
             focusable_elements: Vec::new(),
             mouse_in_window: false,
+            focus_trap_stack: Vec::new(),
         }
     }
 
@@ -111,54 +116,125 @@ impl InteractionSystem {
         self.focusable_elements.clear();
     }
 
+    /// Get the current set of navigable elements (respecting focus traps)
+    fn get_navigable_elements(&self) -> &[ElementId] {
+        if let Some(trap) = self.focus_trap_stack.last() {
+            trap.as_slice()
+        } else {
+            &self.focusable_elements
+        }
+    }
+
     /// Move focus to next focusable element (Tab key)
     pub fn focus_next(&mut self) -> Vec<InteractionEvent> {
-        if self.focusable_elements.is_empty() {
+        let navigable = self.get_navigable_elements();
+        if navigable.is_empty() {
             return Vec::new();
         }
 
         let next_index = if let Some(current) = self.focused_element {
-            let current_index = self
-                .focusable_elements
+            let current_index = navigable
                 .iter()
                 .position(|&id| id == current)
                 .unwrap_or(0);
-            (current_index + 1) % self.focusable_elements.len()
+            (current_index + 1) % navigable.len()
         } else {
             0
         };
 
-        let next_element = self.focusable_elements[next_index];
+        let next_element = navigable[next_index];
         self.set_focus(Some(next_element))
     }
 
     /// Move focus to previous focusable element (Shift+Tab key)
     pub fn focus_previous(&mut self) -> Vec<InteractionEvent> {
-        if self.focusable_elements.is_empty() {
+        let navigable = self.get_navigable_elements();
+        if navigable.is_empty() {
             return Vec::new();
         }
 
         let prev_index = if let Some(current) = self.focused_element {
-            let current_index = self
-                .focusable_elements
+            let current_index = navigable
                 .iter()
                 .position(|&id| id == current)
                 .unwrap_or(0);
             if current_index == 0 {
-                self.focusable_elements.len() - 1
+                navigable.len() - 1
             } else {
                 current_index - 1
             }
         } else {
-            self.focusable_elements.len() - 1
+            navigable.len() - 1
         };
 
-        let prev_element = self.focusable_elements[prev_index];
+        let prev_element = navigable[prev_index];
         self.set_focus(Some(prev_element))
+    }
+
+    /// Push a focus trap (used for modals)
+    /// Elements in the trap must be from the current focusable_elements list
+    /// Returns focus events if the first element in the trap gains focus
+    pub fn push_focus_trap(&mut self, element_ids: Vec<ElementId>) -> Vec<InteractionEvent> {
+        // Filter to only include elements that are actually focusable
+        let trap: Vec<_> = element_ids
+            .into_iter()
+            .filter(|id| self.focusable_elements.contains(id))
+            .collect();
+
+        if trap.is_empty() {
+            return Vec::new();
+        }
+
+        // Auto-focus first element in trap if nothing in trap is focused
+        let should_focus_first = self.focused_element.map_or(true, |focused| {
+            !trap.contains(&focused)
+        });
+
+        let first_element = trap[0];
+        self.focus_trap_stack.push(trap);
+
+        if should_focus_first {
+            self.set_focus(Some(first_element))
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Pop the current focus trap (when modal closes)
+    /// Returns focus events if focus should return to a previous element
+    pub fn pop_focus_trap(&mut self) -> Vec<InteractionEvent> {
+        self.focus_trap_stack.pop();
+        // Optionally restore focus to something in the parent scope
+        // For now, keep focus where it is unless it's no longer valid
+        if let Some(current) = self.focused_element {
+            let navigable = self.get_navigable_elements();
+            if !navigable.contains(&current) && !navigable.is_empty() {
+                // Current focus is no longer in scope, move to first navigable element
+                return self.set_focus(Some(navigable[0]));
+            }
+        }
+        Vec::new()
+    }
+
+    /// Check if a focus trap is active
+    pub fn has_focus_trap(&self) -> bool {
+        !self.focus_trap_stack.is_empty()
     }
 
     /// Update the hit test results for the current frame
     pub fn update_hit_test(&mut self, entries: Vec<HitTestEntry>) {
+        // Extract focusable elements in paint/tab order (lower z-index first for tab order)
+        self.focusable_elements.clear();
+        let mut focusables: Vec<_> = entries
+            .iter()
+            .filter(|e| e.focusable)
+            .collect();
+        // Sort by z-index ascending for tab order (paint order)
+        focusables.sort_by_key(|e| e.z_index);
+        for entry in focusables {
+            self.focusable_elements.push(entry.element_id);
+        }
+
         self.last_hit_test = entries;
 
         // Update hover state based on new hit test
@@ -339,6 +415,14 @@ impl InteractionSystem {
                 position,
                 local_position: hit.local_position,
             });
+
+            // Focus the clicked element if it's focusable (left click only)
+            if button == MouseButton::Left && self.focusable_elements.contains(&element_id) {
+                events.extend(self.set_focus(Some(element_id)));
+            }
+        } else {
+            // Clicked on empty space - clear focus
+            events.extend(self.set_focus(None));
         }
 
         events
@@ -461,6 +545,7 @@ impl InteractionSystem {
         self.focused_element = None;
         self.last_hit_test.clear();
         self.focusable_elements.clear();
+        self.focus_trap_stack.clear();
     }
 
     /// Get current modifier state

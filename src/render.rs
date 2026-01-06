@@ -133,6 +133,16 @@ impl<'a> PaintContext<'a> {
             builder.borrow_mut().add_entry(element_id, bounds, z_index);
         }
     }
+
+    /// Register a focusable element for hit testing and focus management
+    pub fn register_focusable(&mut self, element_id: ElementId, bounds: Rect, z_index: i32) {
+        if let Some(builder) = &self.hit_test_builder {
+            // bounds are already in screen coordinates (absolute position)
+            builder
+                .borrow_mut()
+                .add_focusable_entry(element_id, bounds, z_index);
+        }
+    }
 }
 
 /// A quad to be rendered
