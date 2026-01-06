@@ -340,7 +340,6 @@ where
         // End frame - clean up nodes that weren't used
         self.layout_engine.end_frame();
 
-        info!("Layout phase took {:?}", layout_start.elapsed());
         // Phase 2: Paint
         let mut draw_list =
             DrawList::with_viewport(crate::geometry::Rect::from_pos_size(Vec2::ZERO, size));

@@ -71,21 +71,9 @@ impl Container {
         self
     }
 
-    /// Set the border (color and width)
+    /// Set the border
     pub fn border(mut self, color: Color, width: f32) -> Self {
         self.border_color = Some(color);
-        self.border_width = width;
-        self
-    }
-
-    /// Set only the border color
-    pub fn border_color(mut self, color: Color) -> Self {
-        self.border_color = Some(color);
-        self
-    }
-
-    /// Set only the border width
-    pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
     }
@@ -155,7 +143,9 @@ impl Container {
         self
     }
 
-    /// Set uniform padding (all sides)
+    // --- Padding ---
+
+    /// Set uniform padding on all sides
     pub fn padding(mut self, padding: f32) -> Self {
         self.style.padding = taffy::Rect {
             left: LengthPercentage::length(padding),
@@ -166,32 +156,47 @@ impl Container {
         self
     }
 
-    /// Set horizontal and vertical padding separately
-    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.style.padding = taffy::Rect {
-            left: LengthPercentage::length(horizontal),
-            right: LengthPercentage::length(horizontal),
-            top: LengthPercentage::length(vertical),
-            bottom: LengthPercentage::length(vertical),
-        };
-        self
-    }
-
     /// Set horizontal padding (left and right)
-    pub fn padding_h(mut self, padding: f32) -> Self {
+    pub fn padding_x(mut self, padding: f32) -> Self {
         self.style.padding.left = LengthPercentage::length(padding);
         self.style.padding.right = LengthPercentage::length(padding);
         self
     }
 
     /// Set vertical padding (top and bottom)
-    pub fn padding_v(mut self, padding: f32) -> Self {
+    pub fn padding_y(mut self, padding: f32) -> Self {
         self.style.padding.top = LengthPercentage::length(padding);
         self.style.padding.bottom = LengthPercentage::length(padding);
         self
     }
 
-    /// Set margin
+    /// Set top padding
+    pub fn padding_top(mut self, padding: f32) -> Self {
+        self.style.padding.top = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set right padding
+    pub fn padding_right(mut self, padding: f32) -> Self {
+        self.style.padding.right = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set bottom padding
+    pub fn padding_bottom(mut self, padding: f32) -> Self {
+        self.style.padding.bottom = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set left padding
+    pub fn padding_left(mut self, padding: f32) -> Self {
+        self.style.padding.left = LengthPercentage::length(padding);
+        self
+    }
+
+    // --- Margin ---
+
+    /// Set uniform margin on all sides
     pub fn margin(mut self, margin: f32) -> Self {
         self.style.margin = taffy::Rect {
             left: LengthPercentageAuto::length(margin),
@@ -199,6 +204,51 @@ impl Container {
             top: LengthPercentageAuto::length(margin),
             bottom: LengthPercentageAuto::length(margin),
         };
+        self
+    }
+
+    /// Set horizontal margin (left and right)
+    pub fn margin_x(mut self, margin: f32) -> Self {
+        self.style.margin.left = LengthPercentageAuto::length(margin);
+        self.style.margin.right = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set vertical margin (top and bottom)
+    pub fn margin_y(mut self, margin: f32) -> Self {
+        self.style.margin.top = LengthPercentageAuto::length(margin);
+        self.style.margin.bottom = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set top margin
+    pub fn margin_top(mut self, margin: f32) -> Self {
+        self.style.margin.top = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set right margin
+    pub fn margin_right(mut self, margin: f32) -> Self {
+        self.style.margin.right = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set bottom margin
+    pub fn margin_bottom(mut self, margin: f32) -> Self {
+        self.style.margin.bottom = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set left margin
+    pub fn margin_left(mut self, margin: f32) -> Self {
+        self.style.margin.left = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set horizontal margin to auto (centers element)
+    pub fn margin_x_auto(mut self) -> Self {
+        self.style.margin.left = LengthPercentageAuto::auto();
+        self.style.margin.right = LengthPercentageAuto::auto();
         self
     }
 
