@@ -7,7 +7,7 @@ use crate::{
     geometry::{Corners, Edges, Rect},
     interaction::{ElementId, HitTestBuilder},
     layout_engine::TaffyLayoutEngine,
-    style::{ElementStyle, Fill, TextStyle},
+    style::{self, ElementStyle, Fill, TextStyle},
     text_system::TextSystem,
 };
 use glam::Vec2;
@@ -26,59 +26,42 @@ pub struct PaintContext<'a> {
 impl<'a> PaintContext<'a> {
     /// Paint a quad with all its properties
     pub fn paint_quad(&mut self, quad: PaintQuad) {
-        // For now, just handle the fill
-        // TODO: Handle borders, corner radii, etc.
-        self.draw_list.add_rect(quad.bounds, quad.fill);
+        let has_border = quad.border_widths != Edges::zero()
+            && quad.border_color != crate::color::colors::TRANSPARENT;
+        let has_corner_radii = quad.corner_radii != Corners::zero();
 
-        // Paint borders if present
-        if quad.border_widths != Edges::zero()
-            && quad.border_color != crate::color::colors::TRANSPARENT
-        {
-            // Top edge
-            if quad.border_widths.top > 0.0 {
-                self.draw_list.add_rect(
-                    Rect::from_pos_size(
-                        quad.bounds.pos,
-                        Vec2::new(quad.bounds.size.x, quad.border_widths.top),
-                    ),
-                    quad.border_color,
-                );
-            }
+        // Use SDF frame rendering when we have borders or corner radii
+        // This is more efficient (single draw call) and handles corners correctly
+        if has_border || has_corner_radii {
+            // For non-uniform borders, use the maximum width
+            // (SDF frames only support uniform border width)
+            let border_width = if has_border {
+                quad.border_widths
+                    .top
+                    .max(quad.border_widths.right)
+                    .max(quad.border_widths.bottom)
+                    .max(quad.border_widths.left)
+            } else {
+                0.0
+            };
 
-            // Bottom edge
-            if quad.border_widths.bottom > 0.0 {
-                self.draw_list.add_rect(
-                    Rect::from_pos_size(
-                        quad.bounds.pos
-                            + Vec2::new(0.0, quad.bounds.size.y - quad.border_widths.bottom),
-                        Vec2::new(quad.bounds.size.x, quad.border_widths.bottom),
-                    ),
-                    quad.border_color,
-                );
-            }
+            let style = ElementStyle {
+                fill: Fill::Solid(quad.fill),
+                border_width,
+                border_color: quad.border_color,
+                corner_radii: style::CornerRadii {
+                    top_left: quad.corner_radii.top_left,
+                    top_right: quad.corner_radii.top_right,
+                    bottom_right: quad.corner_radii.bottom_right,
+                    bottom_left: quad.corner_radii.bottom_left,
+                },
+                shadow: None,
+            };
 
-            // Left edge
-            if quad.border_widths.left > 0.0 {
-                self.draw_list.add_rect(
-                    Rect::from_pos_size(
-                        quad.bounds.pos,
-                        Vec2::new(quad.border_widths.left, quad.bounds.size.y),
-                    ),
-                    quad.border_color,
-                );
-            }
-
-            // Right edge
-            if quad.border_widths.right > 0.0 {
-                self.draw_list.add_rect(
-                    Rect::from_pos_size(
-                        quad.bounds.pos
-                            + Vec2::new(quad.bounds.size.x - quad.border_widths.right, 0.0),
-                        Vec2::new(quad.border_widths.right, quad.bounds.size.y),
-                    ),
-                    quad.border_color,
-                );
-            }
+            self.draw_list.add_frame(quad.bounds, style);
+        } else {
+            // Simple filled quad without borders or corners - use fast rect path
+            self.draw_list.add_rect(quad.bounds, quad.fill);
         }
     }
 
