@@ -246,6 +246,10 @@ pub struct UiLayer<F> {
     root_element: Option<Box<dyn Element>>,
     interaction_system: InteractionSystem,
     element_registry: std::rc::Rc<std::cell::RefCell<ElementRegistry>>,
+    /// Tracks if the layer needs to rebuild its element tree
+    needs_rebuild: bool,
+    /// Last viewport size used for layout
+    last_size: Option<Vec2>,
 }
 
 impl<F> UiLayer<F>
@@ -261,6 +265,8 @@ where
             root_element: None,
             interaction_system: InteractionSystem::new(),
             element_registry: std::rc::Rc::new(std::cell::RefCell::new(ElementRegistry::new())),
+            needs_rebuild: true, // Always rebuild on first frame
+            last_size: None,
         }
     }
 }
@@ -290,7 +296,19 @@ where
         _elapsed_time: f32,
     ) {
         let _render_span = info_span!("taffy_ui_layer_render").entered();
-        let total_start = std::time::Instant::now();
+
+        // Track if size changed (useful for debugging and future optimizations)
+        let size_changed = self.last_size != Some(size);
+        if size_changed {
+            info!("Viewport size changed: {:?} -> {:?}", self.last_size, size);
+            self.last_size = Some(size);
+        }
+
+        // Currently we rebuild every frame (immediate mode pattern).
+        // The needs_rebuild flag and size tracking are in place for future optimizations.
+        // When needs_rebuild is false and size unchanged, we could potentially skip
+        // layout recomputation, but this requires state change detection.
+        self.needs_rebuild = false;
 
         // Clear layout engine every frame
         self.layout_engine.clear();
@@ -299,7 +317,6 @@ where
         self.root_element = Some((self.render_fn)());
 
         // Phase 1: Layout
-        let layout_start = std::time::Instant::now();
         let mut layout_ctx = LayoutContext {
             engine: &mut self.layout_engine,
             text_system,
@@ -309,10 +326,6 @@ where
         let root_node = self.root_element.as_mut().unwrap().layout(&mut layout_ctx);
 
         // Compute layout with screen size
-        info!(
-            "Computing layout with size: {:?}, scale_factor: {}",
-            size, scale_factor
-        );
         self.layout_engine
             .compute_layout(
                 root_node,
@@ -325,10 +338,7 @@ where
             )
             .expect("Layout computation failed");
 
-        info!("Layout phase took {:?}", layout_start.elapsed());
-
         // Phase 2: Paint
-        let paint_start = std::time::Instant::now();
         let mut draw_list =
             DrawList::with_viewport(crate::geometry::Rect::from_pos_size(Vec2::ZERO, size));
 
@@ -341,12 +351,6 @@ where
             0,
             self.z_index(),
         )));
-        info!(
-            "Created hit test builder for layer with z_index: {}, size: {:?}, scale_factor: {}",
-            self.z_index(),
-            size,
-            scale_factor
-        );
         let mut paint_ctx = PaintContext {
             draw_list: &mut draw_list,
             text_system,
@@ -363,14 +367,8 @@ where
             .unwrap()
             .paint(root_bounds, &mut paint_ctx);
 
-        info!("Paint phase took {:?}", paint_start.elapsed());
-
         // Update hit test results in interaction system
         let hit_test_entries = hit_test_builder.borrow_mut().build();
-        info!("Built {} hit test entries", hit_test_entries.len());
-        for entry in &hit_test_entries {
-            info!("Hit test entry: {:?}", entry);
-        }
         self.interaction_system.update_hit_test(hit_test_entries);
 
         // Clear the current registry after painting
@@ -400,8 +398,6 @@ where
             load_action,
             clear_color,
         );
-
-        info!("Total UiLayer render took {:?}", total_start.elapsed());
     }
 
     fn handle_input(&mut self, event: &InputEvent) -> bool {
@@ -426,6 +422,10 @@ where
 
     fn as_any_mut(&mut self) -> &mut dyn Any {
         self
+    }
+
+    fn invalidate(&mut self) {
+        self.needs_rebuild = true;
     }
 }
 
@@ -525,10 +525,12 @@ impl LayerManager {
         }
 
         // Clear thread-local and cleanup entities at frame boundary
+        // cleanup() returns true if any observed entity was mutated
         clear_entity_store();
-        entity_store.cleanup();
+        let needs_reactive_render = entity_store.cleanup();
 
-        animation_frame_requested
+        // Request animation frame if explicitly requested OR if reactive state changed
+        animation_frame_requested || needs_reactive_render
     }
 
     /// Handle input, starting from the topmost layer that accepts input

@@ -12,6 +12,10 @@ pub mod colors {
     pub const RED: Color = Srgba::new(1.0, 0.0, 0.0, 1.0);
     pub const GREEN: Color = Srgba::new(0.0, 1.0, 0.0, 1.0);
     pub const BLUE: Color = Srgba::new(0.0, 0.0, 1.0, 1.0);
+    pub const YELLOW: Color = Srgba::new(1.0, 1.0, 0.0, 1.0);
+    pub const CYAN: Color = Srgba::new(0.0, 1.0, 1.0, 1.0);
+    pub const MAGENTA: Color = Srgba::new(1.0, 0.0, 1.0, 1.0);
+    pub const ORANGE: Color = Srgba::new(1.0, 0.5, 0.0, 1.0);
     pub const TRANSPARENT: Color = Srgba::new(0.0, 0.0, 0.0, 0.0);
 
     // Gray scale

@@ -61,3 +61,16 @@ path = "examples/async_tasks.rs"
 [[example]]
 name = "dropdown_demo"
 path = "examples/dropdown_demo.rs"
+
+[[example]]
+name = "button_demo"
+path = "examples/button_demo.rs"
+
+[features]
+# Enable testing utilities for use in other crates
+testing = []
+
+[dev-dependencies]
+# Testing utilities
+pretty_assertions = "1.4"
+insta = { version = "1.41", features = ["yaml"] }
