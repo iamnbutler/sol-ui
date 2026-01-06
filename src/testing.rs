@@ -481,6 +481,8 @@ where
             | InteractionEvent::KeyUp { element_id: id, .. }
             | InteractionEvent::FocusIn { element_id: id }
             | InteractionEvent::FocusOut { element_id: id } => *id == element_id,
+            // ShortcutTriggered is a global event, not associated with a specific element
+            InteractionEvent::ShortcutTriggered { .. } => false,
         };
         matches_element && pred(e)
     })
