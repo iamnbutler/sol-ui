@@ -45,3 +45,7 @@ path = "examples/simple_shader.rs"
 [[example]]
 name = "glow_shader"
 path = "examples/glow_shader.rs"
+
+[[example]]
+name = "checkbox_demo"
+path = "examples/checkbox_demo.rs"

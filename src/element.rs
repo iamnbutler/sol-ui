@@ -1,10 +1,12 @@
 //! Two-phase element rendering system
 //!
 mod button;
+mod checkbox;
 mod container;
 mod text;
 
 pub use button::{Button, button};
+pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
 pub use container::{Container, column, container, row};
 pub use text::{Text, text};
 
