@@ -73,6 +73,9 @@ impl ElementRegistry {
             | InteractionEvent::MouseDown { element_id, .. }
             | InteractionEvent::MouseUp { element_id, .. }
             | InteractionEvent::Click { element_id, .. }
+            | InteractionEvent::DoubleClick { element_id, .. }
+            | InteractionEvent::TripleClick { element_id, .. }
+            | InteractionEvent::RightClick { element_id, .. }
             | InteractionEvent::ScrollWheel { element_id, .. }
             | InteractionEvent::KeyDown { element_id, .. }
             | InteractionEvent::KeyUp { element_id, .. }

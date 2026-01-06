@@ -296,7 +296,7 @@ fn main() {
                                                                     .interactive()
                                                                     .with_id(1000 + todo_id as i32)
                                                                     .hover_overlay(colors::RED_500.with_alpha(0.1))
-                                                                    .on_click(move |btn, _, _| {
+                                                                    .on_click(move |btn, _, _, _, _| {
                                                                         if btn == MouseButton::Left {
                                                                             state_for_delete.update(|s| {
                                                                                 s.delete_todo(todo_id);
@@ -414,7 +414,7 @@ fn main() {
                                                             .hover_overlay(colors::BLACK.with_alpha(0.05))
                                                             .on_click({
                                                                 let state = state_entity.clone();
-                                                                move |btn, _, _| {
+                                                                move |btn, _, _, _, _| {
                                                                     if btn == MouseButton::Left {
                                                                         state.update(|s| {
                                                                             s.clear_completed();
@@ -470,7 +470,7 @@ fn filter_button(
         ))
         .interactive()
         .hover_overlay(colors::BLACK.with_alpha(0.05))
-        .on_click(move |btn, _, _| {
+        .on_click(move |btn, _, _, _, _| {
             if btn == MouseButton::Left {
                 on_click();
             }

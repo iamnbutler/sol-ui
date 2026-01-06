@@ -160,7 +160,7 @@ impl Element for Modal {
         // Setup backdrop click handler
         if self.close_on_backdrop {
             let on_close = self.on_close.clone();
-            self.backdrop_handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _| {
+            self.backdrop_handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _, _, _| {
                 if let Some(ref handler) = on_close {
                     (handler.borrow_mut())();
                 }

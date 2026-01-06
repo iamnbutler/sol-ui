@@ -559,7 +559,12 @@ pub enum InputEvent {
 
     // Mouse events
     MouseMove { position: Vec2 },
-    MouseDown { position: Vec2, button: MouseButton },
+    MouseDown {
+        position: Vec2,
+        button: MouseButton,
+        /// Click count from the platform (1 = single, 2 = double, 3 = triple)
+        click_count: u32,
+    },
     MouseUp { position: Vec2, button: MouseButton },
     MouseLeave,
     /// Scroll wheel event (positive delta = scroll up/left, negative = scroll down/right)
@@ -609,6 +614,39 @@ pub enum MouseButton {
     Left,
     Right,
     Middle,
+}
+
+/// Type of click event based on rapid successive clicks
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ClickType {
+    /// Single click (default)
+    #[default]
+    Single,
+    /// Double click (two rapid clicks)
+    Double,
+    /// Triple click (three rapid clicks, commonly used for line/paragraph selection)
+    Triple,
+}
+
+impl ClickType {
+    /// Create a ClickType from a click count (1 = single, 2 = double, 3+ = triple)
+    pub fn from_count(count: u32) -> Self {
+        match count {
+            0 | 1 => ClickType::Single,
+            2 => ClickType::Double,
+            _ => ClickType::Triple,
+        }
+    }
+
+    /// Returns true if this is a double click
+    pub fn is_double(&self) -> bool {
+        matches!(self, ClickType::Double)
+    }
+
+    /// Returns true if this is a triple click
+    pub fn is_triple(&self) -> bool {
+        matches!(self, ClickType::Triple)
+    }
 }
 
 /// Modifier key state

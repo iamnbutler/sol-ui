@@ -102,7 +102,7 @@ fn main() {
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
                                                 let counter = counter_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *counter.borrow_mut() += 1;
                                                         println!("Increment clicked! New count: {}", *counter.borrow());
@@ -147,7 +147,7 @@ fn main() {
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
                                                 let counter = counter_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *counter.borrow_mut() -= 1;
                                                         println!("Decrement clicked! New count: {}", *counter.borrow());
@@ -192,7 +192,7 @@ fn main() {
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
                                                 let counter = counter_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *counter.borrow_mut() = 0;
                                                         println!("Reset clicked! Count reset to 0");
@@ -245,7 +245,7 @@ fn main() {
                                                     .z_index(0)
                                                     .focusable_with_overlay(colors::GREEN_400.with_alpha(0.4))
                                                     .hover_overlay(colors::BLACK.with_alpha(0.1))
-                                                    .on_click(|_, _, _| {
+                                                    .on_click(|_, _, _, _, _| {
                                                         println!("Bottom layer clicked!");
                                                     })
                                             )
@@ -275,7 +275,7 @@ fn main() {
                                                     .z_index(10)
                                                     .focusable_with_overlay(colors::PURPLE_400.with_alpha(0.4))
                                                     .hover_overlay(colors::WHITE.with_alpha(0.2))
-                                                    .on_click(|_, _, _| {
+                                                    .on_click(|_, _, _, _, _| {
                                                         println!("Top layer clicked! (This should take precedence)");
                                                     })
                                             )
@@ -304,7 +304,7 @@ fn main() {
                                     .interactive()
                                     .with_id(6) // Stable ID for disabled button
                                     .enabled(false) // This disables interaction
-                                    .on_click(|_, _, _| {
+                                    .on_click(|_, _, _, _, _| {
                                         println!("This should never be called!");
                                     })
                             )

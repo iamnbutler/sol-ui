@@ -698,7 +698,7 @@ impl<T: ToString + Clone + 'static> Element for Dropdown<T> {
             let _on_change = self.on_change.clone();
             let _options_len = self.options.len();
 
-            self.handlers.borrow_mut().on_click = Some(Box::new(move |button, _, _| {
+            self.handlers.borrow_mut().on_click = Some(Box::new(move |button, _, _, _, _| {
                 if button == MouseButton::Left {
                     if let Some(ref entity) = state_entity {
                         update_entity(entity, |s| s.toggle());

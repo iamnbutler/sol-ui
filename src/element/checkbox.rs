@@ -270,7 +270,7 @@ impl Checkbox {
         // Set up click handler to toggle state
         let checked = self.checked;
         let click_handler = handler.clone();
-        self.handlers.borrow_mut().on_click = Some(Box::new(move |button, _, _| {
+        self.handlers.borrow_mut().on_click = Some(Box::new(move |button, _, _, _, _| {
             if button == MouseButton::Left {
                 (click_handler.borrow_mut())(!checked);
             }
@@ -519,7 +519,7 @@ impl InteractiveCheckbox {
             interactive = interactive
                 .hover_overlay(colors::BLACK.with_alpha(0.05))
                 .press_overlay(colors::BLACK.with_alpha(0.1))
-                .on_click(move |button, _, _| {
+                .on_click(move |button, _, _, _, _| {
                     if button == MouseButton::Left {
                         if let Some(handler) = &on_change {
                             // Toggle the checked state

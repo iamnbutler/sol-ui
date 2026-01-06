@@ -2,7 +2,7 @@
 
 use crate::{
     geometry::Point,
-    layer::{InputEvent, Key, Modifiers, MouseButton},
+    layer::{ClickType, InputEvent, Key, Modifiers, MouseButton},
 };
 use glam::Vec2;
 use std::collections::HashMap;
@@ -74,6 +74,9 @@ pub struct InteractionSystem {
 
     /// Drop zone registry for the current frame
     drop_zones: DropZoneRegistry,
+
+    /// Click count from the last mouse down event (for double/triple click detection)
+    last_click_count: u32,
 }
 
 impl InteractionSystem {
@@ -94,6 +97,7 @@ impl InteractionSystem {
             current_drag: None,
             press_start_position: None,
             drop_zones: DropZoneRegistry::new(),
+            last_click_count: 1,
         }
     }
 
@@ -291,9 +295,14 @@ impl InteractionSystem {
                 events.extend(self.handle_mouse_move(*position));
             }
 
-            InputEvent::MouseDown { position, button } => {
+            InputEvent::MouseDown {
+                position,
+                button,
+                click_count,
+            } => {
                 self.mouse_position = *position;
-                events.extend(self.handle_mouse_down(*position, *button));
+                self.last_click_count = *click_count;
+                events.extend(self.handle_mouse_down(*position, *button, *click_count));
             }
 
             InputEvent::MouseUp { position, button } => {
@@ -458,7 +467,12 @@ impl InteractionSystem {
     }
 
     /// Handle mouse down events
-    fn handle_mouse_down(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
+    fn handle_mouse_down(
+        &mut self,
+        position: Vec2,
+        button: MouseButton,
+        click_count: u32,
+    ) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
         // Track press start position for drag detection
@@ -482,6 +496,8 @@ impl InteractionSystem {
                 button,
                 position,
                 local_position: hit.local_position,
+                modifiers: self.current_modifiers,
+                click_count,
             });
 
             // Focus the clicked element if it's focusable (left click only)
@@ -561,6 +577,8 @@ impl InteractionSystem {
                 let current_hit = self.hit_test(position);
                 let current_element = current_hit.as_ref().map(|h| h.element_id);
 
+                let modifiers = self.current_modifiers;
+
                 // Send mouse up to pressed element
                 events.push(InteractionEvent::MouseUp {
                     element_id: pressed_id,
@@ -571,16 +589,56 @@ impl InteractionSystem {
                         .filter(|h| h.element_id == pressed_id)
                         .map(|h| h.local_position)
                         .unwrap_or(position),
+                    modifiers,
                 });
 
                 // If mouse is still over the same element, it's a click
                 if current_element == Some(pressed_id) {
+                    let local_position = current_hit.unwrap().local_position;
+                    let click_type = ClickType::from_count(self.last_click_count);
+
+                    // Always emit the Click event with the click type
                     events.push(InteractionEvent::Click {
                         element_id: pressed_id,
                         button,
+                        click_type,
                         position,
-                        local_position: current_hit.unwrap().local_position,
+                        local_position,
+                        modifiers,
                     });
+
+                    // Emit convenience events for specific click types
+                    match click_type {
+                        ClickType::Double => {
+                            events.push(InteractionEvent::DoubleClick {
+                                element_id: pressed_id,
+                                button,
+                                position,
+                                local_position,
+                                modifiers,
+                            });
+                        }
+                        ClickType::Triple => {
+                            events.push(InteractionEvent::TripleClick {
+                                element_id: pressed_id,
+                                button,
+                                position,
+                                local_position,
+                                modifiers,
+                            });
+                        }
+                        ClickType::Single => {}
+                    }
+
+                    // Emit RightClick convenience event for right button clicks
+                    if button == MouseButton::Right {
+                        events.push(InteractionEvent::RightClick {
+                            element_id: pressed_id,
+                            position,
+                            local_position,
+                            modifiers,
+                        });
+                    }
                 }
             }
         }
@@ -664,6 +722,7 @@ impl InteractionSystem {
         self.current_drag = None;
         self.press_start_position = None;
         self.drop_zones.clear();
+        self.last_click_count = 1;
     }
 
     /// Get current modifier state
@@ -954,6 +1013,7 @@ mod tests {
         let down_events = system.handle_input(&InputEvent::MouseDown {
             position: Vec2::new(50.0, 30.0),
             button: MouseButton::Left,
+            click_count: 1,
         });
 
         assert!(
@@ -997,6 +1057,7 @@ mod tests {
         system.handle_input(&InputEvent::MouseDown {
             position: Vec2::new(50.0, 30.0),
             button: MouseButton::Left,
+            click_count: 1,
         });
 
         // Release outside
@@ -1035,6 +1096,7 @@ mod tests {
         let events = system.handle_input(&InputEvent::MouseDown {
             position: Vec2::new(50.0, 50.0),
             button: MouseButton::Left,
+            click_count: 1,
         });
 
         // Should hit front element (id 2) because it has higher z-index

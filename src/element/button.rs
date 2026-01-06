@@ -341,9 +341,16 @@ impl Button {
     }
 
     /// Set the click handler (also triggers on Enter/Space when focused)
+    /// Handler receives: (button, click_type, position, local_position, modifiers)
     pub fn on_click<F>(self, handler: F) -> Self
     where
-        F: FnMut(MouseButton, Vec2, Vec2) + 'static,
+        F: FnMut(
+                MouseButton,
+                crate::layer::ClickType,
+                Vec2,
+                Vec2,
+                crate::layer::Modifiers,
+            ) + 'static,
     {
         self.handlers.borrow_mut().on_click = Some(Box::new(handler));
         self
@@ -361,7 +368,7 @@ impl Button {
         let key_handler = handler;
 
         let mut handlers = self.handlers.borrow_mut();
-        handlers.on_click = Some(Box::new(move |_, _, _| {
+        handlers.on_click = Some(Box::new(move |_, _, _, _, _| {
             (click_handler.borrow_mut())();
         }));
 

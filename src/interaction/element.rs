@@ -134,9 +134,16 @@ impl<E: Element> InteractiveElement<E> {
     // --- Mouse handlers ---
 
     /// Set the click handler
+    /// Handler receives: (button, click_type, position, local_position, modifiers)
     pub fn on_click<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(
+                crate::layer::MouseButton,
+                crate::layer::ClickType,
+                glam::Vec2,
+                glam::Vec2,
+                crate::layer::Modifiers,
+            ) + 'static,
     {
         self.handlers.borrow_mut().on_click = Some(Box::new(handler));
         self
@@ -170,18 +177,27 @@ impl<E: Element> InteractiveElement<E> {
     }
 
     /// Set the mouse down handler
+    /// Handler receives: (button, position, local_position, modifiers, click_count)
     pub fn on_mouse_down<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(
+                crate::layer::MouseButton,
+                glam::Vec2,
+                glam::Vec2,
+                crate::layer::Modifiers,
+                u32,
+            ) + 'static,
     {
         self.handlers.borrow_mut().on_mouse_down = Some(Box::new(handler));
         self
     }
 
     /// Set the mouse up handler
+    /// Handler receives: (button, position, local_position, modifiers)
     pub fn on_mouse_up<F>(self, handler: F) -> Self
     where
-        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2) + 'static,
+        F: FnMut(crate::layer::MouseButton, glam::Vec2, glam::Vec2, crate::layer::Modifiers)
+            + 'static,
     {
         self.handlers.borrow_mut().on_mouse_up = Some(Box::new(handler));
         self

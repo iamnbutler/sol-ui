@@ -172,7 +172,7 @@ fn main() {
                                                     .press_overlay(colors::BLACK.with_alpha(0.2))
                                                     .on_click({
                                                         let counter = counter_clone2.clone();
-                                                        move |button, _, _| {
+                                                        move |button, _, _, _, _| {
                                                             if button == MouseButton::Left {
                                                                 *counter.borrow_mut() += 1;
                                                             }
@@ -205,7 +205,7 @@ fn main() {
                                                     .press_overlay(colors::BLACK.with_alpha(0.2))
                                                     .on_click({
                                                         let counter = counter_clone2.clone();
-                                                        move |button, _, _| {
+                                                        move |button, _, _, _, _| {
                                                             if button == MouseButton::Left {
                                                                 *counter.borrow_mut() -= 1;
                                                             }

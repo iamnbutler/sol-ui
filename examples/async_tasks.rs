@@ -217,7 +217,7 @@ fn main() {
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *is_running_long.borrow_mut() = true;
                                                         *task_count_long.borrow_mut() += 1;
@@ -274,7 +274,7 @@ fn main() {
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *is_running_quick.borrow_mut() = true;
                                                         *task_count_quick.borrow_mut() += 1;
@@ -330,7 +330,7 @@ fn main() {
                                             .hover_overlay(colors::BLACK.with_alpha(0.1))
                                             .press_overlay(colors::BLACK.with_alpha(0.2))
                                             .on_click({
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *is_running_many.borrow_mut() = true;
 

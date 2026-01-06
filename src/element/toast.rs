@@ -279,7 +279,7 @@ impl Element for Toast {
         // Setup dismiss handler
         if let Some(ref on_dismiss) = self.on_dismiss {
             let handler = on_dismiss.clone();
-            self.dismiss_handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _| {
+            self.dismiss_handlers.borrow_mut().on_click = Some(Box::new(move |_, _, _, _, _| {
                 (handler.borrow_mut())();
             }));
             register_element(self.dismiss_id, self.dismiss_handlers.clone());

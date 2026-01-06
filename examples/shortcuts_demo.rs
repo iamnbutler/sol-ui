@@ -144,7 +144,7 @@ fn main() {
                                             .on_click({
                                                 let counter = counter_update.clone();
                                                 let action = last_action_update.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *counter.borrow_mut() += 1;
                                                         *action.borrow_mut() = "Increment (click)".to_string();
@@ -190,7 +190,7 @@ fn main() {
                                             .on_click({
                                                 let counter = counter_update.clone();
                                                 let action = last_action_update.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *counter.borrow_mut() -= 1;
                                                         *action.borrow_mut() = "Decrement (click)".to_string();

@@ -170,7 +170,7 @@ fn main() {
                                             })
                                             .on_click({
                                                 let focused = focused_box_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *focused.borrow_mut() = "Box 1 (Blue)".to_string();
                                                         println!("Box 1 clicked");
@@ -233,7 +233,7 @@ fn main() {
                                             })
                                             .on_click({
                                                 let focused = focused_box_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *focused.borrow_mut() = "Box 2 (Green)".to_string();
                                                         println!("Box 2 clicked");
@@ -296,7 +296,7 @@ fn main() {
                                             })
                                             .on_click({
                                                 let focused = focused_box_clone2.clone();
-                                                move |button, _, _| {
+                                                move |button, _, _, _, _| {
                                                     if button == MouseButton::Left {
                                                         *focused.borrow_mut() = "Box 3 (Purple)".to_string();
                                                         println!("Box 3 clicked");

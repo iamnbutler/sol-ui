@@ -196,7 +196,7 @@ fn draggable_item(label: &str, color: Srgba<f32>) -> impl sol_ui::element::Eleme
         .with_key(format!("draggable-{}", label_owned))
         .hover_overlay(Srgba::new(1.0, 1.0, 1.0, 0.2))
         .press_overlay(Srgba::new(0.0, 0.0, 0.0, 0.2))
-        .on_mouse_down(move |button, pos, _| {
+        .on_mouse_down(move |button, pos, _, _, _| {
             if button == MouseButton::Left {
                 println!("Started drag on {} at {:?}", label_for_handler, pos);
             }

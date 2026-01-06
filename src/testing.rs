@@ -197,10 +197,22 @@ impl TestInteractionContext {
 
     /// Simulate a mouse button press
     pub fn mouse_down(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
+        self.mouse_down_with_count(position, button, 1)
+    }
+
+    /// Simulate a mouse button press with a specific click count (for double/triple click)
+    pub fn mouse_down_with_count(
+        &mut self,
+        position: Vec2,
+        button: MouseButton,
+        click_count: u32,
+    ) -> Vec<InteractionEvent> {
         self.sync_hit_test();
-        let events = self
-            .system
-            .handle_input(&InputEvent::MouseDown { position, button });
+        let events = self.system.handle_input(&InputEvent::MouseDown {
+            position,
+            button,
+            click_count,
+        });
         self.collected_events.extend(events.clone());
         events
     }
@@ -476,6 +488,9 @@ where
             | InteractionEvent::MouseDown { element_id: id, .. }
             | InteractionEvent::MouseUp { element_id: id, .. }
             | InteractionEvent::Click { element_id: id, .. }
+            | InteractionEvent::DoubleClick { element_id: id, .. }
+            | InteractionEvent::TripleClick { element_id: id, .. }
+            | InteractionEvent::RightClick { element_id: id, .. }
             | InteractionEvent::ScrollWheel { element_id: id, .. }
             | InteractionEvent::KeyDown { element_id: id, .. }
             | InteractionEvent::KeyUp { element_id: id, .. }

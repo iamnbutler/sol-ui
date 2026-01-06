@@ -539,7 +539,7 @@ impl ListItemElement {
         let on_item_click_for_click = on_item_click.clone();
         let item_index = index;
 
-        handlers.borrow_mut().on_click = Some(Box::new(move |_button, _pos, _local_pos| {
+        handlers.borrow_mut().on_click = Some(Box::new(move |_button, _click_type, _pos, _local_pos, _modifiers| {
             // Toggle selection
             update_entity(&state_for_click, |s| {
                 s.toggle_selection(item_index, selection_mode);
@@ -885,7 +885,7 @@ impl Element for List {
                     let action_handlers = Rc::new(RefCell::new(EventHandlers::new()));
                     let on_action = action.on_click.clone();
                     let item_idx = index;
-                    action_handlers.borrow_mut().on_click = Some(Box::new(move |_btn, _pos, _local| {
+                    action_handlers.borrow_mut().on_click = Some(Box::new(move |_btn, _click_type, _pos, _local, _modifiers| {
                         (on_action.borrow_mut())(item_idx);
                     }));
 

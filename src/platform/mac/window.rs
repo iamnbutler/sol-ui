@@ -251,10 +251,14 @@ impl Window {
             MouseButton::Middle
         };
 
+        // Get click count from macOS for double/triple click detection
+        let click_count: u64 = unsafe { msg_send![event, clickCount] };
+
         PENDING_EVENTS.with(|events| {
             events.borrow_mut().push(InputEvent::MouseDown {
                 position: glam::Vec2::new(location.0 as f32, location.1 as f32),
                 button,
+                click_count: click_count as u32,
             });
         });
     }
