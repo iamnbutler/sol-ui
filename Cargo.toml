@@ -22,8 +22,11 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 swash = "0.2.5"
 taffy = "0.8.3"
+tiny-skia = "0.11"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+usvg = "0.45"
+resvg = "0.45"
 
 [[example]]
 name = "interactive_ui"
