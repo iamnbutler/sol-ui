@@ -115,7 +115,7 @@ impl<'a> PaintContext<'a> {
     }
 
     /// Create a child paint context with updated offset
-    pub fn child_context(&mut self, offset: Vec2) -> PaintContext {
+    pub fn child_context(&mut self, offset: Vec2) -> PaintContext<'_> {
         PaintContext {
             draw_list: self.draw_list,
             text_system: self.text_system,
