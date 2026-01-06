@@ -14,3 +14,4 @@ pub mod render;
 pub mod style;
 pub mod task;
 pub mod text_system;
+pub mod undo;
