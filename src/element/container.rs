@@ -7,22 +7,124 @@ use crate::{
 };
 use taffy::prelude::*;
 
-/// Create a new container element
+/// Create a new container element.
+///
+/// Containers are the primary building block for layouts. They can hold
+/// children, have backgrounds, and use flexbox for positioning.
+///
+/// # Examples
+///
+/// ```
+/// use sol_ui::element::container;
+/// use sol_ui::color::colors;
+///
+/// let card = container()
+///     .background(colors::WHITE)
+///     .padding(16.0)
+///     .corner_radius(8.0)
+///     .flex_col()
+///     .gap(8.0);
+/// ```
 pub fn container() -> Container {
     Container::new()
 }
 
-/// Create a new horizontal layout container
+/// Create a new horizontal layout container (flex row).
+///
+/// Shorthand for `container().flex_row()`.
+///
+/// # Examples
+///
+/// ```
+/// use sol_ui::element::{row, button};
+///
+/// let toolbar = row()
+///     .gap(8.0)
+///     .child(button("Save"))
+///     .child(button("Cancel"));
+/// ```
 pub fn row() -> Container {
     Container::new().flex_row()
 }
 
-/// Create a new vertical layout container
+/// Create a new vertical layout container (flex column).
+///
+/// Shorthand for `container().flex_col()`.
+///
+/// # Examples
+///
+/// ```
+/// use sol_ui::element::{column, text};
+/// use sol_ui::style::TextStyle;
+///
+/// let sidebar = column()
+///     .gap(4.0)
+///     .padding(8.0);
+/// ```
 pub fn column() -> Container {
     Container::new().flex_col()
 }
 
-/// A container element that can have children and styling
+/// A container element that can hold children and apply styling.
+///
+/// Container is the fundamental layout primitive in sol-ui. It wraps
+/// child elements and provides:
+///
+/// - **Flexbox layout**: Row/column direction, alignment, gaps
+/// - **Sizing**: Fixed dimensions, percentages, min/max constraints
+/// - **Spacing**: Padding and margins
+/// - **Styling**: Background color, borders, corner radius
+///
+/// # Layout Examples
+///
+/// ## Centered Content
+///
+/// ```
+/// use sol_ui::element::container;
+///
+/// let centered = container()
+///     .width_full()
+///     .height_full()
+///     .flex_col()
+///     .items_center()     // center on cross axis
+///     .justify_center();  // center on main axis
+/// ```
+///
+/// ## Card Layout
+///
+/// ```
+/// use sol_ui::element::{container, column, text};
+/// use sol_ui::color::colors;
+///
+/// let card = container()
+///     .background(colors::WHITE)
+///     .border(colors::GRAY_200, 1.0)
+///     .corner_radius(8.0)
+///     .padding(16.0)
+///     .max_width(400.0);
+/// ```
+///
+/// ## Flexible Spacing
+///
+/// ```
+/// use sol_ui::element::{row, container};
+///
+/// let header = row()
+///     .width_full()
+///     .justify_between()  // space between children
+///     .items_center();
+/// ```
+///
+/// # Flexbox Reference
+///
+/// | Method | Description |
+/// |--------|-------------|
+/// | `flex_row()` | Horizontal layout (left to right) |
+/// | `flex_col()` | Vertical layout (top to bottom) |
+/// | `gap(f32)` | Space between children |
+/// | `justify_*` | Main axis alignment |
+/// | `items_*` | Cross axis alignment |
+/// | `flex_grow(f32)` | Grow factor when extra space |
 pub struct Container {
     style: Style,
     background: Option<Color>,
