@@ -3,6 +3,7 @@
 //! This module provides thread-local access to the EntityStore during rendering.
 //! The store is set at the beginning of a render frame and cleared at the end.
 
+use super::observe::SubscriptionId;
 use super::{Entity, EntityStore};
 use std::cell::RefCell;
 
@@ -103,6 +104,7 @@ pub fn read_entity<T: 'static, R>(entity: &Entity<T>, f: impl FnOnce(&T) -> R) -
 /// Update entity state mutably
 ///
 /// Returns None if the entity is stale or doesn't exist.
+/// This will mark the entity as changed, notifying any observers at frame boundaries.
 ///
 /// # Panics
 /// Panics if called outside of a render context.
@@ -116,6 +118,35 @@ pub fn update_entity<T: 'static, R>(
     f: impl FnOnce(&mut T) -> R,
 ) -> Option<R> {
     with_entity_store(|store| store.update(entity, f))
+}
+
+/// Subscribe to changes on an entity
+///
+/// The callback will be invoked at frame boundaries whenever the entity is updated.
+/// Returns a SubscriptionId that can be used to unsubscribe.
+///
+/// # Panics
+/// Panics if called outside of a render context.
+///
+/// # Example
+/// ```ignore
+/// let sub_id = subscribe_entity(&counter, || {
+///     println!("Counter changed!");
+/// });
+/// ```
+pub fn subscribe_entity<T: 'static>(
+    entity: &Entity<T>,
+    callback: impl FnMut() + 'static,
+) -> SubscriptionId {
+    with_entity_store(|store| store.subscribe(entity, Box::new(callback)))
+}
+
+/// Unsubscribe from entity changes
+///
+/// # Panics
+/// Panics if called outside of a render context.
+pub fn unsubscribe(subscription_id: SubscriptionId) {
+    with_entity_store(|store| store.unsubscribe(subscription_id));
 }
 
 #[cfg(test)]

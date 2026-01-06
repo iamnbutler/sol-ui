@@ -4,13 +4,17 @@
 //! that persists across frames, enabling stateful widgets while keeping
 //! most UI stateless.
 
+pub mod computed;
 pub mod context;
+pub mod observe;
 pub mod store;
 
+pub use computed::{computed, Computed};
 pub use context::{
-    clear_entity_store, new_entity, read_entity, set_entity_store, update_entity,
-    with_entity_store,
+    clear_entity_store, new_entity, read_entity, set_entity_store, subscribe_entity,
+    unsubscribe, update_entity, with_entity_store,
 };
+pub use observe::{ObserverRegistry, SubscriptionId};
 pub use store::EntityStore;
 
 use std::marker::PhantomData;

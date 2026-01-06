@@ -1,5 +1,6 @@
 //! Entity storage implementation
 
+use super::observe::{ObserverCallback, ObserverRegistry, SubscriptionId};
 use super::{Entity, EntityId};
 use std::any::Any;
 
@@ -42,6 +43,8 @@ pub struct EntityStore {
     free_list: Vec<u32>,
     /// Slots that became empty during this frame (for cleanup)
     pending_cleanup: Vec<u32>,
+    /// Observer registry for state change notifications
+    observers: ObserverRegistry,
 }
 
 impl EntityStore {
@@ -51,6 +54,7 @@ impl EntityStore {
             slots: Vec::new(),
             free_list: Vec::new(),
             pending_cleanup: Vec::new(),
+            observers: ObserverRegistry::new(),
         }
     }
 
@@ -81,6 +85,8 @@ impl EntityStore {
     }
 
     /// Update entity state mutably
+    ///
+    /// This will mark the entity as changed, notifying observers at frame boundaries.
     pub fn update<T: 'static, R>(
         &mut self,
         entity: &Entity<T>,
@@ -95,7 +101,12 @@ impl EntityStore {
 
         let data = slot.data.as_mut()?;
         let value = data.downcast_mut::<T>()?;
-        Some(f(value))
+        let result = f(value);
+
+        // Mark this entity as changed for observer notification
+        self.observers.mark_changed(id);
+
+        Some(result)
     }
 
     /// Increment reference count for an entity
@@ -122,18 +133,65 @@ impl EntityStore {
 
     /// Clean up entities with zero references
     ///
-    /// Call this at frame boundaries to actually free slots
+    /// Call this at frame boundaries to actually free slots and notify observers.
     pub fn cleanup(&mut self) {
+        // First, flush any pending observer notifications
+        self.observers.flush();
+
+        // Then clean up entities
         for index in self.pending_cleanup.drain(..) {
             if let Some(slot) = self.slots.get_mut(index as usize) {
                 // Only clean up if still at zero refs (could have been re-referenced)
                 if slot.ref_count == 0 && slot.data.is_some() {
+                    // Clean up any observers for this entity
+                    let entity_id = EntityId::new(index, slot.generation);
+                    self.observers.unsubscribe_all(entity_id);
+
                     slot.data = None;
                     slot.generation = slot.generation.wrapping_add(1);
                     self.free_list.push(index);
                 }
             }
         }
+    }
+
+    /// Subscribe to changes on an entity
+    ///
+    /// The callback will be invoked at frame boundaries whenever the entity is updated.
+    /// Returns a SubscriptionId that can be used to unsubscribe.
+    pub fn subscribe<T: 'static>(
+        &mut self,
+        entity: &Entity<T>,
+        callback: ObserverCallback,
+    ) -> SubscriptionId {
+        self.observers.subscribe(entity.id(), callback)
+    }
+
+    /// Unsubscribe from entity changes using the subscription ID
+    pub fn unsubscribe(&mut self, subscription_id: SubscriptionId) {
+        self.observers.unsubscribe(subscription_id);
+    }
+
+    /// Check if UI invalidation has been requested due to state changes
+    pub fn invalidation_requested(&self) -> bool {
+        self.observers.invalidation_requested()
+    }
+
+    /// Clear the invalidation request flag
+    pub fn clear_invalidation(&mut self) {
+        self.observers.clear_invalidation();
+    }
+
+    /// Check if there are pending observer notifications
+    pub fn has_pending_notifications(&self) -> bool {
+        self.observers.has_pending_changes()
+    }
+
+    /// Manually flush pending observer notifications
+    ///
+    /// This is useful if you need to notify observers before the end of frame.
+    pub fn flush_notifications(&mut self) {
+        self.observers.flush();
     }
 
     /// Allocate a slot for a new entity
