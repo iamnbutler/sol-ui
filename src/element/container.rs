@@ -2,6 +2,7 @@ use crate::{
     color::Color,
     element::{Element, LayoutContext, PaintContext},
     geometry::{Corners, Edges, Rect},
+    layout_id::LayoutId,
     render::PaintQuad,
 };
 use taffy::prelude::*;
@@ -30,6 +31,8 @@ pub struct Container {
     corner_radius: f32,
     children: Vec<Box<dyn Element>>,
     child_nodes: Vec<NodeId>,
+    /// Stable layout ID for caching across frames
+    layout_id: Option<LayoutId>,
 }
 
 impl Container {
@@ -42,7 +45,24 @@ impl Container {
             corner_radius: 0.0,
             children: Vec::new(),
             child_nodes: Vec::new(),
+            layout_id: None,
         }
+    }
+
+    /// Set a stable layout ID for caching across frames.
+    ///
+    /// Elements with layout IDs will have their Taffy nodes reused
+    /// when style and children haven't changed, improving performance.
+    ///
+    /// # Example
+    /// ```ignore
+    /// container()
+    ///     .layout_id("sidebar")
+    ///     .child(button("Save"))
+    /// ```
+    pub fn layout_id(mut self, id: impl Into<LayoutId>) -> Self {
+        self.layout_id = Some(id.into());
+        self
     }
 
     /// Set the background color
@@ -51,21 +71,9 @@ impl Container {
         self
     }
 
-    /// Set the border (color and width)
+    /// Set the border
     pub fn border(mut self, color: Color, width: f32) -> Self {
         self.border_color = Some(color);
-        self.border_width = width;
-        self
-    }
-
-    /// Set only the border color
-    pub fn border_color(mut self, color: Color) -> Self {
-        self.border_color = Some(color);
-        self
-    }
-
-    /// Set only the border width
-    pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
     }
@@ -102,6 +110,30 @@ impl Container {
         self
     }
 
+    /// Set flex grow factor.
+    ///
+    /// Determines how much this item should grow relative to siblings
+    /// when there's extra space. Default is 0 (don't grow).
+    pub fn flex_grow(mut self, grow: f32) -> Self {
+        self.style.flex_grow = grow;
+        self
+    }
+
+    /// Set flex shrink factor.
+    ///
+    /// Determines how much this item should shrink relative to siblings
+    /// when there's not enough space. Default is 1.
+    pub fn flex_shrink(mut self, shrink: f32) -> Self {
+        self.style.flex_shrink = shrink;
+        self
+    }
+
+    /// Set flex grow to 1 (shorthand for common case).
+    pub fn grow(mut self) -> Self {
+        self.style.flex_grow = 1.0;
+        self
+    }
+
     /// Set gap between flex items
     pub fn gap(mut self, gap: f32) -> Self {
         self.style.gap = Size {
@@ -111,7 +143,9 @@ impl Container {
         self
     }
 
-    /// Set uniform padding (all sides)
+    // --- Padding ---
+
+    /// Set uniform padding on all sides
     pub fn padding(mut self, padding: f32) -> Self {
         self.style.padding = taffy::Rect {
             left: LengthPercentage::length(padding),
@@ -122,32 +156,47 @@ impl Container {
         self
     }
 
-    /// Set horizontal and vertical padding separately
-    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.style.padding = taffy::Rect {
-            left: LengthPercentage::length(horizontal),
-            right: LengthPercentage::length(horizontal),
-            top: LengthPercentage::length(vertical),
-            bottom: LengthPercentage::length(vertical),
-        };
-        self
-    }
-
     /// Set horizontal padding (left and right)
-    pub fn padding_h(mut self, padding: f32) -> Self {
+    pub fn padding_x(mut self, padding: f32) -> Self {
         self.style.padding.left = LengthPercentage::length(padding);
         self.style.padding.right = LengthPercentage::length(padding);
         self
     }
 
     /// Set vertical padding (top and bottom)
-    pub fn padding_v(mut self, padding: f32) -> Self {
+    pub fn padding_y(mut self, padding: f32) -> Self {
         self.style.padding.top = LengthPercentage::length(padding);
         self.style.padding.bottom = LengthPercentage::length(padding);
         self
     }
 
-    /// Set margin
+    /// Set top padding
+    pub fn padding_top(mut self, padding: f32) -> Self {
+        self.style.padding.top = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set right padding
+    pub fn padding_right(mut self, padding: f32) -> Self {
+        self.style.padding.right = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set bottom padding
+    pub fn padding_bottom(mut self, padding: f32) -> Self {
+        self.style.padding.bottom = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set left padding
+    pub fn padding_left(mut self, padding: f32) -> Self {
+        self.style.padding.left = LengthPercentage::length(padding);
+        self
+    }
+
+    // --- Margin ---
+
+    /// Set uniform margin on all sides
     pub fn margin(mut self, margin: f32) -> Self {
         self.style.margin = taffy::Rect {
             left: LengthPercentageAuto::length(margin),
@@ -155,6 +204,51 @@ impl Container {
             top: LengthPercentageAuto::length(margin),
             bottom: LengthPercentageAuto::length(margin),
         };
+        self
+    }
+
+    /// Set horizontal margin (left and right)
+    pub fn margin_x(mut self, margin: f32) -> Self {
+        self.style.margin.left = LengthPercentageAuto::length(margin);
+        self.style.margin.right = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set vertical margin (top and bottom)
+    pub fn margin_y(mut self, margin: f32) -> Self {
+        self.style.margin.top = LengthPercentageAuto::length(margin);
+        self.style.margin.bottom = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set top margin
+    pub fn margin_top(mut self, margin: f32) -> Self {
+        self.style.margin.top = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set right margin
+    pub fn margin_right(mut self, margin: f32) -> Self {
+        self.style.margin.right = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set bottom margin
+    pub fn margin_bottom(mut self, margin: f32) -> Self {
+        self.style.margin.bottom = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set left margin
+    pub fn margin_left(mut self, margin: f32) -> Self {
+        self.style.margin.left = LengthPercentageAuto::length(margin);
+        self
+    }
+
+    /// Set horizontal margin to auto (centers element)
+    pub fn margin_x_auto(mut self) -> Self {
+        self.style.margin.left = LengthPercentageAuto::auto();
+        self.style.margin.right = LengthPercentageAuto::auto();
         self
     }
 
@@ -191,15 +285,137 @@ impl Container {
         self
     }
 
+    // --- Min/Max Size Constraints ---
+
+    /// Set minimum width
+    pub fn min_width(mut self, width: f32) -> Self {
+        self.style.min_size.width = Dimension::length(width);
+        self
+    }
+
+    /// Set maximum width
+    pub fn max_width(mut self, width: f32) -> Self {
+        self.style.max_size.width = Dimension::length(width);
+        self
+    }
+
+    /// Set minimum height
+    pub fn min_height(mut self, height: f32) -> Self {
+        self.style.min_size.height = Dimension::length(height);
+        self
+    }
+
+    /// Set maximum height
+    pub fn max_height(mut self, height: f32) -> Self {
+        self.style.max_size.height = Dimension::length(height);
+        self
+    }
+
+    /// Set minimum width to 100%
+    pub fn min_width_full(mut self) -> Self {
+        self.style.min_size.width = Dimension::percent(1.0);
+        self
+    }
+
+    /// Set minimum height to 100%
+    pub fn min_height_full(mut self) -> Self {
+        self.style.min_size.height = Dimension::percent(1.0);
+        self
+    }
+
+    // --- Justify Content (main axis) ---
+
+    /// Align items to the start of the main axis
+    pub fn justify_start(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::Start);
+        self
+    }
+
+    /// Align items to the end of the main axis
+    pub fn justify_end(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::End);
+        self
+    }
+
     /// Center items on main axis
     pub fn justify_center(mut self) -> Self {
         self.style.justify_content = Some(JustifyContent::Center);
         self
     }
 
+    /// Distribute items with equal space between them
+    pub fn justify_between(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceBetween);
+        self
+    }
+
+    /// Distribute items with equal space around them
+    pub fn justify_around(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceAround);
+        self
+    }
+
+    /// Distribute items with equal space between and around them
+    pub fn justify_evenly(mut self) -> Self {
+        self.style.justify_content = Some(JustifyContent::SpaceEvenly);
+        self
+    }
+
+    // --- Align Items (cross axis) ---
+
+    /// Align items to the start of the cross axis
+    pub fn items_start(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Start);
+        self
+    }
+
+    /// Align items to the end of the cross axis
+    pub fn items_end(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::End);
+        self
+    }
+
     /// Center items on cross axis
     pub fn items_center(mut self) -> Self {
         self.style.align_items = Some(AlignItems::Center);
+        self
+    }
+
+    /// Stretch items to fill the cross axis
+    pub fn items_stretch(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Stretch);
+        self
+    }
+
+    /// Align items along their baseline
+    pub fn items_baseline(mut self) -> Self {
+        self.style.align_items = Some(AlignItems::Baseline);
+        self
+    }
+
+    // --- Align Self (override parent's align-items for this element) ---
+
+    /// Override alignment for this item to start
+    pub fn align_self_start(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Start);
+        self
+    }
+
+    /// Override alignment for this item to end
+    pub fn align_self_end(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::End);
+        self
+    }
+
+    /// Override alignment for this item to center
+    pub fn align_self_center(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Center);
+        self
+    }
+
+    /// Override alignment for this item to stretch
+    pub fn align_self_stretch(mut self) -> Self {
+        self.style.align_self = Some(AlignSelf::Stretch);
         self
     }
 }
@@ -213,8 +429,23 @@ impl Element for Container {
             self.child_nodes.push(child_node);
         }
 
-        // Request layout with children
-        ctx.request_layout_with_children(self.style.clone(), &self.child_nodes)
+        // Use cached layout if we have a stable ID
+        if let Some(ref layout_id) = self.layout_id {
+            // Generate positional IDs for children (for change detection)
+            let child_ids: Vec<LayoutId> = (0..self.child_nodes.len())
+                .map(|i| layout_id.child(i as u32))
+                .collect();
+
+            ctx.request_layout_cached(
+                layout_id,
+                self.style.clone(),
+                &child_ids,
+                &self.child_nodes,
+            )
+        } else {
+            // Fallback to immediate mode (no caching)
+            ctx.request_layout_with_children(self.style.clone(), &self.child_nodes)
+        }
     }
 
     fn paint(&mut self, bounds: Rect, ctx: &mut PaintContext) {

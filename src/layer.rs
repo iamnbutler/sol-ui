@@ -309,8 +309,8 @@ where
         // layout recomputation, but this requires state change detection.
         self.needs_rebuild = false;
 
-        // Clear layout engine every frame
-        self.layout_engine.clear();
+        // Begin new frame - prepares cache but doesn't clear retained nodes
+        self.layout_engine.begin_frame();
 
         // Create root element
         self.root_element = Some((self.render_fn)());
@@ -336,6 +336,9 @@ where
                 scale_factor,
             )
             .expect("Layout computation failed");
+
+        // End frame - clean up nodes that weren't used
+        self.layout_engine.end_frame();
 
         // Phase 2: Paint
         let mut draw_list =

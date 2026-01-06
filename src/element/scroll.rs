@@ -5,6 +5,7 @@ use crate::{
     element::{Element, LayoutContext},
     entity::{Entity, new_entity, read_entity, update_entity},
     geometry::{Corners, Edges, Rect},
+    layout_id::LayoutId,
     render::{PaintContext, PaintQuad},
 };
 use glam::Vec2;
@@ -59,6 +60,8 @@ pub struct ScrollContainer {
     children: Vec<Box<dyn Element>>,
     child_nodes: Vec<NodeId>,
     state: Option<Entity<ScrollState>>,
+    /// Stable layout ID for caching across frames
+    layout_id: Option<LayoutId>,
 }
 
 impl ScrollContainer {
@@ -81,7 +84,14 @@ impl ScrollContainer {
             children: Vec::new(),
             child_nodes: Vec::new(),
             state: None,
+            layout_id: None,
         }
+    }
+
+    /// Set a stable layout ID for caching across frames.
+    pub fn layout_id(mut self, id: impl Into<LayoutId>) -> Self {
+        self.layout_id = Some(id.into());
+        self
     }
 
     /// Set the background color
