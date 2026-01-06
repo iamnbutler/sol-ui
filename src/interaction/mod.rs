@@ -292,6 +292,10 @@ impl InteractionSystem {
                 self.mouse_position = *position;
                 events.extend(self.handle_scroll_wheel(*position, *delta));
             }
+
+            InputEvent::ScaleFactorChanged { .. } => {
+                // Scale factor changes are handled at the app level
+            }
         }
 
         events

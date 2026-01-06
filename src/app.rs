@@ -232,6 +232,9 @@ impl App {
                 break;
             }
 
+            // Check for scale factor changes (e.g., window moved to different DPI display)
+            self.window.check_scale_factor_change();
+
             // Process input events
             let input_events = self.window.get_pending_input_events();
             for event in &input_events {

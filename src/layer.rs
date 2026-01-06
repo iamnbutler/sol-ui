@@ -561,6 +561,12 @@ pub enum InputEvent {
     ModifiersChanged {
         modifiers: Modifiers,
     },
+
+    // Window events
+    /// Display scale factor changed (e.g., window moved to different DPI display)
+    ScaleFactorChanged {
+        scale_factor: f32,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

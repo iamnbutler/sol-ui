@@ -44,6 +44,7 @@ static mut VIEW_CLASS: *const Class = ptr::null();
 thread_local! {
     static PENDING_EVENTS: RefCell<Vec<InputEvent>> = RefCell::new(Vec::new());
     static CURRENT_MODIFIERS: RefCell<Modifiers> = RefCell::new(Modifiers::new());
+    static CURRENT_SCALE_FACTOR: RefCell<f64> = RefCell::new(1.0);
 }
 
 #[allow(dead_code)] // dead ns_view is a false positive
@@ -101,6 +102,11 @@ impl Window {
         // Get the actual backing scale factor from the window
         let scale_factor: f64 = unsafe { msg_send![ns_window, backingScaleFactor] };
         layer.set_contents_scale(scale_factor);
+
+        // Store initial scale factor for change detection
+        CURRENT_SCALE_FACTOR.with(|sf| {
+            *sf.borrow_mut() = scale_factor;
+        });
 
         layer.set_opaque(true);
         layer.set_presents_with_transaction(false);
@@ -224,6 +230,41 @@ impl Window {
     pub fn scale_factor(&self) -> f32 {
         let scale: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
         scale as f32
+    }
+
+    /// Check if scale factor changed and update metal layer if needed.
+    /// Call this periodically (e.g., each frame) to detect display changes.
+    pub fn check_scale_factor_change(&self) {
+        let current_scale: f64 = unsafe { msg_send![self.ns_window, backingScaleFactor] };
+
+        let changed = CURRENT_SCALE_FACTOR.with(|sf| {
+            let old_scale = *sf.borrow();
+            if (current_scale - old_scale).abs() > 0.001 {
+                *sf.borrow_mut() = current_scale;
+                true
+            } else {
+                false
+            }
+        });
+
+        if changed {
+            // Update metal layer for new scale factor
+            self.metal_layer.set_contents_scale(current_scale);
+
+            // Update drawable size
+            let (width, height) = self.size();
+            self.metal_layer.set_drawable_size(CGSize::new(
+                width as f64 * current_scale,
+                height as f64 * current_scale,
+            ));
+
+            // Emit scale factor changed event
+            PENDING_EVENTS.with(|events| {
+                events.borrow_mut().push(InputEvent::ScaleFactorChanged {
+                    scale_factor: current_scale as f32,
+                });
+            });
+        }
     }
 
     fn handle_mouse_moved(&self, event: *mut Object) {
