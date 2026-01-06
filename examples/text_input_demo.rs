@@ -13,7 +13,7 @@ use sol_ui::{
     app::app,
     color::{ColorExt, colors},
     element::{column, container, text, text_input, TextInputInteractable, TextInputState},
-    entity::new_entity,
+    entity::StateCell,
     layer::LayerOptions,
     style::TextStyle,
 };
@@ -24,6 +24,11 @@ fn main() {
     // Status display
     let status_text = Rc::new(RefCell::new(String::from("Type in the inputs below")));
     let submitted_text = Rc::new(RefCell::new(String::new()));
+
+    // Text input states - StateCell handles lazy initialization
+    let input1 = StateCell::new();
+    let input2 = StateCell::new();
+    let input3 = StateCell::new();
 
     app()
         .title("Text Input Demo")
@@ -39,10 +44,10 @@ fn main() {
                     let status = status_clone.borrow().clone();
                     let submitted = submitted_clone.borrow().clone();
 
-                    // Create entity for text input state - must be inside render context
-                    let input1_state = new_entity(TextInputState::default());
-                    let input2_state = new_entity(TextInputState::with_text("Pre-filled text"));
-                    let input3_state = new_entity(TextInputState::default());
+                    // Get or create text input states (StateCell handles persistence)
+                    let input1_state = input1.get_or_init(TextInputState::default);
+                    let input2_state = input2.get_or_init(|| TextInputState::with_text("Pre-filled text"));
+                    let input3_state = input3.get_or_init(TextInputState::default);
 
                     let status_for_change = status_clone.clone();
                     let submitted_for_submit = submitted_clone.clone();
@@ -62,6 +67,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 28.0,
+                                    line_height: 1.2,
                                 },
                             ))
                             // Instructions
@@ -70,6 +76,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 14.0,
+                                    line_height: 1.2,
                                 },
                             ))
                             // Status display
@@ -83,6 +90,7 @@ fn main() {
                                         TextStyle {
                                             color: colors::GRAY_700,
                                             size: 14.0,
+                                            line_height: 1.2,
                                         },
                                     )),
                             )
@@ -100,6 +108,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_700,
                                                     size: 12.0,
+                                                    line_height: 1.2,
                                                 },
                                             ))
                                             .child(
@@ -125,6 +134,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_700,
                                                     size: 12.0,
+                                                    line_height: 1.2,
                                                 },
                                             ))
                                             .child(
@@ -150,6 +160,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_700,
                                                     size: 12.0,
+                                                    line_height: 1.2,
                                                 },
                                             ))
                                             .child(
@@ -182,6 +193,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GREEN_600,
                                                 size: 14.0,
+                                                line_height: 1.2,
                                             },
                                         ))
                                 } else {
@@ -194,6 +206,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_500,
                                     size: 12.0,
+                                    line_height: 1.2,
                                 },
                             )),
                     )
