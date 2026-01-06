@@ -624,5 +624,69 @@ pub fn create_standard_menu_bar(app_name: impl Into<String>) {
         .build();
 }
 
+/// Show a context menu at the specified screen position
+///
+/// The position should be in screen coordinates (from the bottom-left of the screen).
+/// This is typically called in response to a right-click event.
+pub fn show_context_menu(menu: &Menu, position: (f64, f64)) {
+    unsafe {
+        ensure_menu_target_class();
+    }
+
+    let ns_menu = create_ns_menu(menu);
+
+    unsafe {
+        // Get the current event to determine which window to use
+        let app: id = msg_send![class!(NSApplication), sharedApplication];
+        let current_event: id = msg_send![app, currentEvent];
+        let _window: id = msg_send![current_event, window];
+
+        // Convert position to NSPoint
+        let location = cocoa::foundation::NSPoint::new(position.0, position.1);
+
+        // Show the popup menu
+        // popUpMenuPositioningItem:atLocation:inView: shows menu at location
+        let _: BOOL = msg_send![
+            ns_menu,
+            popUpMenuPositioningItem: nil
+            atLocation: location
+            inView: nil
+        ];
+    }
+}
+
+/// Show a context menu at the current mouse position
+///
+/// This is a convenience function that shows the menu where the user clicked.
+pub fn show_context_menu_at_cursor(menu: &Menu) {
+    unsafe {
+        ensure_menu_target_class();
+    }
+
+    let ns_menu = create_ns_menu(menu);
+
+    unsafe {
+        let app: id = msg_send![class!(NSApplication), sharedApplication];
+        let current_event: id = msg_send![app, currentEvent];
+
+        if current_event != nil {
+            // Get the window and location from the current event
+            let window: id = msg_send![current_event, window];
+            let location_in_window: cocoa::foundation::NSPoint =
+                msg_send![current_event, locationInWindow];
+
+            if window != nil {
+                // Convert to view coordinates (nil view means window coordinates)
+                let _: BOOL = msg_send![
+                    ns_menu,
+                    popUpMenuPositioningItem: nil
+                    atLocation: location_in_window
+                    inView: nil
+                ];
+            }
+        }
+    }
+}
+
 // Re-exports for convenience
 pub use KeyModifiers as MenuModifiers;
