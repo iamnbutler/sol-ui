@@ -259,7 +259,7 @@ fn main() {
                                                             // Checkbox
                                                             .child(
                                                                 checkbox(todo_completed)
-                                                                    .size(24.0)
+                                                                    .box_size(24.0)
                                                                     .on_change({
                                                                         let state = state_for_toggle.clone();
                                                                         move |_| {
