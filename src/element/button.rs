@@ -185,22 +185,29 @@ impl Button {
         self
     }
 
-    /// Set horizontal padding
+    /// Set uniform padding (all sides)
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding_h = padding;
+        self.padding_v = padding;
+        self
+    }
+
+    /// Set horizontal and vertical padding separately
+    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.padding_h = horizontal;
+        self.padding_v = vertical;
+        self
+    }
+
+    /// Set horizontal padding (left and right)
     pub fn padding_h(mut self, padding: f32) -> Self {
         self.padding_h = padding;
         self
     }
 
-    /// Set vertical padding
+    /// Set vertical padding (top and bottom)
     pub fn padding_v(mut self, padding: f32) -> Self {
         self.padding_v = padding;
-        self
-    }
-
-    /// Set both horizontal and vertical padding
-    pub fn padding(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.padding_h = horizontal;
-        self.padding_v = vertical;
         self
     }
 
