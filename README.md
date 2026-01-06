@@ -10,10 +10,10 @@ A lightweight immediate mode gui library for Rust, built on Metal for macOS.
 use std::cell::RefCell;
 use std::rc::Rc;
 use sol_ui::{
-    app,
+    app::app,
     color::colors,
-    draw::TextStyle,
-    elements::{container, row, text},
+    style::TextStyle,
+    element::{container, row, text},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
 };
