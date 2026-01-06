@@ -26,6 +26,31 @@ impl Default for TextStyle {
     }
 }
 
+impl TextStyle {
+    /// Create a new text style with default values (16px, white)
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Set the text size in points
+    pub fn size(mut self, size: f32) -> Self {
+        self.size = size;
+        self
+    }
+
+    /// Set the text color
+    pub fn color(mut self, color: Color) -> Self {
+        self.color = color;
+        self
+    }
+
+    /// Set the line height multiplier
+    pub fn line_height(mut self, line_height: f32) -> Self {
+        self.line_height = line_height;
+        self
+    }
+}
+
 /// Shadow properties for frames
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Shadow {
