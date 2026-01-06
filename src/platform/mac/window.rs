@@ -552,3 +552,13 @@ impl NSApplication {
         msg_send![class!(NSApplication), sharedApplication]
     }
 }
+
+impl Drop for Window {
+    fn drop(&mut self) {
+        // Release the NSWindow, which will also release its content view (ns_view)
+        // The metal_layer is owned by Rust and will be dropped automatically
+        unsafe {
+            let _: () = msg_send![self.ns_window, release];
+        }
+    }
+}
