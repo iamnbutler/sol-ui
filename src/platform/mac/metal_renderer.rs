@@ -11,10 +11,83 @@ use metal::{
     MTLStoreAction, RenderPassDescriptor, RenderPipelineDescriptor, RenderPipelineState,
     VertexDescriptor,
 };
-use std::ffi::c_void;
+use std::collections::VecDeque;
 use std::mem;
 use std::time::Instant;
 use tracing::{debug, info, info_span};
+
+/// A pool of reusable Metal buffers to avoid per-frame allocation
+struct BufferPool {
+    /// Available buffers organized by size bucket
+    available: Vec<VecDeque<Buffer>>,
+    /// Size thresholds for each bucket (in bytes)
+    bucket_sizes: Vec<u64>,
+}
+
+impl BufferPool {
+    /// Create a new buffer pool with default size buckets
+    fn new() -> Self {
+        // Size buckets: 4KB, 16KB, 64KB, 256KB, 1MB, 4MB
+        let bucket_sizes = vec![
+            4 * 1024,
+            16 * 1024,
+            64 * 1024,
+            256 * 1024,
+            1024 * 1024,
+            4 * 1024 * 1024,
+        ];
+        let available = (0..bucket_sizes.len()).map(|_| VecDeque::new()).collect();
+        Self {
+            available,
+            bucket_sizes,
+        }
+    }
+
+    /// Find the appropriate bucket for a given size
+    fn bucket_for_size(&self, size: u64) -> Option<usize> {
+        self.bucket_sizes.iter().position(|&bucket_size| size <= bucket_size)
+    }
+
+    /// Try to acquire a buffer of at least the given size
+    fn acquire(&mut self, device: &Device, min_size: u64) -> Buffer {
+        if let Some(bucket_idx) = self.bucket_for_size(min_size) {
+            // Try to reuse from this bucket or larger
+            for idx in bucket_idx..self.available.len() {
+                if let Some(buffer) = self.available[idx].pop_front() {
+                    return buffer;
+                }
+            }
+            // No available buffer, create new one at bucket size
+            let bucket_size = self.bucket_sizes[bucket_idx];
+            device.new_buffer(bucket_size, metal::MTLResourceOptions::CPUCacheModeDefaultCache)
+        } else {
+            // Size exceeds largest bucket, create exact size
+            device.new_buffer(min_size, metal::MTLResourceOptions::CPUCacheModeDefaultCache)
+        }
+    }
+
+    /// Return a buffer to the pool for reuse
+    fn release(&mut self, buffer: Buffer) {
+        let size = buffer.length();
+        if let Some(bucket_idx) = self.bucket_for_size(size) {
+            // Limit pool size per bucket to avoid memory bloat
+            const MAX_PER_BUCKET: usize = 8;
+            if self.available[bucket_idx].len() < MAX_PER_BUCKET {
+                self.available[bucket_idx].push_back(buffer);
+            }
+            // else: buffer is dropped
+        }
+        // Oversized buffers are not pooled
+    }
+
+    /// Clear all pooled buffers
+    #[allow(dead_code)]
+    fn clear(&mut self) {
+        for bucket in &mut self.available {
+            bucket.clear();
+        }
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
@@ -48,6 +121,10 @@ pub struct MetalRenderer {
     pipeline_state: Option<RenderPipelineState>,
     text_pipeline_state: Option<RenderPipelineState>,
     frame_pipeline_state: Option<RenderPipelineState>,
+    /// Pool of reusable vertex buffers
+    buffer_pool: BufferPool,
+    /// Buffers used this frame (returned to pool at end of frame)
+    frame_buffers: Vec<Buffer>,
 }
 
 impl MetalRenderer {
@@ -57,6 +134,8 @@ impl MetalRenderer {
             pipeline_state: None,
             text_pipeline_state: None,
             frame_pipeline_state: None,
+            buffer_pool: BufferPool::new(),
+            frame_buffers: Vec::new(),
         }
     }
 
@@ -733,15 +812,35 @@ impl MetalRenderer {
         (vertices, uniforms)
     }
 
-    /// Create a vertex buffer from vertices
-    fn create_vertex_buffer(&self, vertices: &[Vertex]) -> Buffer {
-        let vertex_data = vertices.as_ptr() as *const c_void;
+    /// Acquire a vertex buffer from the pool, fill it with data, and track for later release
+    fn acquire_vertex_buffer(&mut self, vertices: &[Vertex]) -> Buffer {
         let vertex_data_size = (vertices.len() * mem::size_of::<Vertex>()) as u64;
-        self.device.new_buffer_with_data(
-            vertex_data,
-            vertex_data_size,
-            metal::MTLResourceOptions::CPUCacheModeDefaultCache,
-        )
+
+        // Acquire buffer from pool
+        let buffer = self.buffer_pool.acquire(&self.device, vertex_data_size);
+
+        // Copy vertex data to buffer
+        unsafe {
+            let contents = buffer.contents() as *mut u8;
+            std::ptr::copy_nonoverlapping(
+                vertices.as_ptr() as *const u8,
+                contents,
+                vertex_data_size as usize,
+            );
+        }
+
+        // Track for return to pool at end of frame
+        self.frame_buffers.push(buffer.clone());
+
+        buffer
+    }
+
+    /// Called at the start of each frame to return buffers to pool
+    pub fn begin_frame(&mut self) {
+        // Return all buffers from previous frame to the pool
+        for buffer in self.frame_buffers.drain(..) {
+            self.buffer_pool.release(buffer);
+        }
     }
 
     /// Render draw commands to an existing render encoder
@@ -754,17 +853,8 @@ impl MetalRenderer {
         text_system: &mut TextSystem,
     ) {
         let _encoder_span = info_span!("render_with_encoder").entered();
-        // Get pipeline states
-        let Some(pipeline_state) = &self.pipeline_state else {
-            eprintln!("Pipeline state not initialized");
-            return;
-        };
-        let Some(text_pipeline_state) = &self.text_pipeline_state else {
-            eprintln!("Text pipeline state not initialized");
-            return;
-        };
 
-        // Convert draw commands to vertices
+        // Convert draw commands to vertices first
         let (solid_vertices, text_vertices, frames) = {
             let _convert_span = info_span!("convert_draw_commands_to_vertices").entered();
             self.draw_list_to_vertices(draw_list, screen_size, scale_factor, text_system)
@@ -777,24 +867,65 @@ impl MetalRenderer {
             frames.len()
         );
 
+        // Pre-create all buffers using the pool (mutable borrow of self)
+        let solid_buffer = if !solid_vertices.is_empty() {
+            Some(self.acquire_vertex_buffer(&solid_vertices))
+        } else {
+            None
+        };
+
+        let text_buffer = if !text_vertices.is_empty() {
+            Some(self.acquire_vertex_buffer(&text_vertices))
+        } else {
+            None
+        };
+
+        // Pre-create frame buffers
+        let frame_data: Vec<_> = frames
+            .iter()
+            .map(|(rect, style)| {
+                let (vertices, uniforms) =
+                    self.frame_to_vertices(rect, style, screen_size, scale_factor);
+                let vertex_buffer = self.acquire_vertex_buffer(&vertices);
+                let uniforms_buffer = self.device.new_buffer_with_data(
+                    &uniforms as *const _ as *const _,
+                    std::mem::size_of::<FrameUniforms>() as u64,
+                    metal::MTLResourceOptions::CPUCacheModeDefaultCache,
+                );
+                (vertex_buffer, uniforms_buffer, vertices.len())
+            })
+            .collect();
+
+        // Now borrow pipeline states immutably for rendering
+        let Some(pipeline_state) = &self.pipeline_state else {
+            eprintln!("Pipeline state not initialized");
+            return;
+        };
+        let Some(text_pipeline_state) = &self.text_pipeline_state else {
+            eprintln!("Text pipeline state not initialized");
+            return;
+        };
+        let Some(frame_pipeline_state) = &self.frame_pipeline_state else {
+            eprintln!("Frame pipeline state not initialized");
+            return;
+        };
+
         // Draw solid geometry first
-        if !solid_vertices.is_empty() {
+        if let Some(buffer) = &solid_buffer {
             let _solid_span =
                 info_span!("draw_solid_geometry", vertex_count = solid_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&solid_vertices);
-            encoder.set_render_pipeline_state(&pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
+            encoder.set_render_pipeline_state(pipeline_state);
+            encoder.set_vertex_buffer(0, Some(buffer), 0);
             encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, solid_vertices.len() as u64);
         }
 
         // Draw text geometry with texture
-        if !text_vertices.is_empty() {
+        if let Some(buffer) = &text_buffer {
             let _text_span =
                 info_span!("draw_text_geometry", vertex_count = text_vertices.len()).entered();
-            let buffer = self.create_vertex_buffer(&text_vertices);
             let texture = text_system.atlas_texture();
-            encoder.set_render_pipeline_state(&text_pipeline_state);
-            encoder.set_vertex_buffer(0, Some(&buffer), 0);
+            encoder.set_render_pipeline_state(text_pipeline_state);
+            encoder.set_vertex_buffer(0, Some(buffer), 0);
             encoder.set_fragment_texture(0, Some(texture));
 
             // Create and set sampler state
@@ -808,26 +939,14 @@ impl MetalRenderer {
         }
 
         // Draw frames with SDF rendering
-        if !frames.is_empty() {
-            let _frames_span = info_span!("draw_frames", frame_count = frames.len()).entered();
-            encoder.set_render_pipeline_state(self.frame_pipeline_state.as_ref().unwrap());
+        if !frame_data.is_empty() {
+            let _frames_span = info_span!("draw_frames", frame_count = frame_data.len()).entered();
+            encoder.set_render_pipeline_state(frame_pipeline_state);
 
-            for (rect, style) in frames {
-                // Create frame vertices with proper texture coordinates for SDF
-                let (vertices, uniforms) =
-                    self.frame_to_vertices(&rect, &style, screen_size, scale_factor);
-                let vertex_buffer = self.create_vertex_buffer(&vertices);
-
-                // Create uniforms buffer
-                let uniforms_buffer = self.device.new_buffer_with_data(
-                    &uniforms as *const _ as *const _,
-                    std::mem::size_of::<FrameUniforms>() as u64,
-                    metal::MTLResourceOptions::CPUCacheModeDefaultCache,
-                );
-
-                encoder.set_vertex_buffer(0, Some(&vertex_buffer), 0);
-                encoder.set_fragment_buffer(0, Some(&uniforms_buffer), 0);
-                encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, vertices.len() as u64);
+            for (vertex_buffer, uniforms_buffer, vertex_count) in &frame_data {
+                encoder.set_vertex_buffer(0, Some(vertex_buffer), 0);
+                encoder.set_fragment_buffer(0, Some(uniforms_buffer), 0);
+                encoder.draw_primitives(MTLPrimitiveType::Triangle, 0, *vertex_count as u64);
             }
         }
     }

@@ -226,6 +226,9 @@ impl App {
         // Clear text system frame caches
         self.text_system.begin_frame();
 
+        // Return vertex buffers to pool for reuse
+        self.renderer.begin_frame();
+
         // Check if window size changed
         let current_size = self.window.size();
         if let Some(last_size) = self.last_window_size {
