@@ -253,6 +253,9 @@ impl App {
                 let resize_start = Instant::now();
                 info!("Window resized from {:?} to {:?}", last_size, current_size);
 
+                // Update Metal layer drawable size to match new window size
+                self.window.update_drawable_size();
+
                 // Mark all layers for rebuild on resize
                 let invalidate_start = Instant::now();
                 self.layer_manager.invalidate_all();

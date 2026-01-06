@@ -145,6 +145,17 @@ impl Window {
         (frame.size.width as f32, frame.size.height as f32)
     }
 
+    /// Update the Metal layer's drawable size to match the current window size.
+    /// Call this when the window size changes to ensure correct rendering during resize.
+    pub fn update_drawable_size(&self) {
+        let (width, height) = self.size();
+        let scale_factor = self.scale_factor();
+        self.metal_layer.set_drawable_size(CGSize::new(
+            (width * scale_factor) as f64,
+            (height * scale_factor) as f64,
+        ));
+    }
+
     pub fn handle_events(&self) -> bool {
         self.handle_events_internal(true)
     }
