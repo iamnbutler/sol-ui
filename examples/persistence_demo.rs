@@ -139,6 +139,7 @@ fn main() {
                                         color: text_color,
                                         size: 28.0,
                                         line_height: 1.2,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -149,6 +150,7 @@ fn main() {
                                         color: if current.dark_mode { colors::GRAY_400 } else { colors::GRAY_600 },
                                         size: 12.0,
                                         line_height: 1.2,
+                                        ..Default::default()
                                     },
                                 )
                             )
@@ -163,6 +165,7 @@ fn main() {
                                                 color: secondary_color,
                                                 size: 18.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -173,6 +176,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .with_id(1)
                                             .on_change(move |new_state| {
@@ -189,6 +193,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::GREEN_500)
                                             .with_id(2)
@@ -206,6 +211,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::PURPLE_500)
                                             .with_id(3)
@@ -223,6 +229,7 @@ fn main() {
                                                 color: text_color,
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             })
                                             .checked_background(colors::BLUE_500)
                                             .with_id(4)
@@ -243,6 +250,7 @@ fn main() {
                                                 color: secondary_color,
                                                 size: 18.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -281,6 +289,7 @@ fn main() {
                                                                 color: text_color,
                                                                 size: 20.0,
                                                                 line_height: 1.2,
+                                                                ..Default::default()
                                                             },
                                                         )
                                                     )
@@ -353,6 +362,7 @@ fn main() {
                                                 color: if current.dark_mode { colors::GRAY_300 } else { colors::GRAY_600 },
                                                 size: 14.0,
                                                 line_height: 1.2,
+                                                ..Default::default()
                                             },
                                         )
                                     )
