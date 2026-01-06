@@ -188,6 +188,7 @@ fn main() {
                                         TextStyle {
                                             color: colors::RED_400.with_alpha(0.3),
                                             size: 64.0,
+                                            ..Default::default()
                                         },
                                     )),
                             )
@@ -258,7 +259,7 @@ fn main() {
                                                             // Checkbox
                                                             .child(
                                                                 checkbox(todo_completed)
-                                                                    .size(24.0)
+                                                                    .box_size(24.0)
                                                                     .on_change({
                                                                         let state = state_for_toggle.clone();
                                                                         move |_| {
@@ -282,6 +283,7 @@ fn main() {
                                                                                 colors::BLACK
                                                                             },
                                                                             size: 16.0,
+                                                                            ..Default::default()
                                                                         },
                                                                     )),
                                                             )
@@ -298,6 +300,7 @@ fn main() {
                                                                         TextStyle {
                                                                             color: colors::RED_500,
                                                                             size: 20.0,
+                                                                            ..Default::default()
                                                                         },
                                                                     ))
                                                                     .interactive()
@@ -332,6 +335,7 @@ fn main() {
                                                         TextStyle {
                                                             color: colors::GRAY_400,
                                                             size: 16.0,
+                                                            ..Default::default()
                                                         },
                                                     )),
                                             );
@@ -363,6 +367,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_500,
                                                     size: 14.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             // Filter buttons
@@ -411,6 +416,7 @@ fn main() {
                                                                 TextStyle {
                                                                     color: colors::GRAY_500,
                                                                     size: 14.0,
+                                                                    ..Default::default()
                                                                 },
                                                             ))
                                                             .interactive()
@@ -469,6 +475,7 @@ fn filter_button(
                     colors::GRAY_500
                 },
                 size: 14.0,
+                ..Default::default()
             },
         ))
         .interactive()

@@ -4,6 +4,7 @@ mod button;
 mod checkbox;
 mod container;
 mod dropdown;
+mod list;
 mod modal;
 mod scroll;
 mod text;
@@ -15,6 +16,7 @@ pub use button::{Button, button};
 pub use checkbox::{Checkbox, CheckboxInteractable, InteractiveCheckbox, checkbox, interactive_checkbox};
 pub use container::{Container, column, container, row};
 pub use dropdown::{Dropdown, DropdownOption, DropdownState, dropdown};
+pub use list::{List, ListAction, ListItemData, ListState, SelectionMode, list};
 pub use modal::{Modal, modal};
 pub use scroll::{ScrollContainer, ScrollState, scroll};
 pub use text::{Text, text};
@@ -89,11 +91,11 @@ impl<'a> LayoutContext<'a> {
     /// Measure text (for use during layout)
     pub fn measure_text(&mut self, text: &str, style: &TextStyle, max_width: Option<f32>) -> Vec2 {
         let text_config = crate::text_system::TextConfig {
-            font_stack: parley::FontStack::from("system-ui"),
+            font_stack: parley::FontStack::from(style.font_family),
             size: style.size,
-            weight: parley::FontWeight::NORMAL,
+            weight: style.weight,
             color: style.color.clone(),
-            line_height: 1.2,
+            line_height: style.line_height,
         };
 
         self.text_system

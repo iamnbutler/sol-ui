@@ -513,6 +513,47 @@ unsafe fn create_window_delegate_class() {
         );
     }
 
+    // Add windowDidResize method - called during live resize
+    extern "C" fn window_did_resize(_: &Object, _: Sel, notification: *mut Object) {
+        unsafe {
+            // Get the window from the notification
+            let window: *mut Object = msg_send![notification, object];
+
+            // Get the content view and its layer
+            let content_view: *mut Object = msg_send![window, contentView];
+            let layer: *mut Object = msg_send![content_view, layer];
+
+            // Get the new content size
+            let frame: NSRect = msg_send![window, contentLayoutRect];
+            let width = frame.size.width;
+            let height = frame.size.height;
+
+            // Get the backing scale factor
+            let scale_factor: f64 = msg_send![window, backingScaleFactor];
+
+            // Update the layer's drawable size
+            let drawable_size = CGSize::new(width * scale_factor, height * scale_factor);
+            let _: () = msg_send![layer, setDrawableSize: drawable_size];
+
+            // Also update the layer's contents scale
+            let _: () = msg_send![layer, setContentsScale: scale_factor];
+
+            // Push resize event so the app knows to re-render
+            PENDING_EVENTS.with(|events| {
+                events.borrow_mut().push(InputEvent::WindowResize {
+                    size: glam::Vec2::new(width as f32, height as f32),
+                });
+            });
+        }
+    }
+
+    unsafe {
+        decl.add_method(
+            sel!(windowDidResize:),
+            window_did_resize as extern "C" fn(&Object, Sel, *mut Object),
+        );
+    }
+
     // Add windowWillStartLiveResize: - create CADisplayLink for smooth rendering
     extern "C" fn window_will_start_live_resize(_: &Object, _: Sel, _: *mut Object) {
         IS_LIVE_RESIZING.with(|resizing| {

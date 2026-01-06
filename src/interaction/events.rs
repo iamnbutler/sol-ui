@@ -1,6 +1,6 @@
 //! Interaction event types and state
 
-use super::{ElementId, ShortcutId};
+use super::{DragDropEvent, ElementId, ShortcutId};
 use crate::layer::{Key, Modifiers, MouseButton};
 use glam::Vec2;
 
@@ -91,6 +91,11 @@ pub enum InteractionEvent {
         /// The action name (e.g., "copy", "save")
         action_name: String,
     },
+
+    // --- Drag and Drop Events ---
+
+    /// Drag and drop event
+    DragDrop(DragDropEvent),
 }
 
 /// Current interaction state of an element
@@ -372,6 +377,9 @@ impl EventHandlers {
             }
             InteractionEvent::ShortcutTriggered { .. } => {
                 // Shortcut events are handled at the application level, not element level
+            }
+            InteractionEvent::DragDrop(_) => {
+                // Drag and drop events are handled at the application level, not element level
             }
         }
     }

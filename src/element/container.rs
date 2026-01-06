@@ -51,9 +51,21 @@ impl Container {
         self
     }
 
-    /// Set the border
+    /// Set the border (color and width)
     pub fn border(mut self, color: Color, width: f32) -> Self {
         self.border_color = Some(color);
+        self.border_width = width;
+        self
+    }
+
+    /// Set only the border color
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color = Some(color);
+        self
+    }
+
+    /// Set only the border width
+    pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
     }
@@ -99,7 +111,7 @@ impl Container {
         self
     }
 
-    /// Set padding
+    /// Set uniform padding (all sides)
     pub fn padding(mut self, padding: f32) -> Self {
         self.style.padding = taffy::Rect {
             left: LengthPercentage::length(padding),
@@ -107,6 +119,31 @@ impl Container {
             top: LengthPercentage::length(padding),
             bottom: LengthPercentage::length(padding),
         };
+        self
+    }
+
+    /// Set horizontal and vertical padding separately
+    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.style.padding = taffy::Rect {
+            left: LengthPercentage::length(horizontal),
+            right: LengthPercentage::length(horizontal),
+            top: LengthPercentage::length(vertical),
+            bottom: LengthPercentage::length(vertical),
+        };
+        self
+    }
+
+    /// Set horizontal padding (left and right)
+    pub fn padding_h(mut self, padding: f32) -> Self {
+        self.style.padding.left = LengthPercentage::length(padding);
+        self.style.padding.right = LengthPercentage::length(padding);
+        self
+    }
+
+    /// Set vertical padding (top and bottom)
+    pub fn padding_v(mut self, padding: f32) -> Self {
+        self.style.padding.top = LengthPercentage::length(padding);
+        self.style.padding.bottom = LengthPercentage::length(padding);
         self
     }
 

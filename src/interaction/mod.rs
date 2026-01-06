@@ -65,6 +65,15 @@ pub struct InteractionSystem {
 
     /// Whether to process shortcuts before element handlers
     shortcuts_enabled: bool,
+
+    /// Current drag operation (if any)
+    current_drag: Option<DragState>,
+
+    /// Position where mouse was pressed (for drag threshold detection)
+    press_start_position: Option<Vec2>,
+
+    /// Drop zone registry for the current frame
+    drop_zones: DropZoneRegistry,
 }
 
 impl InteractionSystem {
@@ -82,6 +91,9 @@ impl InteractionSystem {
             focus_trap_stack: Vec::new(),
             shortcut_registry: ShortcutRegistry::new(),
             shortcuts_enabled: true,
+            current_drag: None,
+            press_start_position: None,
+            drop_zones: DropZoneRegistry::new(),
         }
     }
 
@@ -317,6 +329,10 @@ impl InteractionSystem {
                 self.mouse_position = *position;
                 events.extend(self.handle_scroll_wheel(*position, *delta));
             }
+
+            InputEvent::WindowResize { .. } => {
+                // Window resize is handled at the app level, not interaction level
+            }
         }
 
         events
@@ -437,6 +453,11 @@ impl InteractionSystem {
     fn handle_mouse_down(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
+        // Track press start position for drag detection
+        if button == MouseButton::Left {
+            self.press_start_position = Some(position);
+        }
+
         // Find what's under the mouse
         if let Some(hit) = self.hit_test(position) {
             let element_id = hit.element_id;
@@ -471,7 +492,54 @@ impl InteractionSystem {
     fn handle_mouse_up(&mut self, position: Vec2, button: MouseButton) -> Vec<InteractionEvent> {
         let mut events = Vec::new();
 
-        // Check if we have a pressed element
+        // Clear press start position
+        if button == MouseButton::Left {
+            self.press_start_position = None;
+        }
+
+        // Handle drag drop if in progress
+        if button == MouseButton::Left {
+            if let Some(drag) = self.current_drag.take() {
+                // Check if we're over a valid drop zone
+                if let Some(zone) = self.drop_zones.find_at(position, &drag.data.data_type) {
+                    let local_position = position - zone.bounds.pos;
+                    events.push(InteractionEvent::DragDrop(DragDropEvent::Drop {
+                        result: DropResult {
+                            drop_zone: zone.element_id,
+                            data: drag.data.clone(),
+                            position,
+                            local_position,
+                            insert_index: zone.insert_index,
+                        },
+                    }));
+
+                    // Send drag leave to previous hover zone if different
+                    if let Some(prev_zone) = drag.hover_drop_zone {
+                        if prev_zone != zone.element_id {
+                            events.push(InteractionEvent::DragDrop(DragDropEvent::DragLeave {
+                                source_element: drag.source_element,
+                                drop_zone: prev_zone,
+                            }));
+                        }
+                    }
+                } else {
+                    // Dropped outside valid zone - cancel
+                    events.push(InteractionEvent::DragDrop(DragDropEvent::DragCancel {
+                        source_element: drag.source_element,
+                    }));
+                }
+
+                // Clear pressed element state since we were dragging
+                if let Some((pressed_id, _)) = self.pressed_element.take() {
+                    if let Some(state) = self.element_states.get_mut(&pressed_id) {
+                        state.is_pressed = false;
+                    }
+                }
+                return events;
+            }
+        }
+
+        // Check if we have a pressed element (normal click handling)
         if let Some((pressed_id, pressed_button)) = self.pressed_element {
             if pressed_button == button {
                 // Clear pressed state
@@ -585,6 +653,9 @@ impl InteractionSystem {
         self.last_hit_test.clear();
         self.focusable_elements.clear();
         self.focus_trap_stack.clear();
+        self.current_drag = None;
+        self.press_start_position = None;
+        self.drop_zones.clear();
     }
 
     /// Get current modifier state
@@ -648,6 +719,67 @@ impl InteractionSystem {
     /// Detect shortcut conflicts
     pub fn detect_shortcut_conflicts(&self) -> Vec<ShortcutConflict> {
         self.shortcut_registry.detect_conflicts()
+    }
+
+    // --- Drag and Drop methods ---
+
+    /// Get the current drag state (if any)
+    pub fn current_drag(&self) -> Option<&DragState> {
+        self.current_drag.as_ref()
+    }
+
+    /// Check if a drag operation is in progress
+    pub fn is_dragging(&self) -> bool {
+        self.current_drag.is_some()
+    }
+
+    /// Start a drag operation
+    pub fn start_drag(
+        &mut self,
+        source_element: ElementId,
+        position: Vec2,
+        offset: Vec2,
+        bounds: crate::geometry::Rect,
+        data: DragData,
+    ) -> DragDropEvent {
+        let drag_state = DragState {
+            source_element,
+            start_position: position,
+            current_position: position,
+            offset,
+            source_bounds: bounds,
+            data: data.clone(),
+            hover_drop_zone: None,
+        };
+        self.current_drag = Some(drag_state);
+
+        DragDropEvent::DragStart {
+            source_element,
+            position,
+            data,
+        }
+    }
+
+    /// Cancel the current drag operation
+    pub fn cancel_drag(&mut self) -> Option<DragDropEvent> {
+        self.current_drag.take().map(|drag| DragDropEvent::DragCancel {
+            source_element: drag.source_element,
+        })
+    }
+
+    /// Register a drop zone for the current frame
+    pub fn register_drop_zone(&mut self, zone: DropZone) {
+        self.drop_zones.register(zone);
+    }
+
+    /// Clear drop zones (called at start of frame)
+    pub fn clear_drop_zones(&mut self) {
+        self.drop_zones.clear();
+    }
+
+    /// Get the drop zone registry (for debug rendering)
+    pub fn drop_zones(&self) -> &DropZoneRegistry {
+        &self.drop_zones
     }
 }
 
@@ -723,6 +855,29 @@ impl From<usize> for ElementId {
 impl From<i32> for ElementId {
     fn from(id: i32) -> Self {
         Self::new(id as u64)
+    }
+}
+
+impl From<&str> for ElementId {
+    /// Create an element ID from a string by hashing it.
+    ///
+    /// This allows using readable string IDs like:
+    /// ```
+    /// .with_id("increment_button")
+    /// .with_id("submit_form")
+    /// ```
+    fn from(s: &str) -> Self {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        s.hash(&mut hasher);
+        Self::new(hasher.finish())
+    }
+}
+
+impl From<String> for ElementId {
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
     }
 }
 

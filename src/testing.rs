@@ -483,6 +483,8 @@ where
             | InteractionEvent::FocusOut { element_id: id } => *id == element_id,
             // ShortcutTriggered is a global event, not associated with a specific element
             InteractionEvent::ShortcutTriggered { .. } => false,
+            // DragDrop is a global event, not associated with a specific element
+            InteractionEvent::DragDrop(_) => false,
         };
         matches_element && pred(e)
     })

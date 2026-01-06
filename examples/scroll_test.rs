@@ -31,6 +31,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::BLACK,
                                     size: 24.0,
+                                    ..Default::default()
                                 },
                             ))
                             .child(text(
@@ -38,6 +39,7 @@ fn main() {
                                 TextStyle {
                                     color: colors::GRAY_600,
                                     size: 14.0,
+                                    ..Default::default()
                                 },
                             ))
                             .child(
@@ -58,6 +60,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -65,6 +68,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -72,6 +76,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLUE_500,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -79,6 +84,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -86,6 +92,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -93,6 +100,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GREEN_500,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -100,6 +108,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::RED_500,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -107,6 +116,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::PURPLE_500,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -114,6 +124,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_700,
                                                     size: 16.0,
+                                                    ..Default::default()
                                                 },
                                             ))
                                             .child(text(
@@ -121,6 +132,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::BLACK,
                                                     size: 20.0,
+                                                    ..Default::default()
                                                 },
                                             )),
                                     ),

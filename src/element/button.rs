@@ -148,9 +148,21 @@ impl Button {
         self
     }
 
-    /// Set the border
+    /// Set the border (color and width)
     pub fn border(mut self, color: Color, width: f32) -> Self {
         self.border_color = Some(color);
+        self.border_width = width;
+        self
+    }
+
+    /// Set only the border color
+    pub fn border_color(mut self, color: Color) -> Self {
+        self.border_color = Some(color);
+        self
+    }
+
+    /// Set only the border width
+    pub fn border_width(mut self, width: f32) -> Self {
         self.border_width = width;
         self
     }
@@ -185,22 +197,29 @@ impl Button {
         self
     }
 
-    /// Set horizontal padding
+    /// Set uniform padding (all sides)
+    pub fn padding(mut self, padding: f32) -> Self {
+        self.padding_h = padding;
+        self.padding_v = padding;
+        self
+    }
+
+    /// Set horizontal and vertical padding separately
+    pub fn padding_xy(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.padding_h = horizontal;
+        self.padding_v = vertical;
+        self
+    }
+
+    /// Set horizontal padding (left and right)
     pub fn padding_h(mut self, padding: f32) -> Self {
         self.padding_h = padding;
         self
     }
 
-    /// Set vertical padding
+    /// Set vertical padding (top and bottom)
     pub fn padding_v(mut self, padding: f32) -> Self {
         self.padding_v = padding;
-        self
-    }
-
-    /// Set both horizontal and vertical padding
-    pub fn padding(mut self, horizontal: f32, vertical: f32) -> Self {
-        self.padding_h = horizontal;
-        self.padding_v = vertical;
         self
     }
 
@@ -390,11 +409,11 @@ impl Element for Button {
         let text_size = ctx.text_system.measure_text(
             &self.label,
             &crate::text_system::TextConfig {
-                font_stack: parley::FontStack::from("system-ui"),
+                font_stack: parley::FontStack::from(self.text_style.font_family),
                 size: self.text_style.size,
-                weight: parley::FontWeight::NORMAL,
+                weight: self.text_style.weight,
                 color: self.text_style.color.clone(),
-                line_height: 1.2,
+                line_height: self.text_style.line_height,
             },
             None,
             ctx.scale_factor,

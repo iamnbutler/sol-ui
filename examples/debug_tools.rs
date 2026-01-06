@@ -74,6 +74,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::WHITE,
                                                         size: 24.0,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -83,6 +84,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::WHITE.with_alpha(0.8),
                                                         size: 14.0,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -104,6 +106,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::GRAY_800,
                                                         size: 18.0,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -135,6 +138,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::WHITE,
                                                         size: 28.0,
+                                                        ..Default::default()
                                                     },
                                                 )
                                             )
@@ -158,6 +162,7 @@ fn main() {
                                                             TextStyle {
                                                                 color: colors::WHITE,
                                                                 size: 18.0,
+                                                                ..Default::default()
                                                             },
                                                         )
                                                     )
@@ -190,6 +195,7 @@ fn main() {
                                                             TextStyle {
                                                                 color: colors::WHITE,
                                                                 size: 18.0,
+                                                                ..Default::default()
                                                             },
                                                         )
                                                     )
@@ -264,6 +270,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GREEN_400,
                                                 size: 12.0,
+                                                ..Default::default()
                                             },
                                         )
                                     )
@@ -286,6 +293,7 @@ fn text_line(content: &str) -> impl sol_ui::element::Element {
         TextStyle {
             color: colors::GRAY_600,
             size: 13.0,
+            ..Default::default()
         },
     )
 }

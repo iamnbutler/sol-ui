@@ -54,6 +54,23 @@ pub mod colors {
 pub trait ColorExt {
     fn rgb(r: f32, g: f32, b: f32) -> Self;
     fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self;
+    /// Create a color from a hex string (e.g., "#ff0000", "#f00", "#ff0000ff")
+    ///
+    /// Supports formats:
+    /// - `#RGB` (3 chars) - shorthand, expands to RRGGBB
+    /// - `#RGBA` (4 chars) - shorthand with alpha
+    /// - `#RRGGBB` (6 chars) - standard hex
+    /// - `#RRGGBBAA` (8 chars) - with alpha
+    ///
+    /// The `#` prefix is optional.
+    ///
+    /// # Panics
+    /// Panics if the hex string is invalid. Use `try_hex` for fallible parsing.
+    fn hex(hex: &str) -> Self;
+    /// Try to create a color from a hex string, returning None if invalid
+    fn try_hex(hex: &str) -> Option<Self>
+    where
+        Self: Sized;
     fn with_alpha(self, alpha: f32) -> Self;
     fn as_u8_arr(&self) -> [u8; 4];
 }
@@ -65,6 +82,56 @@ impl ColorExt for Color {
 
     fn rgba(r: f32, g: f32, b: f32, a: f32) -> Self {
         Srgba::new(r, g, b, a)
+    }
+
+    fn hex(hex: &str) -> Self {
+        Self::try_hex(hex).unwrap_or_else(|| panic!("Invalid hex color: {}", hex))
+    }
+
+    fn try_hex(hex: &str) -> Option<Self> {
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
+
+        let (r, g, b, a) = match hex.len() {
+            // #RGB - shorthand
+            3 => {
+                let r = u8::from_str_radix(&hex[0..1], 16).ok()?;
+                let g = u8::from_str_radix(&hex[1..2], 16).ok()?;
+                let b = u8::from_str_radix(&hex[2..3], 16).ok()?;
+                // Expand: 0xF -> 0xFF (multiply by 17)
+                (r * 17, g * 17, b * 17, 255)
+            }
+            // #RGBA - shorthand with alpha
+            4 => {
+                let r = u8::from_str_radix(&hex[0..1], 16).ok()?;
+                let g = u8::from_str_radix(&hex[1..2], 16).ok()?;
+                let b = u8::from_str_radix(&hex[2..3], 16).ok()?;
+                let a = u8::from_str_radix(&hex[3..4], 16).ok()?;
+                (r * 17, g * 17, b * 17, a * 17)
+            }
+            // #RRGGBB - standard
+            6 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                (r, g, b, 255)
+            }
+            // #RRGGBBAA - with alpha
+            8 => {
+                let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+                let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+                let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+                let a = u8::from_str_radix(&hex[6..8], 16).ok()?;
+                (r, g, b, a)
+            }
+            _ => return None,
+        };
+
+        Some(Srgba::new(
+            r as f32 / 255.0,
+            g as f32 / 255.0,
+            b as f32 / 255.0,
+            a as f32 / 255.0,
+        ))
     }
 
     fn with_alpha(self, alpha: f32) -> Self {
