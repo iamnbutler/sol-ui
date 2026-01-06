@@ -211,8 +211,8 @@ impl GlyphAtlas {
 
     /// Find a position for a glyph using shelf packing
     fn find_position(&mut self, width: u32, height: u32) -> Result<(u32, u32), String> {
-        // Add padding around glyphs
-        // todo!("Why 2? Where does this magic number come from?");
+        // Add 1px padding on each side (2px total) to prevent texture bleeding
+        // when sampling adjacent glyphs due to bilinear filtering
         let padded_width = width + 2;
         let padded_height = height + 2;
 
@@ -221,7 +221,8 @@ impl GlyphAtlas {
             if shelf.height >= padded_height && shelf.next_x + padded_width <= self.width {
                 let x = shelf.next_x;
                 shelf.next_x += padded_width;
-                return Ok((x + 1, shelf.y + 1)); // +1 for padding // todo!("Why +1? Where does this magic number come from?");
+                // +1 to skip the padding pixel at the start of the allocation
+                return Ok((x + 1, shelf.y + 1));
             }
         }
 
@@ -242,7 +243,8 @@ impl GlyphAtlas {
             next_x: padded_width,
         });
 
-        Ok((1, next_y + 1)) // +1 for padding
+        // +1 to skip the padding pixel at the start of the allocation
+        Ok((1, next_y + 1))
     }
 }
 
@@ -309,8 +311,6 @@ struct MeasurementCacheKey {
 
 impl TextSystem {
     /// Create a new text system with the given Metal device
-    ///
-    /// future_todo!("Make this le")
     pub fn new(device: &Device) -> Result<Self, String> {
         let _new_span = info_span!("text_system_new").entered();
         let total_start = Instant::now();
@@ -350,11 +350,9 @@ impl TextSystem {
 
     /// Clear frame-based caches - should be called at the start of each frame
     pub fn begin_frame(&mut self) {
+        let count = self.measurement_cache.len();
         self.measurement_cache.clear();
-        debug!(
-            "Cleared {} cached measurements",
-            self.measurement_cache.len()
-        );
+        debug!("Cleared {} cached measurements", count);
     }
 
     /// Measure text with the given configuration

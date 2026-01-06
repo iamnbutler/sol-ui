@@ -53,3 +53,7 @@ path = "examples/checkbox_demo.rs"
 [[example]]
 name = "keyboard_input"
 path = "examples/keyboard_input.rs"
+
+[[example]]
+name = "async_tasks"
+path = "examples/async_tasks.rs"

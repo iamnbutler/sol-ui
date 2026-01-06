@@ -6,4 +6,7 @@
 pub mod mac;
 
 #[cfg(target_os = "macos")]
-pub use mac::{Window, create_app_menu};
+pub use mac::{
+    create_app_menu, create_standard_menu_bar, KeyModifiers, KeyboardShortcut, Menu, MenuBar,
+    MenuItem, MenuItemBuilder, MenuModifiers, Window,
+};
