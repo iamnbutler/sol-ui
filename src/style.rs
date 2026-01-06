@@ -4,6 +4,7 @@ use crate::color::{
     Color,
     colors::{BLACK, WHITE},
 };
+use crate::geometry::Corners;
 
 /// Text styling information
 #[derive(Debug, Clone, PartialEq)]
@@ -21,37 +22,6 @@ impl Default for TextStyle {
             size: 16.0,
             color: WHITE,
             line_height: 1.2,
-        }
-    }
-}
-
-/// Corner radii for a frame (top-left, top-right, bottom-right, bottom-left)
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct CornerRadii {
-    pub top_left: f32,
-    pub top_right: f32,
-    pub bottom_right: f32,
-    pub bottom_left: f32,
-}
-
-impl CornerRadii {
-    /// Create uniform corner radii
-    pub fn uniform(radius: f32) -> Self {
-        Self {
-            top_left: radius,
-            top_right: radius,
-            bottom_right: radius,
-            bottom_left: radius,
-        }
-    }
-
-    /// Create corner radii with different values for each corner
-    pub fn new(top_left: f32, top_right: f32, bottom_right: f32, bottom_left: f32) -> Self {
-        Self {
-            top_left,
-            top_right,
-            bottom_right,
-            bottom_left,
         }
     }
 }
@@ -100,7 +70,7 @@ pub struct ElementStyle {
     /// Border color
     pub border_color: Color,
     /// Corner radii
-    pub corner_radii: CornerRadii,
+    pub corner_radii: Corners,
     /// Optional shadow
     pub shadow: Option<Shadow>,
 }
@@ -111,7 +81,7 @@ impl Default for ElementStyle {
             fill: Fill::Solid(WHITE),
             border_width: 0.0,
             border_color: BLACK,
-            corner_radii: CornerRadii::uniform(0.0),
+            corner_radii: Corners::all(0.0),
             shadow: None,
         }
     }
@@ -150,12 +120,12 @@ impl ElementStyle {
 
     /// Set uniform corner radius
     pub fn with_corner_radius(mut self, radius: f32) -> Self {
-        self.corner_radii = CornerRadii::uniform(radius);
+        self.corner_radii = Corners::all(radius);
         self
     }
 
     /// Set individual corner radii
-    pub fn with_corner_radii(mut self, radii: CornerRadii) -> Self {
+    pub fn with_corner_radii(mut self, radii: Corners) -> Self {
         self.corner_radii = radii;
         self
     }
