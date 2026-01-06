@@ -58,6 +58,7 @@ fn main() {
                                     TextStyle {
                                         color: colors::BLACK,
                                         size: 32.0,
+                                    line_height: 1.2,
                                     },
                                 )
                             )
@@ -67,6 +68,7 @@ fn main() {
                                     TextStyle {
                                         color: colors::GRAY_600,
                                         size: 16.0,
+                                    line_height: 1.2,
                                     },
                                 )
                             )
@@ -80,6 +82,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                    line_height: 1.2,
                                             },
                                         )
                                     )
@@ -89,6 +92,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                    line_height: 1.2,
                                             },
                                         )
                                     )
@@ -98,6 +102,7 @@ fn main() {
                                             TextStyle {
                                                 color: colors::GRAY_700,
                                                 size: 18.0,
+                                    line_height: 1.2,
                                             },
                                         )
                                     )
@@ -123,6 +128,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::BLUE_600,
                                                         size: 16.0,
+                                    line_height: 1.2,
                                                     },
                                                 )
                                             )
@@ -189,6 +195,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::GREEN_600,
                                                         size: 16.0,
+                                    line_height: 1.2,
                                                     },
                                                 )
                                             )
@@ -251,6 +258,7 @@ fn main() {
                                                     TextStyle {
                                                         color: colors::PURPLE_600,
                                                         size: 16.0,
+                                    line_height: 1.2,
                                                     },
                                                 )
                                             )
@@ -303,6 +311,7 @@ fn main() {
                                     TextStyle {
                                         color: colors::GRAY_500,
                                         size: 14.0,
+                                    line_height: 1.2,
                                     },
                                 )
                             )

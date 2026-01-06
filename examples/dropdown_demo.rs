@@ -51,6 +51,7 @@ fn main() {
                                     "Dropdown Element Demo",
                                     TextStyle {
                                         size: 28.0,
+                                    line_height: 1.2,
                                         color: colors::BLACK,
                                     },
                                 ))
@@ -62,6 +63,7 @@ fn main() {
                                             "Basic Dropdown",
                                             TextStyle {
                                                 size: 16.0,
+                                    line_height: 1.2,
                                                 color: colors::GRAY_700,
                                             },
                                         ))
@@ -91,6 +93,7 @@ fn main() {
                                                     format!("Selected: {}", selected_fruit_inner.borrow()),
                                                     TextStyle {
                                                         size: 14.0,
+                                    line_height: 1.2,
                                                         color: colors::GRAY_600,
                                                     },
                                                 )),
@@ -104,6 +107,7 @@ fn main() {
                                             "With Disabled Options",
                                             TextStyle {
                                                 size: 16.0,
+                                    line_height: 1.2,
                                                 color: colors::GRAY_700,
                                             },
                                         ))
@@ -127,6 +131,7 @@ fn main() {
                                             "With Labels",
                                             TextStyle {
                                                 size: 16.0,
+                                    line_height: 1.2,
                                                 color: colors::GRAY_700,
                                             },
                                         ))
@@ -157,6 +162,7 @@ fn main() {
                                                     format!("Code: {}", selected_country_inner.borrow()),
                                                     TextStyle {
                                                         size: 14.0,
+                                    line_height: 1.2,
                                                         color: colors::GRAY_600,
                                                     },
                                                 )),
@@ -170,6 +176,7 @@ fn main() {
                                             "Disabled Dropdown",
                                             TextStyle {
                                                 size: 16.0,
+                                    line_height: 1.2,
                                                 color: colors::GRAY_700,
                                             },
                                         ))
@@ -193,6 +200,7 @@ fn main() {
                                                     "Usage:",
                                                     TextStyle {
                                                         size: 14.0,
+                                    line_height: 1.2,
                                                         color: colors::BLUE_600,
                                                     },
                                                 ))
@@ -200,6 +208,7 @@ fn main() {
                                                     "• Click to open/close",
                                                     TextStyle {
                                                         size: 13.0,
+                                    line_height: 1.2,
                                                         color: colors::GRAY_600,
                                                     },
                                                 ))
@@ -207,6 +216,7 @@ fn main() {
                                                     "• Keyboard: Arrow keys, Enter, Escape (when focused)",
                                                     TextStyle {
                                                         size: 13.0,
+                                    line_height: 1.2,
                                                         color: colors::GRAY_600,
                                                     },
                                                 ))
@@ -214,6 +224,7 @@ fn main() {
                                                     "• Type to search (when open and focused)",
                                                     TextStyle {
                                                         size: 13.0,
+                                    line_height: 1.2,
                                                         color: colors::GRAY_600,
                                                     },
                                                 )),

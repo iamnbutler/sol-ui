@@ -85,6 +85,7 @@ fn main() {
                             TextStyle {
                                 color: colors::WHITE,
                                 size: 24.0,
+                                    line_height: 1.2,
                             },
                         ))
                         .child(text(
@@ -92,6 +93,7 @@ fn main() {
                             TextStyle {
                                 color: colors::GRAY_200,
                                 size: 20.0,
+                                    line_height: 1.2,
                             },
                         ))
                         .child(
