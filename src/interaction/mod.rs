@@ -330,9 +330,17 @@ impl InteractionSystem {
                 events.extend(self.handle_scroll_wheel(*position, *delta));
             }
 
-            InputEvent::WindowResize { .. } => {
-                // Window resize is handled at the app level, not interaction level
-            }
+            // Window events are handled at the app level, not the interaction system
+            InputEvent::WindowResize { .. }
+            | InputEvent::WindowFocused
+            | InputEvent::WindowBlurred
+            | InputEvent::WindowResized { .. }
+            | InputEvent::WindowMoved { .. }
+            | InputEvent::WindowMinimized
+            | InputEvent::WindowRestored
+            | InputEvent::WindowEnteredFullscreen
+            | InputEvent::WindowExitedFullscreen
+            | InputEvent::WindowCloseRequested => {}
         }
 
         events
