@@ -2,6 +2,7 @@ use crate::{
     entity::EntityStore,
     layer::LayerManager,
     platform::{Window, create_app_menu, mac::metal_renderer::MetalRenderer},
+    task::{TaskRunner, clear_task_runner, set_task_runner},
     text_system::TextSystem,
 };
 use std::time::Instant;
@@ -21,6 +22,7 @@ pub struct App {
     layer_manager: LayerManager,
     text_system: TextSystem,
     entity_store: EntityStore,
+    task_runner: TaskRunner,
     last_window_size: Option<(f32, f32)>,
     animation_frame_requested: bool,
     start_time: Instant,
@@ -134,6 +136,9 @@ impl AppBuilder {
         // Create entity store
         let entity_store = EntityStore::new();
 
+        // Create task runner for background tasks
+        let task_runner = TaskRunner::new();
+
         App {
             window,
             device,
@@ -142,6 +147,7 @@ impl AppBuilder {
             layer_manager: _layer_manager,
             text_system,
             entity_store,
+            task_runner,
             last_window_size: None,
             animation_frame_requested: false,
             start_time: Instant::now(),
@@ -169,14 +175,25 @@ impl App {
         let mut first_frame_completed = false;
 
         loop {
+            // Set task runner for this frame (allows spawn_task to work)
+            set_task_runner(&mut self.task_runner);
+
+            // Poll for completed background tasks
+            let completed_tasks = self.task_runner.poll();
+            if completed_tasks > 0 {
+                debug!("Processed {} completed background tasks", completed_tasks);
+            }
+
             // Use non-blocking event handling if animation frame was requested
-            let should_continue = if self.animation_frame_requested {
+            // or if there are pending background tasks
+            let should_continue = if self.animation_frame_requested || self.task_runner.has_pending() {
                 self.window.handle_events_non_blocking()
             } else {
                 self.window.handle_events()
             };
 
             if !should_continue {
+                clear_task_runner();
                 break;
             }
 
@@ -209,8 +226,11 @@ impl App {
                 );
             }
 
+            // Clear task runner at end of frame
+            clear_task_runner();
+
             // Frame rate limiting: target 120 FPS (8.33ms per frame)
-            if self.animation_frame_requested {
+            if self.animation_frame_requested || self.task_runner.has_pending() {
                 const TARGET_FRAME_TIME: std::time::Duration =
                     std::time::Duration::from_micros(8_333);
                 if let Some(sleep_duration) = TARGET_FRAME_TIME.checked_sub(frame_time) {
