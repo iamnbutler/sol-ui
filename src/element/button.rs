@@ -85,6 +85,7 @@ impl Button {
             text_style: TextStyle {
                 size: 14.0,
                 color: colors::WHITE,
+                ..Default::default()
             },
             disabled_text_color: colors::GRAY_600,
             padding_h: 16.0,

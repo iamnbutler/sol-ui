@@ -10,6 +10,8 @@ use crate::color::{
 pub struct TextStyle {
     pub size: f32,
     pub color: Color,
+    /// Line height multiplier (1.0 = tight, 1.2 = normal, 1.5 = loose)
+    pub line_height: f32,
     // TODO: Add font family, weight, etc.
 }
 
@@ -18,6 +20,7 @@ impl Default for TextStyle {
         Self {
             size: 16.0,
             color: WHITE,
+            line_height: 1.2,
         }
     }
 }

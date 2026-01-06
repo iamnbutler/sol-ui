@@ -40,6 +40,7 @@ fn main() {
                             TextStyle {
                                 size: 24.0,
                                 color: Srgba::new(0.0, 0.0, 0.0, 1.0),
+                                ..Default::default()
                             },
                         ))
                         .child(text(
@@ -47,6 +48,7 @@ fn main() {
                             TextStyle {
                                 size: 16.0,
                                 color: Srgba::new(0.3, 0.3, 0.3, 1.0),
+                                ..Default::default()
                             },
                         ))
                         .child(
@@ -57,6 +59,7 @@ fn main() {
                                     TextStyle {
                                         size: 14.0,
                                         color: Srgba::new(0.0, 0.5, 0.0, 1.0),
+                                        ..Default::default()
                                     },
                                 ))
                                 .child(text(
@@ -64,6 +67,7 @@ fn main() {
                                     TextStyle {
                                         size: 14.0,
                                         color: Srgba::new(0.0, 0.0, 0.5, 1.0),
+                                        ..Default::default()
                                     },
                                 ))
                                 .child(text(
@@ -71,6 +75,7 @@ fn main() {
                                     TextStyle {
                                         size: 14.0,
                                         color: Srgba::new(0.5, 0.0, 0.0, 1.0),
+                                        ..Default::default()
                                     },
                                 )),
                         ),
@@ -98,6 +103,7 @@ fn main() {
                                             TextStyle {
                                                 size: 28.0,
                                                 color: Srgba::new(0.2, 0.2, 0.2, 1.0),
+                                                ..Default::default()
                                             },
                                         ))
                                         .child(text(
@@ -105,6 +111,7 @@ fn main() {
                                             TextStyle {
                                                 size: 16.0,
                                                 color: Srgba::new(0.4, 0.4, 0.4, 1.0),
+                                                ..Default::default()
                                             },
                                         ))
                                         .child(
@@ -118,6 +125,7 @@ fn main() {
                                                     TextStyle {
                                                         size: 16.0,
                                                         color: Srgba::new(1.0, 1.0, 1.0, 1.0),
+                                                        ..Default::default()
                                                     },
                                                 )),
                                         ),
@@ -147,6 +155,7 @@ fn main() {
                                             TextStyle {
                                                 size: 24.0,
                                                 color: Srgba::new(0.1, 0.1, 0.1, 1.0),
+                                                ..Default::default()
                                             },
                                         ))
                                         .child(text(
@@ -154,6 +163,7 @@ fn main() {
                                             TextStyle {
                                                 size: 16.0,
                                                 color: Srgba::new(0.3, 0.3, 0.3, 1.0),
+                                                ..Default::default()
                                             },
                                         ))
                                         .child(
@@ -168,6 +178,7 @@ fn main() {
                                                             TextStyle {
                                                                 size: 14.0,
                                                                 color: Srgba::new(0.5, 0.0, 0.0, 1.0),
+                                                                ..Default::default()
                                                             },
                                                         )),
                                                 )
@@ -180,6 +191,7 @@ fn main() {
                                                             TextStyle {
                                                                 size: 14.0,
                                                                 color: Srgba::new(0.0, 0.5, 0.0, 1.0),
+                                                                ..Default::default()
                                                             },
                                                         )),
                                                 )
@@ -192,6 +204,7 @@ fn main() {
                                                             TextStyle {
                                                                 size: 14.0,
                                                                 color: Srgba::new(0.0, 0.0, 0.5, 1.0),
+                                                                ..Default::default()
                                                             },
                                                         )),
                                                 ),
@@ -218,6 +231,7 @@ fn main() {
                     TextStyle {
                         size: 20.0,
                         color: Srgba::new(0.0, 0.0, 0.0, 1.0),
+                        ..Default::default()
                     },
                 ));
 
@@ -239,6 +253,7 @@ fn main() {
                                 TextStyle {
                                     size: 14.0,
                                     color: Srgba::new(0.3, 0.3, 0.3, 1.0),
+                                    ..Default::default()
                                 },
                             )),
                     );
