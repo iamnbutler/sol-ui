@@ -285,15 +285,9 @@ impl App {
         let current_size = self.window.size();
         if let Some(last_size) = self.last_window_size {
             if last_size != current_size {
-                let resize_start = Instant::now();
-                info!("Window resized from {:?} to {:?}", last_size, current_size);
-
+                debug!("Window resized from {:?} to {:?}", last_size, current_size);
                 // Mark all layers for rebuild on resize
-                let invalidate_start = Instant::now();
                 self.layer_manager.invalidate_all();
-                info!("Layer invalidation took {:?}", invalidate_start.elapsed());
-
-                info!("Total resize handling took {:?}", resize_start.elapsed());
             }
         }
         self.last_window_size = Some(current_size);
@@ -331,16 +325,7 @@ impl App {
 
         // Render all layers using the layer manager
         {
-            let start = Instant::now();
             let _render_span = info_span!("layer_manager_render").entered();
-
-            // Check if this is a post-resize render
-            let is_resize_render =
-                self.last_window_size.is_some() && self.last_window_size != Some(current_size);
-
-            if is_resize_render {
-                info!("Starting post-resize render");
-            }
 
             // Calculate elapsed time since app start for animations
             let elapsed_time = self.start_time.elapsed().as_secs_f32();
@@ -356,13 +341,6 @@ impl App {
                 scale_factor,
                 elapsed_time,
             );
-
-            let render_time = start.elapsed();
-            if is_resize_render {
-                info!("Post-resize render completed in {:?}", render_time);
-            } else {
-                info!("Layer manager render completed in {:?}", render_time);
-            }
         }
 
         // Present drawable and commit
