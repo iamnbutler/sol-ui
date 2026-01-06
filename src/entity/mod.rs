@@ -3,15 +3,29 @@
 //! This module provides GPUI-style entities - type-safe handles to state
 //! that persists across frames, enabling stateful widgets while keeping
 //! most UI stateless.
+//!
+//! ## Reactive Updates
+//!
+//! The entity system supports reactive updates through observation:
+//!
+//! - Use `observe(&entity, |state| ...)` to read state AND subscribe to changes
+//! - When `update_entity` mutates observed state, the UI automatically re-renders
+//! - Updates within a frame are batched to prevent excessive re-renders
+//!
+//! See the `subscription` module for details.
 
 pub mod context;
+pub mod derived;
 pub mod store;
+pub mod subscription;
 
 pub use context::{
-    clear_entity_store, new_entity, read_entity, set_entity_store, update_entity,
+    clear_entity_store, new_entity, observe, read_entity, set_entity_store, update_entity,
     with_entity_store,
 };
+pub use derived::{derive, derive_from, derive_from2, Memo};
 pub use store::EntityStore;
+pub use subscription::SubscriptionManager;
 
 use std::marker::PhantomData;
 

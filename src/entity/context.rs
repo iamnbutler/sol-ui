@@ -104,6 +104,9 @@ pub fn read_entity<T: 'static, R>(entity: &Entity<T>, f: impl FnOnce(&T) -> R) -
 ///
 /// Returns None if the entity is stale or doesn't exist.
 ///
+/// This automatically marks the entity as dirty, which will trigger a re-render
+/// if the entity is being observed via `observe()`.
+///
 /// # Panics
 /// Panics if called outside of a render context.
 ///
@@ -116,6 +119,29 @@ pub fn update_entity<T: 'static, R>(
     f: impl FnOnce(&mut T) -> R,
 ) -> Option<R> {
     with_entity_store(|store| store.update(entity, f))
+}
+
+/// Observe entity state (read with automatic re-render on change)
+///
+/// Like `read_entity`, but also registers interest in this entity's state.
+/// If the entity is later mutated via `update_entity`, the system will
+/// automatically request a re-render.
+///
+/// Use `observe` when you want the UI to react to state changes.
+/// Use `read_entity` when you just need the current value without reactivity.
+///
+/// Returns None if the entity is stale or doesn't exist.
+///
+/// # Panics
+/// Panics if called outside of a render context.
+///
+/// # Example
+/// ```ignore
+/// // The UI will automatically re-render when counter.value changes
+/// let count = observe(&counter, |s| s.value).unwrap_or(0);
+/// ```
+pub fn observe<T: 'static, R>(entity: &Entity<T>, f: impl FnOnce(&T) -> R) -> Option<R> {
+    with_entity_store(|store| store.observe(entity, f))
 }
 
 #[cfg(test)]

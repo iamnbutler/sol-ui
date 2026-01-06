@@ -525,10 +525,12 @@ impl LayerManager {
         }
 
         // Clear thread-local and cleanup entities at frame boundary
+        // cleanup() returns true if any observed entity was mutated
         clear_entity_store();
-        entity_store.cleanup();
+        let needs_reactive_render = entity_store.cleanup();
 
-        animation_frame_requested
+        // Request animation frame if explicitly requested OR if reactive state changed
+        animation_frame_requested || needs_reactive_render
     }
 
     /// Handle input, starting from the topmost layer that accepts input
