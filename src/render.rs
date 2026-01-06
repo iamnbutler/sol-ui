@@ -88,12 +88,6 @@ impl<'a> PaintContext<'a> {
             .add_text(text.position, &text.text, text.style);
     }
 
-    /// Paint a shadow
-    pub fn paint_shadow(&mut self, _shadow: PaintShadow) {
-        // TODO: Add shadow support to draw list
-        // For now this is a no-op
-    }
-
     /// Helper to create a simple filled quad
     pub fn paint_solid_quad(&mut self, bounds: Rect, color: Color) {
         self.paint_quad(PaintQuad::filled(bounds, color));
@@ -182,21 +176,6 @@ pub struct PaintText {
     pub text: String,
     /// Text styling
     pub style: TextStyle,
-}
-
-/// A shadow to be rendered
-#[derive(Clone, Debug)]
-pub struct PaintShadow {
-    /// The bounds of the shadow
-    pub bounds: Rect,
-    /// Corner radii for rounded shadows
-    pub corner_radii: Corners,
-    /// Shadow color
-    pub color: Color,
-    /// Blur radius
-    pub blur_radius: f32,
-    /// Offset from the original element
-    pub offset: Vec2,
 }
 
 /// An image to be rendered
