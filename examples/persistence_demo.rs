@@ -135,21 +135,13 @@ fn main() {
                             .child(
                                 text(
                                     "Persistence Demo",
-                                    TextStyle {
-                                        color: text_color,
-                                        size: 28.0,
-                                        line_height: 1.2,
-                                    },
+                                    TextStyle { color: text_color, size: 28.0, line_height: 1.2, ..Default::default() },
                                 )
                             )
                             .child(
                                 text(
                                     "Settings are saved to ~/Library/Application Support/PersistenceDemo/",
-                                    TextStyle {
-                                        color: if current.dark_mode { colors::GRAY_400 } else { colors::GRAY_600 },
-                                        size: 12.0,
-                                        line_height: 1.2,
-                                    },
+                                    TextStyle { color: if current.dark_mode { colors::GRAY_400 } else { colors::GRAY_600 }, size: 12.0, line_height: 1.2, ..Default::default() },
                                 )
                             )
                             // Settings section
@@ -159,21 +151,13 @@ fn main() {
                                     .child(
                                         text(
                                             "Settings",
-                                            TextStyle {
-                                                color: secondary_color,
-                                                size: 18.0,
-                                                line_height: 1.2,
-                                            },
+                                            TextStyle { color: secondary_color, size: 18.0, line_height: 1.2, ..Default::default() },
                                         )
                                     )
                                     .child(
                                         checkbox(current.dark_mode)
                                             .label("Dark Mode")
-                                            .label_style(TextStyle {
-                                                color: text_color,
-                                                size: 14.0,
-                                                line_height: 1.2,
-                                            })
+                                            .label_style(TextStyle { color: text_color, size: 14.0, line_height: 1.2, ..Default::default() })
                                             .with_id(1)
                                             .on_change(move |new_state| {
                                                 dark_mode_settings.borrow_mut().dark_mode = new_state;
@@ -185,11 +169,7 @@ fn main() {
                                     .child(
                                         checkbox(current.notifications_enabled)
                                             .label("Enable Notifications")
-                                            .label_style(TextStyle {
-                                                color: text_color,
-                                                size: 14.0,
-                                                line_height: 1.2,
-                                            })
+                                            .label_style(TextStyle { color: text_color, size: 14.0, line_height: 1.2, ..Default::default() })
                                             .checked_background(colors::GREEN_500)
                                             .with_id(2)
                                             .on_change(move |new_state| {
@@ -202,11 +182,7 @@ fn main() {
                                     .child(
                                         checkbox(current.sound_enabled)
                                             .label("Enable Sound")
-                                            .label_style(TextStyle {
-                                                color: text_color,
-                                                size: 14.0,
-                                                line_height: 1.2,
-                                            })
+                                            .label_style(TextStyle { color: text_color, size: 14.0, line_height: 1.2, ..Default::default() })
                                             .checked_background(colors::PURPLE_500)
                                             .with_id(3)
                                             .on_change(move |new_state| {
@@ -219,11 +195,7 @@ fn main() {
                                     .child(
                                         checkbox(current.auto_save)
                                             .label("Auto-save (2 second debounce)")
-                                            .label_style(TextStyle {
-                                                color: text_color,
-                                                size: 14.0,
-                                                line_height: 1.2,
-                                            })
+                                            .label_style(TextStyle { color: text_color, size: 14.0, line_height: 1.2, ..Default::default() })
                                             .checked_background(colors::BLUE_500)
                                             .with_id(4)
                                             .on_change(move |new_state| {
@@ -239,11 +211,7 @@ fn main() {
                                     .child(
                                         text(
                                             "Counter (persisted)",
-                                            TextStyle {
-                                                color: secondary_color,
-                                                size: 18.0,
-                                                line_height: 1.2,
-                                            },
+                                            TextStyle { color: secondary_color, size: 18.0, line_height: 1.2, ..Default::default() },
                                         )
                                     )
                                     .child(
@@ -277,11 +245,7 @@ fn main() {
                                                     .child(
                                                         text(
                                                             current.counter.to_string(),
-                                                            TextStyle {
-                                                                color: text_color,
-                                                                size: 20.0,
-                                                                line_height: 1.2,
-                                                            },
+                                                            TextStyle { color: text_color, size: 20.0, line_height: 1.2, ..Default::default() },
                                                         )
                                                     )
                                             )
@@ -349,11 +313,7 @@ fn main() {
                                     .child(
                                         text(
                                             format!("Status: {}", status),
-                                            TextStyle {
-                                                color: if current.dark_mode { colors::GRAY_300 } else { colors::GRAY_600 },
-                                                size: 14.0,
-                                                line_height: 1.2,
-                                            },
+                                            TextStyle { color: if current.dark_mode { colors::GRAY_300 } else { colors::GRAY_600 }, size: 14.0, line_height: 1.2, ..Default::default() },
                                         )
                                     )
                             )
