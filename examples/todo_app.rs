@@ -15,13 +15,11 @@ use sol_ui::{
         checkbox, column, container, row, scroll, text, text_input,
         CheckboxInteractable, TextInputInteractable, TextInputState,
     },
-    entity::{Entity, new_entity, read_entity, update_entity},
+    entity::{new_entity, StateCell},
     interaction::Interactable,
     layer::{LayerOptions, MouseButton},
     style::TextStyle,
 };
-use std::cell::RefCell;
-use std::rc::Rc;
 
 /// A single todo item
 #[derive(Debug, Clone)]
@@ -126,31 +124,23 @@ impl TodoAppState {
 }
 
 fn main() {
-    // Shared app state entity - created once, persists across frames
-    let app_state: Rc<RefCell<Option<Entity<TodoAppState>>>> = Rc::new(RefCell::new(None));
+    // Shared app state - StateCell handles lazy initialization
+    let app_state = StateCell::new();
 
     app()
         .title("Todo App - sol-ui")
         .size(500.0, 600.0)
         .with_layers(move |layers| {
-            let app_state_clone = app_state.clone();
-
             layers.add_ui_layer(
                 0,
                 LayerOptions::default().with_input().with_clear(),
                 move || {
-                    // Initialize entity on first frame
-                    let state_entity = {
-                        let mut state_ref = app_state_clone.borrow_mut();
-                        if state_ref.is_none() {
-                            *state_ref = Some(new_entity(TodoAppState::default()));
-                        }
-                        state_ref.as_ref().unwrap().clone()
-                    };
+                    // Initialize entity on first frame (StateCell handles this)
+                    let state_entity = app_state.get_or_init(TodoAppState::default);
 
-                    // Read current state
+                    // Read current state using method syntax
                     let (todos, filter, active_count, completed_count) =
-                        read_entity(&state_entity, |s| {
+                        state_entity.read(|s| {
                             (
                                 s.filtered_todos()
                                     .into_iter()
@@ -188,6 +178,7 @@ fn main() {
                                         TextStyle {
                                             color: colors::RED_400.with_alpha(0.3),
                                             size: 64.0,
+                                            line_height: 1.2,
                                         },
                                     )),
                             )
@@ -215,11 +206,11 @@ fn main() {
                                                         let input = input_for_add.clone();
                                                         move |text| {
                                                             if !text.trim().is_empty() {
-                                                                update_entity(&state, |s| {
+                                                                state.update(|s| {
                                                                     s.add_todo(text.to_string());
                                                                 });
                                                                 // Clear the input
-                                                                update_entity(&input, |s| {
+                                                                input.update(|s| {
                                                                     s.text.clear();
                                                                     s.cursor = 0;
                                                                 });
@@ -262,7 +253,7 @@ fn main() {
                                                                     .on_change({
                                                                         let state = state_for_toggle.clone();
                                                                         move |_| {
-                                                                            update_entity(&state, |s| {
+                                                                            state.update(|s| {
                                                                                 s.toggle_todo(todo_id);
                                                                             });
                                                                         }
@@ -282,6 +273,7 @@ fn main() {
                                                                                 colors::BLACK
                                                                             },
                                                                             size: 16.0,
+                                                                            line_height: 1.2,
                                                                         },
                                                                     )),
                                                             )
@@ -298,6 +290,7 @@ fn main() {
                                                                         TextStyle {
                                                                             color: colors::RED_500,
                                                                             size: 20.0,
+                                                                            line_height: 1.2,
                                                                         },
                                                                     ))
                                                                     .interactive()
@@ -305,7 +298,7 @@ fn main() {
                                                                     .hover_overlay(colors::RED_500.with_alpha(0.1))
                                                                     .on_click(move |btn, _, _| {
                                                                         if btn == MouseButton::Left {
-                                                                            update_entity(&state_for_delete, |s| {
+                                                                            state_for_delete.update(|s| {
                                                                                 s.delete_todo(todo_id);
                                                                             });
                                                                         }
@@ -332,6 +325,7 @@ fn main() {
                                                         TextStyle {
                                                             color: colors::GRAY_400,
                                                             size: 16.0,
+                                                            line_height: 1.2,
                                                         },
                                                     )),
                                             );
@@ -363,6 +357,7 @@ fn main() {
                                                 TextStyle {
                                                     color: colors::GRAY_500,
                                                     size: 14.0,
+                                                    line_height: 1.2,
                                                 },
                                             ))
                                             // Filter buttons
@@ -373,7 +368,7 @@ fn main() {
                                                         filter_button("All", filter == FilterMode::All, {
                                                             let state = state_entity.clone();
                                                             move || {
-                                                                update_entity(&state, |s| {
+                                                                state.update(|s| {
                                                                     s.set_filter(FilterMode::All);
                                                                 });
                                                             }
@@ -383,7 +378,7 @@ fn main() {
                                                         filter_button("Active", filter == FilterMode::Active, {
                                                             let state = state_entity.clone();
                                                             move || {
-                                                                update_entity(&state, |s| {
+                                                                state.update(|s| {
                                                                     s.set_filter(FilterMode::Active);
                                                                 });
                                                             }
@@ -393,7 +388,7 @@ fn main() {
                                                         filter_button("Completed", filter == FilterMode::Completed, {
                                                             let state = state_entity.clone();
                                                             move || {
-                                                                update_entity(&state, |s| {
+                                                                state.update(|s| {
                                                                     s.set_filter(FilterMode::Completed);
                                                                 });
                                                             }
@@ -411,6 +406,7 @@ fn main() {
                                                                 TextStyle {
                                                                     color: colors::GRAY_500,
                                                                     size: 14.0,
+                                                                    line_height: 1.2,
                                                                 },
                                                             ))
                                                             .interactive()
@@ -420,7 +416,7 @@ fn main() {
                                                                 let state = state_entity.clone();
                                                                 move |btn, _, _| {
                                                                     if btn == MouseButton::Left {
-                                                                        update_entity(&state, |s| {
+                                                                        state.update(|s| {
                                                                             s.clear_completed();
                                                                         });
                                                                     }
@@ -469,6 +465,7 @@ fn filter_button(
                     colors::GRAY_500
                 },
                 size: 14.0,
+                line_height: 1.2,
             },
         ))
         .interactive()
